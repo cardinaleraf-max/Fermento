@@ -1,0 +1,56 @@
+appId: com.lookdown.fermento
+npmRebuild: false
+productName: Fermento
+directories:
+  buildResources: build
+  output: release
+asar: true
+asarUnpack:
+  - resources/**
+  - node_modules/better-sqlite3/**
+  - node_modules/bindings/**
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!release/**'
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+  executableName: fermento
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Fermento
+  uninstallDisplayName: Fermento
+  artifactName: Fermento-${version}-setup.${ext}
+mac:
+  target:
+    - target: zip
+      arch: x64
+  icon: resources/icon-512.png
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  notarize: false
+dmg:
+  artifactName: Fermento-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - deb
+  maintainer: Fermento
+  category: Office
+appImage:
+  artifactName: Fermento-${version}.${ext}
