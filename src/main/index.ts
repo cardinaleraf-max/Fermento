@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { app, dialog, shell, BrowserWindow, ipcMain } from 'electron'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { autoUpdater } from 'electron-updater'
 import bcrypt from 'bcryptjs'
 import icon from '../../resources/icon.png?asset'
 import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenDatabaseConnection } from './database'
@@ -2808,6 +2809,71 @@ function registerBackupIpcHandlers(): void {
   console.log('[startup] IPC handlers registrati: backup:*')
 }
 
+function configuraAutoUpdater(): void {
+  if (!app.isPackaged) {
+    console.log('[AutoUpdate] skip (app non impacchettata)')
+    return
+  }
+
+  autoUpdater.autoDownload = true
+  autoUpdater.autoInstallOnAppQuit = true
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[AutoUpdate] update disponibile:', info?.version)
+    const finestra = BrowserWindow.getAllWindows()[0]
+    dialog.showMessageBox(finestra, {
+      type: 'info',
+      title: 'Aggiornamento disponibile',
+      message: `È disponibile una nuova versione di Fermento${info?.version ? ` (${info.version})` : ''}.`,
+      detail:
+        'Il download partirà in background. Quando sarà pronto ti chiederò di riavviare per installarlo.',
+      buttons: ['OK']
+    })
+  })
+
+  autoUpdater.on('update-not-available', (info) => {
+    console.log('[AutoUpdate] nessun aggiornamento disponibile', info?.version ?? '')
+  })
+
+  autoUpdater.on('download-progress', (p) => {
+    console.log(
+      `[AutoUpdate] download ${Math.round(p.percent)}% (${p.transferred}/${p.total})`
+    )
+  })
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[AutoUpdate] update scaricato:', info?.version)
+    const finestra = BrowserWindow.getAllWindows()[0]
+    dialog
+      .showMessageBox(finestra, {
+        type: 'question',
+        title: 'Aggiornamento pronto',
+        message: `La versione${info?.version ? ` ${info.version}` : ''} è pronta per essere installata.`,
+        detail:
+          'Vuoi riavviare ora per completare l\'installazione? In alternativa verrà installata alla prossima chiusura dell\'app.',
+        buttons: ['Riavvia ora', 'Più tardi'],
+        defaultId: 0,
+        cancelId: 1
+      })
+      .then((result) => {
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall()
+        }
+      })
+      .catch((err) => {
+        console.error('[AutoUpdate] errore dialog update-downloaded:', err)
+      })
+  })
+
+  autoUpdater.on('error', (err) => {
+    console.error('[AutoUpdate] errore:', err)
+  })
+
+  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+    console.error('[AutoUpdate] errore checkForUpdatesAndNotify:', err)
+  })
+}
+
 function createWindow(): void {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
@@ -2909,6 +2975,8 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+
+  configuraAutoUpdater()
 
   setTimeout(() => {
     try {
