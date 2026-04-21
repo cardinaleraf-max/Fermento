@@ -74,7 +74,7 @@ type ClientePayload = {
 
 type VenditaRigaRegistro = {
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
 }
@@ -91,7 +91,7 @@ type VenditeRegistraPayload = {
 type VenditeModificaRiga = {
   id: number | null
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
 }
@@ -120,7 +120,7 @@ type ModificaMovimentoConfPayload = {
 type CaricoInizialePayload = {
   numero_lotto: string
   birra_id: number
-  cartoni: number | null
+  bottiglie: number | null
   fusti: Array<{ materiale_id: number; quantita: number }>
   data_scadenza: string
   note?: string | null
@@ -555,7 +555,7 @@ function registerProduzioneIpcHandlers(): void {
       return db
         .prepare(
           `SELECT c.*, b.nome as birra_nome, b.stile as birra_stile,
-                  conf.bottiglie_prodotte, conf.cartoni_prodotti, conf.data_scadenza
+                  conf.bottiglie_prodotte, conf.data_scadenza
            FROM cotte c
            JOIN birre b ON b.id = c.birra_id
            LEFT JOIN confezionamento conf ON conf.cotta_id = c.id
@@ -682,7 +682,7 @@ function registerProduzioneIpcHandlers(): void {
       return db
         .prepare(
           `SELECT c.*, b.nome as birra_nome,
-                  conf.bottiglie_prodotte, conf.cartoni_prodotti, conf.scarto_litri,
+                  conf.bottiglie_prodotte, conf.scarto_litri,
                   conf.data_scadenza as confezionamento_data_scadenza
            FROM cotte c
            JOIN birre b ON b.id = c.birra_id
@@ -768,22 +768,15 @@ function registerProduzioneIpcHandlers(): void {
 
         const confVecchio = db
           .prepare(
-            `SELECT id, bottiglie_prodotte, cartoni_prodotti
+            `SELECT id, bottiglie_prodotte
              FROM confezionamento WHERE cotta_id = ?`
           )
           .get(cotta_id) as
-          | { id: number; bottiglie_prodotte: number; cartoni_prodotti: number }
+          | { id: number; bottiglie_prodotte: number }
           | undefined
         if (!confVecchio) {
           return { ok: false as const, errore: 'Confezionamento non trovato' }
         }
-
-        const bottigliePerCartoneRow = db
-          .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-          .get() as { valore: string } | undefined
-        const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
-        const nuoviCartoni = Math.floor(dati.bottiglie_prodotte / bottigliePerCartone)
-        const nuoveBottiglieSfuse = dati.bottiglie_prodotte - nuoviCartoni * bottigliePerCartone
 
         const fustiVecchi = db
           .prepare(
@@ -803,13 +796,12 @@ function registerProduzioneIpcHandlers(): void {
           db.prepare(
             `UPDATE confezionamento
              SET bottiglie_prodotte = ?,
-                 cartoni_prodotti = ?,
+                 cartoni_prodotti = 0,
                  scarto_litri = ?,
                  data_scadenza = ?
              WHERE cotta_id = ?`
           ).run(
             dati.bottiglie_prodotte,
-            nuoviCartoni,
             dati.scarto_litri ?? null,
             dati.data_scadenza,
             cotta_id
@@ -834,31 +826,28 @@ function registerProduzioneIpcHandlers(): void {
 
           const giacenzaVecchia = db
             .prepare(
-              `SELECT id, cartoni_disponibili, bottiglie_sfuse
+              `SELECT id, bottiglie_sfuse
                FROM giacenza_prodotto_finito_cartoni WHERE cotta_id = ?`
             )
             .get(cotta_id) as
-            | { id: number; cartoni_disponibili: number; bottiglie_sfuse: number }
+            | { id: number; bottiglie_sfuse: number }
             | undefined
-          const vecchieSfuse = giacenzaVecchia?.bottiglie_sfuse ?? 0
-          const vecchiCartoniProdotti = confVecchio.cartoni_prodotti
-          const deltaCartoni = nuoviCartoni - vecchiCartoniProdotti
-          const deltaBottiglieSfuse = nuoveBottiglieSfuse - vecchieSfuse
-          if (deltaCartoni !== 0 || deltaBottiglieSfuse !== 0) {
-            if (giacenzaVecchia) {
+          const deltaBottiglie = dati.bottiglie_prodotte - (confVecchio.bottiglie_prodotte ?? 0)
+          if (giacenzaVecchia) {
+            if (deltaBottiglie !== 0) {
               db.prepare(
                 `UPDATE giacenza_prodotto_finito_cartoni
-                 SET cartoni_disponibili = cartoni_disponibili + ?,
+                 SET cartoni_disponibili = 0,
                      bottiglie_sfuse = bottiglie_sfuse + ?
                  WHERE cotta_id = ?`
-              ).run(deltaCartoni, deltaBottiglieSfuse, cotta_id)
-            } else if (nuoviCartoni > 0 || nuoveBottiglieSfuse > 0) {
-              db.prepare(
-                `INSERT INTO giacenza_prodotto_finito_cartoni
-                   (cotta_id, cartoni_disponibili, bottiglie_sfuse)
-                 VALUES (?, ?, ?)`
-              ).run(cotta_id, nuoviCartoni, nuoveBottiglieSfuse)
+              ).run(deltaBottiglie, cotta_id)
             }
+          } else if (dati.bottiglie_prodotte > 0) {
+            db.prepare(
+              `INSERT INTO giacenza_prodotto_finito_cartoni
+                 (cotta_id, cartoni_disponibili, bottiglie_sfuse)
+               VALUES (?, 0, ?)`
+            ).run(cotta_id, dati.bottiglie_prodotte)
           }
 
           for (const vecchio of fustiVecchi) {
@@ -932,7 +921,7 @@ function registerProduzioneIpcHandlers(): void {
         })
 
         transaction()
-        return { ok: true as const, cartoni_prodotti: nuoviCartoni }
+        return { ok: true as const, bottiglie_prodotte: dati.bottiglie_prodotte }
       } catch (error) {
         console.error('[IPC prod:modifica-confezionamento]', error)
         throw error
@@ -944,13 +933,9 @@ function registerProduzioneIpcHandlers(): void {
   ipcMain.handle('prod:confeziona', (_event, dati: ConfezionaPayload) => {
     try {
       const getConfig = db.prepare(`SELECT valore FROM configurazioni WHERE chiave = ?`)
-      const bottigliePerCartoneRow = getConfig.get('bottiglie_per_cartone') as { valore: string } | undefined
       const shelfLifeRow = getConfig.get('shelf_life_mesi') as { valore: string } | undefined
 
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
       const shelfLifeMesi = Number(shelfLifeRow?.valore ?? 13)
-      const cartoniProdotti = Math.floor(dati.bottiglie_prodotte / bottigliePerCartone)
-      const bottiglieSfuseResto = dati.bottiglie_prodotte - cartoniProdotti * bottigliePerCartone
 
       const oggi = new Date()
       const oggiIso = oggi.toISOString().split('T')[0]
@@ -969,9 +954,9 @@ function registerProduzioneIpcHandlers(): void {
         const insertConf = db
           .prepare(
             `INSERT INTO confezionamento (cotta_id, bottiglie_prodotte, cartoni_prodotti, scarto_litri, data_scadenza)
-             VALUES (?, ?, ?, ?, ?)`
+             VALUES (?, ?, 0, ?, ?)`
           )
-          .run(dati.cotta_id, dati.bottiglie_prodotte, cartoniProdotti, dati.scarto_litri ?? null, dataScadenzaIso)
+          .run(dati.cotta_id, dati.bottiglie_prodotte, dati.scarto_litri ?? null, dataScadenzaIso)
         const confezionamentoId = Number(insertConf.lastInsertRowid)
 
         const insertConfFusti = db.prepare(
@@ -984,8 +969,8 @@ function registerProduzioneIpcHandlers(): void {
         }
 
         db.prepare(
-          `INSERT INTO giacenza_prodotto_finito_cartoni (cotta_id, cartoni_disponibili, bottiglie_sfuse) VALUES (?, ?, ?)`
-        ).run(dati.cotta_id, cartoniProdotti, bottiglieSfuseResto)
+          `INSERT INTO giacenza_prodotto_finito_cartoni (cotta_id, cartoni_disponibili, bottiglie_sfuse) VALUES (?, 0, ?)`
+        ).run(dati.cotta_id, dati.bottiglie_prodotte)
 
         const insertGiacenzaFusti = db.prepare(
           `INSERT INTO giacenza_prodotto_finito_fusti (cotta_id, materiale_id, quantita_disponibile) VALUES (?, ?, ?)`
@@ -1056,11 +1041,6 @@ function registerProdottoFinitoIpcHandlers(): void {
   ipcMain.removeHandler('pf:giacenze')
   ipcMain.handle('pf:giacenze', () => {
     try {
-      const bottigliePerCartoneRow = db
-        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-        .get() as { valore: string } | undefined
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
-
       return db
         .prepare(
           `SELECT
@@ -1070,24 +1050,29 @@ function registerProdottoFinitoIpcHandlers(): void {
              b.stile,
              conf.data_scadenza,
              conf.bottiglie_prodotte,
-             conf.cartoni_prodotti,
-             COALESCE(gpc.cartoni_disponibili, 0) as cartoni_disponibili,
-             COALESCE(gpc.bottiglie_sfuse, 0) as bottiglie_sfuse,
-             (COALESCE(gpc.cartoni_disponibili, 0) * ? + COALESCE(gpc.bottiglie_sfuse, 0)) as totale_bottiglie,
-             ? as bottiglie_per_cartone,
-             c.data_confezionamento
+             COALESCE(gpc.bottiglie_sfuse, 0) as bottiglie_disponibili,
+             c.data_confezionamento,
+             (
+               SELECT COALESCE(SUM(gpf.quantita_disponibile), 0)
+               FROM giacenza_prodotto_finito_fusti gpf
+               WHERE gpf.cotta_id = c.id
+             ) as fusti_disponibili
            FROM cotte c
            JOIN birre b ON b.id = c.birra_id
            JOIN confezionamento conf ON conf.cotta_id = c.id
            LEFT JOIN giacenza_prodotto_finito_cartoni gpc ON gpc.cotta_id = c.id
            WHERE c.stato = 'confezionata'
              AND (
-               COALESCE(gpc.cartoni_disponibili, 0) > 0
-               OR COALESCE(gpc.bottiglie_sfuse, 0) > 0
+               COALESCE(gpc.bottiglie_sfuse, 0) > 0
+               OR (
+                 SELECT COALESCE(SUM(gpf.quantita_disponibile), 0)
+                 FROM giacenza_prodotto_finito_fusti gpf
+                 WHERE gpf.cotta_id = c.id
+               ) > 0
              )
            ORDER BY conf.data_scadenza ASC`
         )
-        .all(bottigliePerCartone, bottigliePerCartone)
+        .all()
     } catch (error) {
       console.error('[IPC pf:giacenze] errore:', error)
       throw error
@@ -1133,17 +1118,17 @@ function registerProdottoFinitoIpcHandlers(): void {
           errore: `Numero lotto "${numeroLottoInput}" gia esistente`
         }
       }
-      const cartoniNum =
-        dati.cartoni != null && Number.isFinite(dati.cartoni) && dati.cartoni > 0
-          ? Math.floor(dati.cartoni)
+      const bottiglieNum =
+        dati.bottiglie != null && Number.isFinite(dati.bottiglie) && dati.bottiglie > 0
+          ? Math.floor(dati.bottiglie)
           : 0
       const fustiValidi = (dati.fusti ?? []).filter(
         (fusto) => Number.isFinite(fusto.quantita) && fusto.quantita > 0
       )
-      if (cartoniNum === 0 && fustiValidi.length === 0) {
+      if (bottiglieNum === 0 && fustiValidi.length === 0) {
         return {
           ok: false as const,
-          errore: 'Inserisci almeno un quantitativo (cartoni o fusti)'
+          errore: 'Inserisci almeno un quantitativo (bottiglie o fusti)'
         }
       }
 
@@ -1154,12 +1139,6 @@ function registerProdottoFinitoIpcHandlers(): void {
         return { ok: false as const, errore: 'Nessuna ricetta attiva per la birra selezionata' }
       }
 
-      const bottigliePerCartoneRow = db
-        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-        .get() as { valore: string } | undefined
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
-
-      const bottigliaProdotte = cartoniNum * bottigliePerCartone
       const numeroLotto = numeroLottoInput
       const oggiIso = new Date().toISOString().split('T')[0]
       const noteFinali = `Carico iniziale — ${(dati.note ?? '').trim()}`
@@ -1181,9 +1160,9 @@ function registerProdottoFinitoIpcHandlers(): void {
           .prepare(
             `INSERT INTO confezionamento
                (cotta_id, bottiglie_prodotte, cartoni_prodotti, scarto_litri, data_scadenza)
-             VALUES (?, ?, ?, 0, ?)`
+             VALUES (?, ?, 0, 0, ?)`
           )
-          .run(cottaId, bottigliaProdotte, cartoniNum, dati.data_scadenza)
+          .run(cottaId, bottiglieNum, dati.data_scadenza)
         const confezionamentoId = Number(insConf.lastInsertRowid)
 
         const insFusto = db.prepare(
@@ -1194,11 +1173,11 @@ function registerProdottoFinitoIpcHandlers(): void {
           insFusto.run(confezionamentoId, fusto.materiale_id, fusto.quantita)
         }
 
-        if (cartoniNum > 0) {
+        if (bottiglieNum > 0) {
           db.prepare(
-            `INSERT INTO giacenza_prodotto_finito_cartoni (cotta_id, cartoni_disponibili)
-             VALUES (?, ?)`
-          ).run(cottaId, cartoniNum)
+            `INSERT INTO giacenza_prodotto_finito_cartoni (cotta_id, cartoni_disponibili, bottiglie_sfuse)
+             VALUES (?, 0, ?)`
+          ).run(cottaId, bottiglieNum)
         }
 
         const insGiacenzaFusto = db.prepare(
@@ -1253,10 +1232,6 @@ function registerProdottoFinitoIpcHandlers(): void {
       if (!birra_id || !Number.isFinite(birra_id)) {
         return []
       }
-      const bottigliePerCartoneRow = db
-        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-        .get() as { valore: string } | undefined
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
 
       return db
         .prepare(
@@ -1264,22 +1239,16 @@ function registerProdottoFinitoIpcHandlers(): void {
              c.id as cotta_id,
              c.numero_lotto,
              conf.data_scadenza,
-             COALESCE(gpc.cartoni_disponibili, 0) as cartoni_disponibili,
-             COALESCE(gpc.bottiglie_sfuse, 0) as bottiglie_sfuse,
-             (COALESCE(gpc.cartoni_disponibili, 0) * ? + COALESCE(gpc.bottiglie_sfuse, 0)) as totale_bottiglie,
-             ? as bottiglie_per_cartone
+             COALESCE(gpc.bottiglie_sfuse, 0) as bottiglie_disponibili
            FROM cotte c
            JOIN confezionamento conf ON conf.cotta_id = c.id
            LEFT JOIN giacenza_prodotto_finito_cartoni gpc ON gpc.cotta_id = c.id
            WHERE c.birra_id = ?
              AND c.stato = 'confezionata'
-             AND (
-               COALESCE(gpc.cartoni_disponibili, 0) > 0
-               OR COALESCE(gpc.bottiglie_sfuse, 0) > 0
-             )
+             AND COALESCE(gpc.bottiglie_sfuse, 0) > 0
            ORDER BY COALESCE(gpc.bottiglie_sfuse, 0) DESC, conf.data_scadenza ASC`
         )
-        .all(bottigliePerCartone, bottigliePerCartone, birra_id)
+        .all(birra_id)
     } catch (error) {
       console.error('[IPC pf:suggerisci-lotto-bottiglie] errore:', error)
       throw error
@@ -1299,13 +1268,8 @@ function registerProdottoFinitoIpcHandlers(): void {
         }
         const quantita = Math.floor(dati.quantita)
 
-        const bottigliePerCartoneRow = db
-          .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-          .get() as { valore: string } | undefined
-        const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
-
         const esegui = db.transaction(() => {
-          const scarico = scaricaBottiglieDaLotto(dati.cotta_id, quantita, bottigliePerCartone)
+          const scarico = scaricaBottiglieDaLotto(dati.cotta_id, quantita)
           if (!scarico.ok) {
             throw new Error(scarico.errore)
           }
@@ -1325,67 +1289,38 @@ function registerProdottoFinitoIpcHandlers(): void {
 }
 
 /**
- * Scarica `quantita` bottiglie da una cotta con logica a priorita:
- * 1. Prima le bottiglie sfuse.
- * 2. Poi rompe cartoni interi (1 cartone = bottigliePerCartone bottiglie -> sfuse).
- * Ritorna ok false se la giacenza non basta.
+ * Scarica `quantita` bottiglie dalla giacenza (campo bottiglie_sfuse).
+ * La gestione e' solo in bottiglie singole: niente piu' cartoni.
  */
 function scaricaBottiglieDaLotto(
   cotta_id: number,
-  quantita: number,
-  bottigliePerCartone: number
+  quantita: number
 ): { ok: true } | { ok: false; errore: string } {
   const giacenza = db
     .prepare(
-      `SELECT id, cartoni_disponibili, bottiglie_sfuse
+      `SELECT id, bottiglie_sfuse
        FROM giacenza_prodotto_finito_cartoni WHERE cotta_id = ?`
     )
-    .get(cotta_id) as
-    | { id: number; cartoni_disponibili: number; bottiglie_sfuse: number }
-    | undefined
+    .get(cotta_id) as { id: number; bottiglie_sfuse: number } | undefined
   if (!giacenza) {
     return { ok: false, errore: 'Nessuna giacenza bottiglie per questo lotto' }
   }
-  const totaleDisponibile =
-    giacenza.cartoni_disponibili * bottigliePerCartone + giacenza.bottiglie_sfuse
-  if (totaleDisponibile < quantita) {
+  if (giacenza.bottiglie_sfuse < quantita) {
     return {
       ok: false,
-      errore: `Giacenza bottiglie insufficiente (disponibili: ${totaleDisponibile}, richieste: ${quantita})`
+      errore: `Giacenza insufficiente (disponibili: ${giacenza.bottiglie_sfuse}, richieste: ${quantita})`
     }
-  }
-
-  let cartoniCorrenti = giacenza.cartoni_disponibili
-  let sfuseCorrenti = giacenza.bottiglie_sfuse
-  let daScaricare = quantita
-
-  if (sfuseCorrenti > 0) {
-    const prese = Math.min(sfuseCorrenti, daScaricare)
-    sfuseCorrenti -= prese
-    daScaricare -= prese
-  }
-
-  while (daScaricare > 0 && cartoniCorrenti > 0) {
-    cartoniCorrenti -= 1
-    sfuseCorrenti += bottigliePerCartone
-    const prese = Math.min(sfuseCorrenti, daScaricare)
-    sfuseCorrenti -= prese
-    daScaricare -= prese
-  }
-
-  if (daScaricare > 0) {
-    return { ok: false, errore: 'Giacenza bottiglie insufficiente' }
   }
 
   db.prepare(
     `UPDATE giacenza_prodotto_finito_cartoni
-     SET cartoni_disponibili = ?, bottiglie_sfuse = ?
+     SET bottiglie_sfuse = bottiglie_sfuse - ?
      WHERE id = ?`
-  ).run(cartoniCorrenti, sfuseCorrenti, giacenza.id)
+  ).run(quantita, giacenza.id)
   return { ok: true }
 }
 
-/** Ripristina bottiglie in un lotto (operazione inversa di scarico), come sfuse. */
+/** Ripristina bottiglie in un lotto (operazione inversa di scarico). */
 function rimettiBottiglieInLotto(cotta_id: number, quantita: number): void {
   if (quantita <= 0) return
   const esiste = db
@@ -1408,17 +1343,17 @@ function rimettiBottiglieInLotto(cotta_id: number, quantita: number): void {
 function aggiornaStatoCotta(cotta_id: number): void {
   const gpc = db
     .prepare(
-      `SELECT COALESCE(cartoni_disponibili, 0) as c, COALESCE(bottiglie_sfuse, 0) as s
+      `SELECT COALESCE(bottiglie_sfuse, 0) as b
        FROM giacenza_prodotto_finito_cartoni WHERE cotta_id = ?`
     )
-    .get(cotta_id) as { c: number; s: number } | undefined
+    .get(cotta_id) as { b: number } | undefined
   const sumF = db
     .prepare(
       `SELECT COALESCE(SUM(quantita_disponibile), 0) as s
        FROM giacenza_prodotto_finito_fusti WHERE cotta_id = ?`
     )
     .get(cotta_id) as { s: number }
-  const totaleProdotti = (gpc?.c ?? 0) + (gpc?.s ?? 0) + (sumF?.s ?? 0)
+  const totaleProdotti = (gpc?.b ?? 0) + (sumF?.s ?? 0)
   const stato = db.prepare(`SELECT stato FROM cotte WHERE id = ?`).get(cotta_id) as
     | { stato: string }
     | undefined
@@ -1535,7 +1470,6 @@ function registerClientiIpcHandlers(): void {
              v.note,
              v.omaggio,
              v.occasione,
-             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'cartone' THEN vd.quantita ELSE 0 END), 0) as totale_cartoni,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as totale_fusti,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as totale_bottiglie
            FROM vendite v
@@ -1562,7 +1496,6 @@ function registerVenditeIpcHandlers(): void {
       return db
         .prepare(
           `SELECT v.*, cl.nome as cliente_nome,
-            COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'cartone' THEN vd.quantita ELSE 0 END), 0) as totale_cartoni,
             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as totale_fusti,
             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as totale_bottiglie
           FROM vendite v
@@ -1603,14 +1536,14 @@ function registerVenditeIpcHandlers(): void {
     try {
       return db
         .prepare(
-          `SELECT 'cartone' as tipo, c.id as cotta_id, c.numero_lotto,
-            b.nome as birra_nome, gpc.cartoni_disponibili as quantita_disponibile,
+          `SELECT 'bottiglia' as tipo, c.id as cotta_id, c.numero_lotto,
+            b.nome as birra_nome, gpc.bottiglie_sfuse as quantita_disponibile,
             conf.data_scadenza, NULL as materiale_id, NULL as formato_nome
           FROM giacenza_prodotto_finito_cartoni gpc
           JOIN cotte c ON c.id = gpc.cotta_id
           JOIN birre b ON b.id = c.birra_id
           JOIN confezionamento conf ON conf.cotta_id = c.id
-          WHERE gpc.cartoni_disponibili > 0
+          WHERE gpc.bottiglie_sfuse > 0
           UNION ALL
           SELECT 'fusto' as tipo, c.id as cotta_id, c.numero_lotto,
             b.nome as birra_nome, gpf.quantita_disponibile,
@@ -1649,15 +1582,10 @@ function registerVenditeIpcHandlers(): void {
         if (r.tipo_prodotto === 'fusto' && (r.materiale_id == null || r.materiale_id === undefined)) {
           return { ok: false, errore: 'I fusti richiedono il formato' }
         }
-        if (r.tipo_prodotto !== 'cartone' && r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia') {
+        if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia') {
           return { ok: false, errore: 'Tipo prodotto non valido' }
         }
       }
-
-      const bottigliePerCartoneRow = db
-        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-        .get() as { valore: string } | undefined
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
 
       const esegui = db.transaction((): number => {
         const insVendita = db
@@ -1679,12 +1607,6 @@ function registerVenditeIpcHandlers(): void {
             `INSERT INTO vendita_dettaglio (vendita_id, cotta_id, tipo_prodotto, materiale_id, quantita)
              VALUES (?, ?, ?, ?, ?)`
           )
-        const upCart = db
-          .prepare(
-            `UPDATE giacenza_prodotto_finito_cartoni
-             SET cartoni_disponibili = cartoni_disponibili - ?
-             WHERE cotta_id = ? AND cartoni_disponibili >= ?`
-          )
         const upFust = db
           .prepare(
             `UPDATE giacenza_prodotto_finito_fusti
@@ -1700,14 +1622,7 @@ function registerVenditeIpcHandlers(): void {
             r.tipo_prodotto === 'fusto' ? r.materiale_id : null,
             r.quantita
           )
-          if (r.tipo_prodotto === 'cartone') {
-            const res = upCart.run(r.quantita, r.cotta_id, r.quantita)
-            if (res.changes === 0) {
-              throw new Error(
-                `Giacenza cartoni insufficiente (cotta / lotto non riconosciuta o q.ta non disponibile)`
-              )
-            }
-          } else if (r.tipo_prodotto === 'fusto') {
+          if (r.tipo_prodotto === 'fusto') {
             const res = upFust.run(
               r.quantita,
               r.cotta_id,
@@ -1718,7 +1633,7 @@ function registerVenditeIpcHandlers(): void {
               throw new Error(`Giacenza fusti insufficiente o formato errato per la cotta selezionata`)
             }
           } else {
-            const esito = scaricaBottiglieDaLotto(r.cotta_id, r.quantita, bottigliePerCartone)
+            const esito = scaricaBottiglieDaLotto(r.cotta_id, r.quantita)
             if (!esito.ok) {
               throw new Error(esito.errore)
             }
@@ -1777,19 +1692,10 @@ function registerVenditeIpcHandlers(): void {
         if (r.tipo_prodotto === 'fusto' && (r.materiale_id == null)) {
           return { ok: false as const, errore: 'I fusti richiedono il formato' }
         }
-        if (
-          r.tipo_prodotto !== 'cartone' &&
-          r.tipo_prodotto !== 'fusto' &&
-          r.tipo_prodotto !== 'bottiglia'
-        ) {
+        if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia') {
           return { ok: false as const, errore: 'Tipo prodotto non valido' }
         }
       }
-
-      const bottigliePerCartoneRow = db
-        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-        .get() as { valore: string } | undefined
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
 
       const venditaEsistente = db
         .prepare(`SELECT id FROM vendite WHERE id = ?`)
@@ -1802,7 +1708,7 @@ function registerVenditeIpcHandlers(): void {
         type RigaEsistente = {
           id: number
           cotta_id: number
-          tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+          tipo_prodotto: 'bottiglia' | 'fusto'
           materiale_id: number | null
           quantita: number
         }
@@ -1832,17 +1738,6 @@ function registerVenditeIpcHandlers(): void {
           id
         )
 
-        const addCart = db.prepare(
-          `INSERT INTO giacenza_prodotto_finito_cartoni (cotta_id, cartoni_disponibili)
-           VALUES (?, ?)
-           ON CONFLICT(cotta_id) DO UPDATE SET
-             cartoni_disponibili = cartoni_disponibili + excluded.cartoni_disponibili`
-        )
-        const subCart = db.prepare(
-          `UPDATE giacenza_prodotto_finito_cartoni
-           SET cartoni_disponibili = cartoni_disponibili - ?
-           WHERE cotta_id = ? AND cartoni_disponibili >= ?`
-        )
         const selFusto = db.prepare(
           `SELECT id, quantita_disponibile FROM giacenza_prodotto_finito_fusti
            WHERE cotta_id = ? AND materiale_id = ?`
@@ -1864,14 +1759,12 @@ function registerVenditeIpcHandlers(): void {
 
         const addToGiacenza = (
           cotta_id: number,
-          tipo: 'cartone' | 'fusto' | 'bottiglia',
+          tipo: 'bottiglia' | 'fusto',
           materiale_id: number | null,
           qty: number
         ): void => {
           if (qty <= 0) return
-          if (tipo === 'cartone') {
-            addCart.run(cotta_id, qty)
-          } else if (tipo === 'bottiglia') {
+          if (tipo === 'bottiglia') {
             rimettiBottiglieInLotto(cotta_id, qty)
           } else {
             const riga = selFusto.get(cotta_id, materiale_id) as
@@ -1887,20 +1780,13 @@ function registerVenditeIpcHandlers(): void {
 
         const subFromGiacenza = (
           cotta_id: number,
-          tipo: 'cartone' | 'fusto' | 'bottiglia',
+          tipo: 'bottiglia' | 'fusto',
           materiale_id: number | null,
           qty: number
         ): void => {
           if (qty <= 0) return
-          if (tipo === 'cartone') {
-            const res = subCart.run(qty, cotta_id, qty)
-            if (res.changes === 0) {
-              throw new Error(
-                'Giacenza cartoni insufficiente per la modifica (lotto non disponibile o quantita non sufficiente)'
-              )
-            }
-          } else if (tipo === 'bottiglia') {
-            const esito = scaricaBottiglieDaLotto(cotta_id, qty, bottigliePerCartone)
+          if (tipo === 'bottiglia') {
+            const esito = scaricaBottiglieDaLotto(cotta_id, qty)
             if (!esito.ok) {
               throw new Error(esito.errore)
             }
@@ -2007,7 +1893,7 @@ function registerVenditeIpcHandlers(): void {
         type RigaEsistente = {
           id: number
           cotta_id: number
-          tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+          tipo_prodotto: 'bottiglia' | 'fusto'
           materiale_id: number | null
           quantita: number
         }
@@ -2020,12 +1906,6 @@ function registerVenditeIpcHandlers(): void {
 
         const cottaIds = new Set<number>(righeEsistenti.map((r) => r.cotta_id))
 
-        const addCart = db.prepare(
-          `INSERT INTO giacenza_prodotto_finito_cartoni (cotta_id, cartoni_disponibili)
-           VALUES (?, ?)
-           ON CONFLICT(cotta_id) DO UPDATE SET
-             cartoni_disponibili = cartoni_disponibili + excluded.cartoni_disponibili`
-        )
         const selFusto = db.prepare(
           `SELECT id FROM giacenza_prodotto_finito_fusti
            WHERE cotta_id = ? AND materiale_id = ?`
@@ -2041,9 +1921,7 @@ function registerVenditeIpcHandlers(): void {
         )
 
         for (const r of righeEsistenti) {
-          if (r.tipo_prodotto === 'cartone') {
-            addCart.run(r.cotta_id, r.quantita)
-          } else if (r.tipo_prodotto === 'bottiglia') {
+          if (r.tipo_prodotto === 'bottiglia') {
             rimettiBottiglieInLotto(r.cotta_id, r.quantita)
           } else {
             const riga = selFusto.get(r.cotta_id, r.materiale_id) as
@@ -2176,6 +2054,7 @@ function registerDashboardIpcHandlers(): void {
              JOIN vendite v ON v.id = vd.vendita_id
              WHERE v.data >= DATE('now', ?)
                AND v.omaggio = 0
+               AND vd.tipo_prodotto = 'bottiglia'
              GROUP BY b.id
              ORDER BY totale_venduto DESC
              LIMIT 1`
@@ -2339,7 +2218,7 @@ function generaAvvisiPieno(nAnticipo: number, nCliente: number): void {
        AND conf.data_scadenza IS NOT NULL
        AND conf.data_scadenza >= date('now')
        AND conf.data_scadenza <= date('now', ?)
-       AND (COALESCE(gpc.cartoni_disponibili, 0) > 0 OR COALESCE(gf.s, 0) > 0)
+       AND (COALESCE(gpc.bottiglie_sfuse, 0) > 0 OR COALESCE(gf.s, 0) > 0)
      GROUP BY c.id`
   ).run(nAnticipo > 0 ? `+${nAnticipo} days` : '+0 days')
 
@@ -2402,8 +2281,7 @@ function registerReportIpcHandlers(): void {
              b.nome as birra_nome,
              COUNT(c.id) as numero_cotte,
              COALESCE(SUM(c.litri_teorici), 0) as litri_totali,
-             COALESCE(SUM(conf.bottiglie_prodotte), 0) as bottiglie_totali,
-             COALESCE(SUM(conf.cartoni_prodotti), 0) as cartoni_totali
+             COALESCE(SUM(conf.bottiglie_prodotte), 0) as bottiglie_totali
            FROM cotte c
            JOIN birre b ON b.id = c.birra_id
            LEFT JOIN confezionamento conf ON conf.cotta_id = c.id
@@ -2416,7 +2294,6 @@ function registerReportIpcHandlers(): void {
         numero_cotte: number
         litri_totali: number
         bottiglie_totali: number
-        cartoni_totali: number
       }>
     } catch (error) {
       console.error('[IPC report:produzione] errore:', error)
@@ -2433,7 +2310,7 @@ function registerReportIpcHandlers(): void {
              cl.nome as cliente_nome,
              cl.tipo_cliente,
              COUNT(DISTINCT v.id) as numero_vendite,
-             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'cartone' THEN vd.quantita ELSE 0 END), 0) as cartoni_totali,
+             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as bottiglie_totali,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as fusti_totali,
              MAX(v.data) as ultima_vendita
            FROM clienti cl
@@ -2442,13 +2319,13 @@ function registerReportIpcHandlers(): void {
            WHERE v.data BETWEEN ? AND ?
              AND v.omaggio = 0
            GROUP BY cl.id
-           ORDER BY cartoni_totali DESC`
+           ORDER BY bottiglie_totali DESC`
         )
         .all(p.da, p.a) as Array<{
         cliente_nome: string
         tipo_cliente: string | null
         numero_vendite: number
-        cartoni_totali: number
+        bottiglie_totali: number
         fusti_totali: number
         ultima_vendita: string | null
       }>
@@ -2466,7 +2343,7 @@ function registerReportIpcHandlers(): void {
           `SELECT
              b.nome as birra_nome,
              b.stile,
-             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'cartone' THEN vd.quantita ELSE 0 END), 0) as cartoni_totali,
+             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as bottiglie_totali,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as fusti_totali,
              COUNT(DISTINCT v.id) as numero_vendite
            FROM birre b
@@ -2476,12 +2353,12 @@ function registerReportIpcHandlers(): void {
            WHERE v.data BETWEEN ? AND ?
              AND v.omaggio = 0
            GROUP BY b.id
-           ORDER BY cartoni_totali DESC`
+           ORDER BY bottiglie_totali DESC`
         )
         .all(p.da, p.a) as Array<{
         birra_nome: string
         stile: string | null
-        cartoni_totali: number
+        bottiglie_totali: number
         fusti_totali: number
         numero_vendite: number
       }>
@@ -2498,7 +2375,7 @@ function registerReportIpcHandlers(): void {
         .prepare(
           `SELECT
              strftime('%Y-%m', v.data) as mese,
-             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'cartone' THEN vd.quantita ELSE 0 END), 0) as cartoni,
+             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as bottiglie,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as fusti
            FROM vendite v
            JOIN vendita_dettaglio vd ON vd.vendita_id = v.id
@@ -2507,7 +2384,7 @@ function registerReportIpcHandlers(): void {
            GROUP BY strftime('%Y-%m', v.data)
            ORDER BY mese ASC`
         )
-        .all(p.da, p.a) as Array<{ mese: string; cartoni: number; fusti: number }>
+        .all(p.da, p.a) as Array<{ mese: string; bottiglie: number; fusti: number }>
     } catch (error) {
       console.error('[IPC report:trend-mensile] errore:', error)
       throw error
@@ -2517,11 +2394,6 @@ function registerReportIpcHandlers(): void {
   ipcMain.removeHandler('report:omaggi')
   ipcMain.handle('report:omaggi', (_e, p: { da?: string | null; a?: string | null }) => {
     try {
-      const bottigliePerCartoneRow = db
-        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
-        .get() as { valore: string } | undefined
-      const bottigliePerCartone = Number(bottigliePerCartoneRow?.valore ?? 6) || 6
-
       const da = p?.da?.trim() || null
       const a = p?.a?.trim() || null
 
@@ -2533,7 +2405,6 @@ function registerReportIpcHandlers(): void {
              v.note,
              v.occasione,
              cl.nome as cliente_nome,
-             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'cartone' THEN vd.quantita ELSE 0 END), 0) as totale_cartoni,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as totale_fusti,
              COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as totale_bottiglie
            FROM vendite v
@@ -2551,7 +2422,6 @@ function registerReportIpcHandlers(): void {
         note: string | null
         occasione: string | null
         cliente_nome: string | null
-        totale_cartoni: number
         totale_fusti: number
         totale_bottiglie: number
       }>
@@ -2616,12 +2486,8 @@ function registerReportIpcHandlers(): void {
         note: v.note,
         occasione: v.occasione,
         cliente_nome: v.cliente_nome,
-        totale_cartoni: Number(v.totale_cartoni) || 0,
         totale_fusti: Number(v.totale_fusti) || 0,
         totale_bottiglie: Number(v.totale_bottiglie) || 0,
-        totale_bottiglie_equivalenti:
-          (Number(v.totale_cartoni) || 0) * bottigliePerCartone +
-          (Number(v.totale_bottiglie) || 0),
         righe: righePerVendita.get(v.id) ?? []
       }))
     } catch (error) {

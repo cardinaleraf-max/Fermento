@@ -22,7 +22,6 @@ type VenditaLista = {
   cliente_nome: string | null
   omaggio: number
   occasione: string | null
-  totale_cartoni: number
   totale_fusti: number
   totale_bottiglie: number
 }
@@ -31,7 +30,7 @@ type VenditaRiga = {
   id: number
   vendita_id: number
   cotta_id: number
-  tipo_prodotto: string
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
   birra_nome: string
@@ -40,7 +39,7 @@ type VenditaRiga = {
 }
 
 type GiacenzaRiga = {
-  tipo: 'cartone' | 'fusto'
+  tipo: 'bottiglia' | 'fusto'
   cotta_id: number
   numero_lotto: string
   birra_nome: string
@@ -55,7 +54,7 @@ type GiacenzaPfLotto = {
   numero_lotto: string
   birra_nome: string
   data_scadenza: string
-  totale_bottiglie: number
+  bottiglie_disponibili: number
 }
 
 type ClienteOpt = { id: number; nome: string }
@@ -66,15 +65,12 @@ type LottoBottigliaSuggerito = {
   cotta_id: number
   numero_lotto: string
   data_scadenza: string
-  cartoni_disponibili: number
-  bottiglie_sfuse: number
-  totale_bottiglie: number
-  bottiglie_per_cartone: number
+  bottiglie_disponibili: number
 }
 
-type RigaStandardForm = {
+type RigaFustoForm = {
   rowId: string
-  tipo: 'standard'
+  tipo: 'fusto'
   key: string
   quantita: string
 }
@@ -89,14 +85,14 @@ type RigaBottigliaForm = {
   caricamentoSuggerimenti: boolean
 }
 
-type RigaForm = RigaStandardForm | RigaBottigliaForm
+type RigaForm = RigaFustoForm | RigaBottigliaForm
 
 type RigaEsistenteForm = {
   id: number
   key: string
   label: string
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantitaOriginale: number
   quantita: string
@@ -106,11 +102,10 @@ type RigaEsistenteForm = {
 const oggi = (): string => new Date().toISOString().split('T')[0]
 
 function prodottoKey(
-  tipo: 'cartone' | 'fusto' | 'bottiglia',
+  tipo: 'bottiglia' | 'fusto',
   cotta_id: number,
   materiale_id: number | null
 ): string {
-  if (tipo === 'cartone') return `cartone:${cotta_id}`
   if (tipo === 'bottiglia') return `bottiglia:${cotta_id}`
   return `fusto:${cotta_id}:${materiale_id ?? 0}`
 }
@@ -120,18 +115,19 @@ function prodottoKeyDaGiacenza(r: GiacenzaRiga): string {
 }
 
 function labelProdottoDaGiacenza(r: GiacenzaRiga): string {
-  if (r.tipo === 'cartone') {
-    return `${r.birra_nome} — ${r.numero_lotto} — cartone — disponibili ${r.quantita_disponibile}`
+  if (r.tipo === 'bottiglia') {
+    return `${r.birra_nome} — ${r.numero_lotto} — bottiglie — disponibili ${r.quantita_disponibile}`
   }
   return `${r.birra_nome} — ${r.numero_lotto} — fusto (${r.formato_nome ?? '?'}) — disponibili ${r.quantita_disponibile}`
 }
 
+function labelFustoDaGiacenza(r: GiacenzaRiga): string {
+  return `${r.birra_nome} — ${r.numero_lotto} — fusto (${r.formato_nome ?? '?'}) — disponibili ${r.quantita_disponibile}`
+}
+
 function labelProdottoDaRiga(r: VenditaRiga): string {
-  if (r.tipo_prodotto === 'cartone') {
-    return `${r.birra_nome} — ${r.numero_lotto} — cartone`
-  }
   if (r.tipo_prodotto === 'bottiglia') {
-    return `${r.birra_nome} — ${r.numero_lotto} — bottiglie singole`
+    return `${r.birra_nome} — ${r.numero_lotto} — bottiglie`
   }
   return `${r.birra_nome} — ${r.numero_lotto} — fusto (${r.formato_nome ?? '?'})`
 }
@@ -140,12 +136,9 @@ function parseProdottoKey(
   key: string
 ): {
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
 } {
-  if (key.startsWith('cartone:')) {
-    return { cotta_id: Number(key.split(':')[1]), tipo_prodotto: 'cartone', materiale_id: null }
-  }
   if (key.startsWith('bottiglia:')) {
     return { cotta_id: Number(key.split(':')[1]), tipo_prodotto: 'bottiglia', materiale_id: null }
   }
@@ -153,9 +146,9 @@ function parseProdottoKey(
   return { cotta_id: Number(p[1]), tipo_prodotto: 'fusto', materiale_id: Number(p[2]) }
 }
 
-function tipoEsistenteDaStringa(s: string): 'cartone' | 'fusto' | 'bottiglia' {
-  if (s === 'cartone' || s === 'fusto' || s === 'bottiglia') return s
-  return 'cartone'
+function tipoEsistenteDaStringa(s: string): 'bottiglia' | 'fusto' {
+  if (s === 'bottiglia' || s === 'fusto') return s
+  return 'bottiglia'
 }
 
 function formatDataIt(s: string): string {
@@ -169,7 +162,7 @@ function newRowId(): string {
 }
 
 function newRigaForm(): RigaForm {
-  return { rowId: newRowId(), tipo: 'standard', key: '', quantita: '' }
+  return { rowId: newRowId(), tipo: 'fusto', key: '', quantita: '' }
 }
 
 function newRigaBottigliaForm(): RigaBottigliaForm {
@@ -211,7 +204,7 @@ export default function Vendite(): React.JSX.Element {
   const [noteVendita, setNoteVendita] = useState('')
   const [omaggio, setOmaggio] = useState(false)
   const [occasione, setOccasione] = useState('')
-  const [righe, setRighe] = useState<RigaForm[]>([newRigaForm()])
+  const [righe, setRighe] = useState<RigaForm[]>([newRigaBottigliaForm()])
   const [erroreModal, setErroreModal] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [caricandoModal, setCaricandoModal] = useState(false)
@@ -224,7 +217,7 @@ export default function Vendite(): React.JSX.Element {
   const [editOmaggio, setEditOmaggio] = useState(false)
   const [editOccasione, setEditOccasione] = useState('')
   const [editRigheEsistenti, setEditRigheEsistenti] = useState<RigaEsistenteForm[]>([])
-  const [editRigheNuove, setEditRigheNuove] = useState<RigaStandardForm[]>([])
+  const [editRigheNuove, setEditRigheNuove] = useState<RigaFustoForm[]>([])
   const [erroreEdit, setErroreEdit] = useState('')
   const [submittingEdit, setSubmittingEdit] = useState(false)
 
@@ -274,7 +267,7 @@ export default function Vendite(): React.JSX.Element {
     setNoteVendita('')
     setOmaggio(false)
     setOccasione('')
-    setRighe([newRigaForm()])
+    setRighe([newRigaBottigliaForm()])
     setCaricandoModal(true)
     setModalOpen(true)
     try {
@@ -293,7 +286,7 @@ export default function Vendite(): React.JSX.Element {
           numero_lotto: x.numero_lotto,
           birra_nome: x.birra_nome,
           data_scadenza: x.data_scadenza,
-          totale_bottiglie: x.totale_bottiglie
+          bottiglie_disponibili: x.bottiglie_disponibili
         }))
       )
     } catch (e) {
@@ -320,12 +313,12 @@ export default function Vendite(): React.JSX.Element {
     setRighe((p) => (p.length <= 1 ? p : p.filter((r) => r.rowId !== rowId)))
   }
 
-  const aggiornaRigaStandard = (
+  const aggiornaRigaFusto = (
     rowId: string,
-    patch: Partial<Pick<RigaStandardForm, 'key' | 'quantita'>>
+    patch: Partial<Pick<RigaFustoForm, 'key' | 'quantita'>>
   ): void => {
     setRighe((p) =>
-      p.map((r) => (r.rowId === rowId && r.tipo === 'standard' ? { ...r, ...patch } : r))
+      p.map((r) => (r.rowId === rowId && r.tipo === 'fusto' ? { ...r, ...patch } : r))
     )
   }
 
@@ -363,9 +356,9 @@ export default function Vendite(): React.JSX.Element {
       return
     }
 
-    const righeStandardCompilate = righe.filter(
-      (r): r is RigaStandardForm =>
-        r.tipo === 'standard' && r.key.trim() !== '' && (parseInt(r.quantita, 10) || 0) > 0
+    const righeFustoCompilate = righe.filter(
+      (r): r is RigaFustoForm =>
+        r.tipo === 'fusto' && r.key.trim() !== '' && (parseInt(r.quantita, 10) || 0) > 0
     )
     const righeBottigliaCompilate = righe.filter(
       (r): r is RigaBottigliaForm =>
@@ -374,13 +367,13 @@ export default function Vendite(): React.JSX.Element {
         (parseInt(r.quantita, 10) || 0) > 0
     )
 
-    if (righeStandardCompilate.length === 0 && righeBottigliaCompilate.length === 0) {
+    if (righeFustoCompilate.length === 0 && righeBottigliaCompilate.length === 0) {
       setErroreModal('Aggiungi almeno un prodotto con quantita')
       return
     }
 
     const somme = new Map<string, number>()
-    for (const r of righeStandardCompilate) {
+    for (const r of righeFustoCompilate) {
       const q = parseInt(r.quantita, 10) || 0
       somme.set(r.key, (somme.get(r.key) ?? 0) + q)
     }
@@ -408,9 +401,9 @@ export default function Vendite(): React.JSX.Element {
       const cottaId = Number(r.cotta_id)
       const lotto = r.suggerimenti.find((s) => s.cotta_id === cottaId)
       const somma = sommeBottigliePerCotta.get(cottaId) ?? 0
-      if (lotto && somma > lotto.totale_bottiglie) {
+      if (lotto && somma > lotto.bottiglie_disponibili) {
         setErroreModal(
-          `Bottiglie totali per il lotto ${lotto.numero_lotto} superano il disponibile (${lotto.totale_bottiglie})`
+          `Bottiglie totali per il lotto ${lotto.numero_lotto} superano il disponibile (${lotto.bottiglie_disponibili})`
         )
         return
       }
@@ -418,11 +411,11 @@ export default function Vendite(): React.JSX.Element {
 
     const righeApi: Array<{
       cotta_id: number
-      tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+      tipo_prodotto: 'bottiglia' | 'fusto'
       materiale_id: number | null
       quantita: number
     }> = []
-    for (const r of righeStandardCompilate) {
+    for (const r of righeFustoCompilate) {
       const p = parseProdottoKey(r.key)
       righeApi.push({ ...p, quantita: parseInt(r.quantita, 10) || 0 })
     }
@@ -499,7 +492,7 @@ export default function Vendite(): React.JSX.Element {
           numero_lotto: x.numero_lotto,
           birra_nome: x.birra_nome,
           data_scadenza: x.data_scadenza,
-          totale_bottiglie: x.totale_bottiglie
+          bottiglie_disponibili: x.bottiglie_disponibili
         }))
       )
     } catch (e) {
@@ -523,8 +516,8 @@ export default function Vendite(): React.JSX.Element {
     for (const pf of giacenzePfBottiglie) {
       const key = prodottoKey('bottiglia', pf.cotta_id, null)
       map.set(key, {
-        label: `${pf.birra_nome} — ${pf.numero_lotto} — bottiglie singole — disponibili ${pf.totale_bottiglie}`,
-        giacenza: pf.totale_bottiglie,
+        label: `${pf.birra_nome} — ${pf.numero_lotto} — bottiglie — disponibili ${pf.bottiglie_disponibili}`,
+        giacenza: pf.bottiglie_disponibili,
         originaleSuVendita: 0
       })
     }
@@ -553,7 +546,7 @@ export default function Vendite(): React.JSX.Element {
   const aggiungiRigaNuova = (): void => {
     setEditRigheNuove((p) => [
       ...p,
-      { rowId: newRowId(), tipo: 'standard', key: '', quantita: '' }
+      { rowId: newRowId(), tipo: 'fusto', key: '', quantita: '' }
     ])
   }
 
@@ -563,7 +556,7 @@ export default function Vendite(): React.JSX.Element {
 
   const aggiornaRigaNuova = (
     rowId: string,
-    patch: Partial<Pick<RigaStandardForm, 'key' | 'quantita'>>
+    patch: Partial<Pick<RigaFustoForm, 'key' | 'quantita'>>
   ): void => {
     setEditRigheNuove((p) => p.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)))
   }
@@ -621,7 +614,7 @@ export default function Vendite(): React.JSX.Element {
     const righePayload: Array<{
       id: number | null
       cotta_id: number
-      tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+      tipo_prodotto: 'bottiglia' | 'fusto'
       materiale_id: number | null
       quantita: number
     }> = []
@@ -801,8 +794,7 @@ export default function Vendite(): React.JSX.Element {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Cartoni: {selezionata.totale_cartoni} — Fusti: {selezionata.totale_fusti} — Bottiglie:{' '}
-          {selezionata.totale_bottiglie}
+          Bottiglie: {selezionata.totale_bottiglie} — Fusti: {selezionata.totale_fusti}
         </p>
 
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -1078,8 +1070,7 @@ export default function Vendite(): React.JSX.Element {
               </div>
               <div className="text-foreground">
                 <span className="text-muted-foreground">Totali:</span>{' '}
-                {selezionata.totale_cartoni} cartoni · {selezionata.totale_bottiglie} bottiglie ·{' '}
-                {selezionata.totale_fusti} fusti
+                {selezionata.totale_bottiglie} bottiglie · {selezionata.totale_fusti} fusti
               </div>
             </div>
 
@@ -1135,7 +1126,6 @@ export default function Vendite(): React.JSX.Element {
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Data</th>
                 <th className="px-4 py-2 text-left font-medium">Cliente</th>
-                <th className="px-4 py-2 text-right font-medium">Cartoni</th>
                 <th className="px-4 py-2 text-right font-medium">Bottiglie</th>
                 <th className="px-4 py-2 text-right font-medium">Fusti</th>
                 <th className="px-4 py-2 text-left font-medium">Note</th>
@@ -1144,7 +1134,7 @@ export default function Vendite(): React.JSX.Element {
             <tbody>
               {lista.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
                     <ShoppingCart className="mx-auto mb-1 h-8 w-8 text-muted-foreground/40" />
                     Nessuna vendita registrata
                   </td>
@@ -1175,7 +1165,6 @@ export default function Vendite(): React.JSX.Element {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{v.totale_cartoni}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{v.totale_bottiglie}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{v.totale_fusti}</td>
                     <td className="max-w-[200px] truncate px-4 py-2.5 text-muted-foreground">{v.note || '-'}</td>
@@ -1282,27 +1271,27 @@ export default function Vendite(): React.JSX.Element {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={aggiungiRiga}
+                    onClick={aggiungiRigaBottiglia}
                     disabled={caricandoModal}
                   >
-                    <Plus className="mr-1 h-3.5 w-3.5" />
-                    Cartone / Fusto
+                    <Beer className="mr-1 h-3.5 w-3.5" />
+                    Bottiglie
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={aggiungiRigaBottiglia}
+                    onClick={aggiungiRiga}
                     disabled={caricandoModal}
                   >
-                    <Beer className="mr-1 h-3.5 w-3.5" />
-                    Bottiglie singole
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Fusti
                   </Button>
                 </div>
               </div>
               <div className="space-y-2">
                 {righe.map((r) => {
-                  if (r.tipo === 'standard') {
+                  if (r.tipo === 'fusto') {
                     const maxQ =
                       r.key && byKey.has(r.key) ? byKey.get(r.key)!.quantita_disponibile ?? 0 : 0
                     return (
@@ -1314,17 +1303,19 @@ export default function Vendite(): React.JSX.Element {
                           <select
                             className="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
                             value={r.key}
-                            onChange={(e) => aggiornaRigaStandard(r.rowId, { key: e.target.value })}
+                            onChange={(e) => aggiornaRigaFusto(r.rowId, { key: e.target.value })}
                           >
-                            <option value="">Seleziona prodotto (cartone / fusto)…</option>
-                            {giacenze.map((g) => (
-                              <option
-                                key={prodottoKeyDaGiacenza(g)}
-                                value={prodottoKeyDaGiacenza(g)}
-                              >
-                                {labelProdottoDaGiacenza(g)}
-                              </option>
-                            ))}
+                            <option value="">Seleziona fusto…</option>
+                            {giacenze
+                              .filter((g) => g.tipo === 'fusto')
+                              .map((g) => (
+                                <option
+                                  key={prodottoKeyDaGiacenza(g)}
+                                  value={prodottoKeyDaGiacenza(g)}
+                                >
+                                  {labelFustoDaGiacenza(g)}
+                                </option>
+                              ))}
                           </select>
                         </div>
                         <div className="flex w-full items-center gap-2 sm:w-36">
@@ -1336,7 +1327,7 @@ export default function Vendite(): React.JSX.Element {
                             className="h-9"
                             value={r.quantita}
                             onChange={(e) =>
-                              aggiornaRigaStandard(r.rowId, { quantita: e.target.value })
+                              aggiornaRigaFusto(r.rowId, { quantita: e.target.value })
                             }
                           />
                           {r.key && (
@@ -1362,7 +1353,7 @@ export default function Vendite(): React.JSX.Element {
                   const lottoSelezionato = r.suggerimenti.find(
                     (s) => s.cotta_id === Number(r.cotta_id)
                   )
-                  const maxBottiglie = lottoSelezionato?.totale_bottiglie ?? 0
+                  const maxBottiglie = lottoSelezionato?.bottiglie_disponibili ?? 0
                   return (
                     <div
                       key={r.rowId}
@@ -1371,7 +1362,7 @@ export default function Vendite(): React.JSX.Element {
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium uppercase tracking-wide text-amber-400">
                           <Beer className="mr-1 inline h-3.5 w-3.5" />
-                          Bottiglie singole
+                          Bottiglie
                         </span>
                         <Button
                           type="button"
@@ -1472,10 +1463,8 @@ export default function Vendite(): React.JSX.Element {
                                         scad. {formatDataIt(s.data_scadenza)}
                                       </span>
                                       <span className="ml-auto text-muted-foreground">
-                                        {s.cartoni_disponibili} cart. · {s.bottiglie_sfuse} sfuse
-                                        {' = '}
                                         <span className="font-medium text-foreground">
-                                          {s.totale_bottiglie}
+                                          {s.bottiglie_disponibili}
                                         </span>{' '}
                                         bott.
                                       </span>

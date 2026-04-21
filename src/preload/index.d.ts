@@ -117,7 +117,6 @@ type Cotta = {
   birra_nome: string
   birra_stile: string | null
   bottiglie_prodotte: number | null
-  cartoni_prodotti: number | null
   data_scadenza: string | null
 }
 
@@ -190,11 +189,8 @@ type GiacenzaProdottoFinitoCartoni = {
   stile: string | null
   data_scadenza: string
   bottiglie_prodotte: number
-  cartoni_prodotti: number
-  cartoni_disponibili: number
-  bottiglie_sfuse: number
-  totale_bottiglie: number
-  bottiglie_per_cartone: number
+  bottiglie_disponibili: number
+  fusti_disponibili: number
   data_confezionamento: string | null
 }
 
@@ -202,10 +198,7 @@ type LottoBottigliaSuggerito = {
   cotta_id: number
   numero_lotto: string
   data_scadenza: string
-  cartoni_disponibili: number
-  bottiglie_sfuse: number
-  totale_bottiglie: number
-  bottiglie_per_cartone: number
+  bottiglie_disponibili: number
 }
 
 type PfTogliBottigliePayload = {
@@ -259,7 +252,6 @@ type VenditaStoricoRiga = {
   note: string | null
   omaggio: number
   occasione: string | null
-  totale_cartoni: number
   totale_fusti: number
   totale_bottiglie: number
 }
@@ -273,7 +265,6 @@ type VenditaListaRiga = {
   cliente_nome: string | null
   omaggio: number
   occasione: string | null
-  totale_cartoni: number
   totale_fusti: number
   totale_bottiglie: number
 }
@@ -282,7 +273,7 @@ type VenditaDettaglioRiga = {
   id: number
   vendita_id: number
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia' | string
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
   birra_nome: string
@@ -291,7 +282,7 @@ type VenditaDettaglioRiga = {
 }
 
 type GiacenzaVenditaDisponibile = {
-  tipo: 'cartone' | 'fusto'
+  tipo: 'bottiglia' | 'fusto'
   cotta_id: number
   numero_lotto: string
   birra_nome: string
@@ -303,7 +294,7 @@ type GiacenzaVenditaDisponibile = {
 
 type VenditaRigaRegistro = {
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
 }
@@ -324,7 +315,7 @@ type VenditeRegistraResult =
 type VenditeModificaRiga = {
   id: number | null
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
 }
@@ -362,7 +353,7 @@ type EliminaMovimentoConfResult = { ok: true } | { ok: false; errore: string }
 type CaricoInizialePayload = {
   numero_lotto: string
   birra_id: number
-  cartoni: number | null
+  bottiglie: number | null
   fusti: Array<{ materiale_id: number; quantita: number }>
   data_scadenza: string
   note?: string | null
@@ -396,7 +387,7 @@ type ModificaConfezionamentoPayload = {
 }
 
 type ModificaConfezionamentoResult =
-  | { ok: true; cartoni_prodotti: number }
+  | { ok: true; bottiglie_prodotte: number }
   | { ok: false; errore: string }
 
 type ClienteSelezionabileVendite = {
@@ -439,14 +430,13 @@ type ReportProduzioneRiga = {
   numero_cotte: number
   litri_totali: number
   bottiglie_totali: number
-  cartoni_totali: number
 }
 
 type ReportVenditeClienteRiga = {
   cliente_nome: string
   tipo_cliente: string | null
   numero_vendite: number
-  cartoni_totali: number
+  bottiglie_totali: number
   fusti_totali: number
   ultima_vendita: string | null
 }
@@ -454,17 +444,17 @@ type ReportVenditeClienteRiga = {
 type ReportVenditeBirraRiga = {
   birra_nome: string
   stile: string | null
-  cartoni_totali: number
+  bottiglie_totali: number
   fusti_totali: number
   numero_vendite: number
 }
 
-type ReportTrendMensileRiga = { mese: string; cartoni: number; fusti: number }
+type ReportTrendMensileRiga = { mese: string; bottiglie: number; fusti: number }
 
 type ReportOmaggioRigaDettaglio = {
   birra_nome: string
   numero_lotto: string
-  tipo_prodotto: string
+  tipo_prodotto: 'bottiglia' | 'fusto'
   formato_nome: string | null
   quantita: number
 }
@@ -475,10 +465,8 @@ type ReportOmaggioRiga = {
   note: string | null
   occasione: string | null
   cliente_nome: string | null
-  totale_cartoni: number
   totale_fusti: number
   totale_bottiglie: number
-  totale_bottiglie_equivalenti: number
   righe: ReportOmaggioRigaDettaglio[]
 }
 

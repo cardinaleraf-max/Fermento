@@ -68,7 +68,7 @@ type ClientePayload = {
 
 type VenditaRigaRegistro = {
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
 }
@@ -85,7 +85,7 @@ type VenditeRegistraPayload = {
 type VenditeModificaRiga = {
   id: number | null
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  tipo_prodotto: 'bottiglia' | 'fusto'
   materiale_id: number | null
   quantita: number
 }
@@ -122,7 +122,7 @@ type ModificaMovimentoConfPayload = {
 type CaricoInizialePayload = {
   numero_lotto: string
   birra_id: number
-  cartoni: number | null
+  bottiglie: number | null
   fusti: Array<{ materiale_id: number; quantita: number }>
   data_scadenza: string
   note?: string | null

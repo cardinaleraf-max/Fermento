@@ -128,4 +128,42 @@ function runAdditiveMigrations(database: BetterSqlite3.Database): void {
   } catch {
     // colonna gia esistente su DB gia migrati
   }
+
+  // Normalizza giacenze: converte cartoni_disponibili residui in bottiglie_sfuse.
+  // Dopo questa migration la gestione e' solo in bottiglie.
+  try {
+    const bpc = database
+      .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
+      .get() as { valore: string } | undefined
+    const bottigliePerCartone = bpc ? parseInt(bpc.valore) : 6
+    database
+      .prepare(
+        `UPDATE giacenza_prodotto_finito_cartoni
+         SET bottiglie_sfuse = bottiglie_sfuse + (cartoni_disponibili * ?),
+             cartoni_disponibili = 0
+         WHERE cartoni_disponibili > 0`
+      )
+      .run(bottigliePerCartone)
+  } catch {
+    // migration best-effort: ignora se non applicabile
+  }
+
+  // Normalizza vendite storiche: converte tipo_prodotto='cartone' in 'bottiglia'
+  // moltiplicando la quantita per bottiglie_per_cartone.
+  try {
+    const bpc = database
+      .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'bottiglie_per_cartone'`)
+      .get() as { valore: string } | undefined
+    const bottigliePerCartone = bpc ? parseInt(bpc.valore) : 6
+    database
+      .prepare(
+        `UPDATE vendita_dettaglio
+         SET tipo_prodotto = 'bottiglia',
+             quantita = quantita * ?
+         WHERE tipo_prodotto = 'cartone'`
+      )
+      .run(bottigliePerCartone)
+  } catch {
+    // migration best-effort: ignora se non applicabile
+  }
 }

@@ -37,7 +37,7 @@ type VenditaStorico = {
   id: number
   data: string
   note: string | null
-  totale_cartoni: number
+  totale_bottiglie: number
   totale_fusti: number
 }
 
@@ -431,7 +431,7 @@ export default function Clienti(): React.JSX.Element {
                     <thead className="border-b border-border bg-secondary/40 text-left text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2 font-medium">Data</th>
-                        <th className="px-3 py-2 font-medium text-right">Cartoni</th>
+                        <th className="px-3 py-2 font-medium text-right">Bottiglie</th>
                         <th className="px-3 py-2 font-medium text-right">Fusti</th>
                         <th className="px-3 py-2 font-medium">Note</th>
                       </tr>
@@ -440,7 +440,7 @@ export default function Clienti(): React.JSX.Element {
                       {storico.map((v) => (
                         <tr key={v.id} className="border-b border-border/50">
                           <td className="px-3 py-2 tabular-nums text-foreground">{formatDataIt(v.data)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{v.totale_cartoni}</td>
+                          <td className="px-3 py-2 text-right tabular-nums">{v.totale_bottiglie}</td>
                           <td className="px-3 py-2 text-right tabular-nums">{v.totale_fusti}</td>
                           <td className="px-3 py-2 text-muted-foreground">{v.note || '-'}</td>
                         </tr>

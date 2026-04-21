@@ -25,7 +25,6 @@ type Cotta = {
   birra_nome: string
   birra_stile: string | null
   bottiglie_prodotte: number | null
-  cartoni_prodotti: number | null
   data_scadenza: string | null
 }
 
@@ -113,8 +112,6 @@ const defaultConfezionamentoForm = (): ConfezionamentoForm => ({
   fusti: {}
 })
 
-const BOTTIGLIE_PER_CARTONE = 6
-
 function statoBadgeClass(stato: string): string {
   switch (stato) {
     case 'in_corso':
@@ -187,12 +184,6 @@ export default function Produzione(): React.JSX.Element {
     () => birreAttive.find((birra) => String(birra.id) === nuovaCottaForm.birra_id) ?? null,
     [birreAttive, nuovaCottaForm.birra_id]
   )
-
-  const cartoniPreview = useMemo(() => {
-    const n = Number(confezionamentoForm.bottiglie_prodotte)
-    if (!Number.isFinite(n) || n <= 0) return 0
-    return Math.floor(n / BOTTIGLIE_PER_CARTONE)
-  }, [confezionamentoForm.bottiglie_prodotte])
 
   async function caricaCotte(): Promise<void> {
     setLoading(true)
@@ -583,14 +574,6 @@ export default function Produzione(): React.JSX.Element {
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                      Cartoni prodotti
-                    </div>
-                    <div className="text-2xl font-semibold text-foreground">
-                      {dettaglio.cartoni_prodotti ?? 0}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
                       Data scadenza
                     </div>
                     <div className="text-2xl font-semibold text-foreground">
@@ -626,14 +609,6 @@ export default function Produzione(): React.JSX.Element {
                     setModificaConfForm((prev) => ({ ...prev, bottiglie_prodotte: event.target.value }))
                   }
                 />
-                <div className="text-xs text-muted-foreground">
-                  Cartoni prodotti: <span className="font-semibold text-foreground">
-                    {(() => {
-                      const n = Number(modificaConfForm.bottiglie_prodotte)
-                      return Number.isFinite(n) && n > 0 ? Math.floor(n / BOTTIGLIE_PER_CARTONE) : 0
-                    })()}
-                  </span>
-                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -751,9 +726,6 @@ export default function Produzione(): React.JSX.Element {
                     setConfezionamentoForm((prev) => ({ ...prev, bottiglie_prodotte: event.target.value }))
                   }
                 />
-                <div className="text-xs text-muted-foreground">
-                  Cartoni prodotti: <span className="font-semibold text-foreground">{cartoniPreview}</span>
-                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -844,20 +816,19 @@ export default function Produzione(): React.JSX.Element {
                 <th className="px-6 py-3 font-medium">Data inizio</th>
                 <th className="px-6 py-3 font-medium">Stato</th>
                 <th className="px-6 py-3 font-medium text-right">Bottiglie</th>
-                <th className="px-6 py-3 font-medium text-right">Cartoni</th>
                 <th className="px-6 py-3 font-medium">Scadenza</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-6 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-6 py-6 text-center text-muted-foreground">
                     Caricamento cotte...
                   </td>
                 </tr>
               ) : cotte.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
                     <FlaskConical className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                     Nessuna cotta registrata.
                   </td>
@@ -879,9 +850,6 @@ export default function Produzione(): React.JSX.Element {
                     </td>
                     <td className="px-6 py-3 text-right tabular-nums">
                       {cotta.bottiglie_prodotte ?? '-'}
-                    </td>
-                    <td className="px-6 py-3 text-right tabular-nums">
-                      {cotta.cartoni_prodotti ?? '-'}
                     </td>
                     <td className="px-6 py-3">{formatData(cotta.data_scadenza)}</td>
                   </tr>

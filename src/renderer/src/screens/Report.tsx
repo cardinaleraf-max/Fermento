@@ -41,7 +41,6 @@ type TrendRiga = Awaited<ReturnType<typeof window.api.report.trendMensile>>[numb
 type OmaggioRiga = Awaited<ReturnType<typeof window.api.report.omaggi>>[number]
 
 function labelTipo(t: string): string {
-  if (t === 'cartone') return 'cartone'
   if (t === 'fusto') return 'fusto'
   if (t === 'bottiglia') return 'bott.'
   return t
@@ -87,8 +86,16 @@ export default function Report(): React.JSX.Element {
     }
   }, [da, a])
 
-  const totaleOmaggiEquivalenti = useMemo(
-    () => omaggi.reduce((sum, r) => sum + (r.totale_bottiglie_equivalenti || 0), 0),
+  const totaleOmaggiBottiglie = useMemo(
+    () =>
+      omaggi.reduce(
+        (sum, r) =>
+          sum +
+          r.righe
+            .filter((x) => x.tipo_prodotto === 'bottiglia')
+            .reduce((s, x) => s + (x.quantita || 0), 0),
+        0
+      ),
     [omaggi]
   )
 
@@ -135,13 +142,12 @@ export default function Report(): React.JSX.Element {
                 <th className="p-3 font-medium">Cotte</th>
                 <th className="p-3 font-medium">Litri totali</th>
                 <th className="p-3 font-medium">Bottiglie</th>
-                <th className="p-3 font-medium">Cartoni</th>
               </tr>
             </thead>
             <tbody>
               {caricamento && (
                 <tr>
-                  <td colSpan={5} className="p-4 text-muted-foreground">…</td>
+                  <td colSpan={4} className="p-4 text-muted-foreground">…</td>
                 </tr>
               )}
               {!caricamento &&
@@ -151,12 +157,11 @@ export default function Report(): React.JSX.Element {
                     <td className="p-3 text-foreground/80">{intg(r.numero_cotte)}</td>
                     <td className="p-3 text-foreground/80">{num(r.litri_totali)}</td>
                     <td className="p-3 text-foreground/80">{intg(r.bottiglie_totali)}</td>
-                    <td className="p-3 text-foreground/80">{intg(r.cartoni_totali)}</td>
                   </tr>
                 ))}
               {!caricamento && produzione.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="p-4 text-muted-foreground">Nessun dato</td>
+                  <td colSpan={4} className="p-4 text-muted-foreground">Nessun dato</td>
                 </tr>
               )}
             </tbody>
@@ -173,7 +178,7 @@ export default function Report(): React.JSX.Element {
                 <th className="p-3 font-medium">Cliente</th>
                 <th className="p-3 font-medium">Tipo</th>
                 <th className="p-3 font-medium">Vendite</th>
-                <th className="p-3 font-medium">Cartoni</th>
+                <th className="p-3 font-medium">Bottiglie</th>
                 <th className="p-3 font-medium">Fusti</th>
                 <th className="p-3 font-medium">Ultima vendita</th>
               </tr>
@@ -190,7 +195,7 @@ export default function Report(): React.JSX.Element {
                     <td className="p-3 font-medium text-foreground">{r.cliente_nome}</td>
                     <td className="p-3 text-foreground/80">{r.tipo_cliente ?? '—'}</td>
                     <td className="p-3 text-foreground/80">{intg(r.numero_vendite)}</td>
-                    <td className="p-3 text-foreground/80">{intg(r.cartoni_totali)}</td>
+                    <td className="p-3 text-foreground/80">{intg(r.bottiglie_totali)}</td>
                     <td className="p-3 text-foreground/80">{intg(r.fusti_totali)}</td>
                     <td className="p-3 text-foreground/80 whitespace-nowrap">{fmtDataIt(r.ultima_vendita)}</td>
                   </tr>
@@ -213,7 +218,7 @@ export default function Report(): React.JSX.Element {
               <tr className="border-b border-border bg-secondary/40 text-left text-muted-foreground">
                 <th className="p-3 font-medium">Birra</th>
                 <th className="p-3 font-medium">Stile</th>
-                <th className="p-3 font-medium">Cartoni</th>
+                <th className="p-3 font-medium">Bottiglie</th>
                 <th className="p-3 font-medium">Fusti</th>
                 <th className="p-3 font-medium">N. vendite</th>
               </tr>
@@ -229,7 +234,7 @@ export default function Report(): React.JSX.Element {
                   <tr key={r.birra_nome} className="border-b border-border/50">
                     <td className="p-3 font-medium text-foreground">{r.birra_nome}</td>
                     <td className="p-3 text-foreground/80">{r.stile ?? '—'}</td>
-                    <td className="p-3 text-foreground/80">{intg(r.cartoni_totali)}</td>
+                    <td className="p-3 text-foreground/80">{intg(r.bottiglie_totali)}</td>
                     <td className="p-3 text-foreground/80">{intg(r.fusti_totali)}</td>
                     <td className="p-3 text-foreground/80">{intg(r.numero_vendite)}</td>
                   </tr>
@@ -251,7 +256,7 @@ export default function Report(): React.JSX.Element {
             <thead>
               <tr className="border-b border-border bg-secondary/40 text-left text-muted-foreground">
                 <th className="p-3 font-medium">Mese</th>
-                <th className="p-3 font-medium">Cartoni</th>
+                <th className="p-3 font-medium">Bottiglie</th>
                 <th className="p-3 font-medium">Fusti</th>
               </tr>
             </thead>
@@ -265,7 +270,7 @@ export default function Report(): React.JSX.Element {
                 trend.map((r) => (
                   <tr key={r.mese} className="border-b border-border/50">
                     <td className="p-3 font-medium text-foreground">{r.mese}</td>
-                    <td className="p-3 text-foreground/80">{intg(r.cartoni)}</td>
+                    <td className="p-3 text-foreground/80">{intg(r.bottiglie)}</td>
                     <td className="p-3 text-foreground/80">{intg(r.fusti)}</td>
                   </tr>
                 ))}
@@ -290,9 +295,9 @@ export default function Report(): React.JSX.Element {
               <span className="font-semibold text-foreground">{omaggi.length}</span> nel periodo
             </span>
             <span>
-              Totale bottiglie equivalenti:{' '}
+              Totale bottiglie:{' '}
               <span className="font-semibold text-amber-400">
-                {intg(totaleOmaggiEquivalenti)}
+                {intg(totaleOmaggiBottiglie)}
               </span>
             </span>
           </div>
@@ -305,7 +310,7 @@ export default function Report(): React.JSX.Element {
                 <th className="p-3 font-medium">Cliente</th>
                 <th className="p-3 font-medium">Occasione</th>
                 <th className="p-3 font-medium">Dettaglio prodotti</th>
-                <th className="p-3 text-right font-medium">Bott. equivalenti</th>
+                <th className="p-3 text-right font-medium">Bottiglie</th>
               </tr>
             </thead>
             <tbody>
@@ -352,7 +357,11 @@ export default function Report(): React.JSX.Element {
                       )}
                     </td>
                     <td className="p-3 text-right tabular-nums text-foreground/80">
-                      {intg(r.totale_bottiglie_equivalenti)}
+                      {intg(
+                        r.righe
+                          .filter((x) => x.tipo_prodotto === 'bottiglia')
+                          .reduce((s, x) => s + (x.quantita || 0), 0)
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -371,7 +380,7 @@ export default function Report(): React.JSX.Element {
                     Totale {omaggi.length} omaggi
                   </td>
                   <td className="p-3 text-right font-semibold tabular-nums text-amber-400">
-                    {intg(totaleOmaggiEquivalenti)}
+                    {intg(totaleOmaggiBottiglie)}
                   </td>
                 </tr>
               </tfoot>
