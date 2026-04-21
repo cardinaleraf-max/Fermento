@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Pencil, Plus, ShoppingCart, Trash2, AlertCircle } from 'lucide-react'
+import { ArrowLeft, Beer, Gift, Pencil, Plus, ShoppingCart, Trash2, AlertCircle } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,13 +15,16 @@ import { Label } from '@/components/ui/label'
 
 type VenditaLista = {
   id: number
-  cliente_id: number
+  cliente_id: number | null
   data: string
   note: string | null
   creato_il: string
-  cliente_nome: string
+  cliente_nome: string | null
+  omaggio: number
+  occasione: string | null
   totale_cartoni: number
   totale_fusti: number
+  totale_bottiglie: number
 }
 
 type VenditaRiga = {
@@ -46,16 +50,53 @@ type GiacenzaRiga = {
   formato_nome: string | null
 }
 
+type GiacenzaPfLotto = {
+  cotta_id: number
+  numero_lotto: string
+  birra_nome: string
+  data_scadenza: string
+  totale_bottiglie: number
+}
+
 type ClienteOpt = { id: number; nome: string }
 
-type RigaForm = { rowId: string; key: string; quantita: string }
+type BirraOpt = { id: number; nome: string; stile: string | null }
+
+type LottoBottigliaSuggerito = {
+  cotta_id: number
+  numero_lotto: string
+  data_scadenza: string
+  cartoni_disponibili: number
+  bottiglie_sfuse: number
+  totale_bottiglie: number
+  bottiglie_per_cartone: number
+}
+
+type RigaStandardForm = {
+  rowId: string
+  tipo: 'standard'
+  key: string
+  quantita: string
+}
+
+type RigaBottigliaForm = {
+  rowId: string
+  tipo: 'bottiglia'
+  birra_id: string
+  cotta_id: string
+  quantita: string
+  suggerimenti: LottoBottigliaSuggerito[]
+  caricamentoSuggerimenti: boolean
+}
+
+type RigaForm = RigaStandardForm | RigaBottigliaForm
 
 type RigaEsistenteForm = {
   id: number
   key: string
   label: string
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto'
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
   materiale_id: number | null
   quantitaOriginale: number
   quantita: string
@@ -65,11 +106,12 @@ type RigaEsistenteForm = {
 const oggi = (): string => new Date().toISOString().split('T')[0]
 
 function prodottoKey(
-  tipo: 'cartone' | 'fusto',
+  tipo: 'cartone' | 'fusto' | 'bottiglia',
   cotta_id: number,
   materiale_id: number | null
 ): string {
   if (tipo === 'cartone') return `cartone:${cotta_id}`
+  if (tipo === 'bottiglia') return `bottiglia:${cotta_id}`
   return `fusto:${cotta_id}:${materiale_id ?? 0}`
 }
 
@@ -88,17 +130,32 @@ function labelProdottoDaRiga(r: VenditaRiga): string {
   if (r.tipo_prodotto === 'cartone') {
     return `${r.birra_nome} — ${r.numero_lotto} — cartone`
   }
+  if (r.tipo_prodotto === 'bottiglia') {
+    return `${r.birra_nome} — ${r.numero_lotto} — bottiglie singole`
+  }
   return `${r.birra_nome} — ${r.numero_lotto} — fusto (${r.formato_nome ?? '?'})`
 }
 
 function parseProdottoKey(
   key: string
-): { cotta_id: number; tipo_prodotto: 'cartone' | 'fusto'; materiale_id: number | null } {
+): {
+  cotta_id: number
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
+  materiale_id: number | null
+} {
   if (key.startsWith('cartone:')) {
     return { cotta_id: Number(key.split(':')[1]), tipo_prodotto: 'cartone', materiale_id: null }
   }
+  if (key.startsWith('bottiglia:')) {
+    return { cotta_id: Number(key.split(':')[1]), tipo_prodotto: 'bottiglia', materiale_id: null }
+  }
   const p = key.split(':')
   return { cotta_id: Number(p[1]), tipo_prodotto: 'fusto', materiale_id: Number(p[2]) }
+}
+
+function tipoEsistenteDaStringa(s: string): 'cartone' | 'fusto' | 'bottiglia' {
+  if (s === 'cartone' || s === 'fusto' || s === 'bottiglia') return s
+  return 'cartone'
 }
 
 function formatDataIt(s: string): string {
@@ -107,8 +164,24 @@ function formatDataIt(s: string): string {
   return d.toLocaleDateString('it-IT')
 }
 
+function newRowId(): string {
+  return `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 function newRigaForm(): RigaForm {
-  return { rowId: `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, key: '', quantita: '' }
+  return { rowId: newRowId(), tipo: 'standard', key: '', quantita: '' }
+}
+
+function newRigaBottigliaForm(): RigaBottigliaForm {
+  return {
+    rowId: newRowId(),
+    tipo: 'bottiglia',
+    birra_id: '',
+    cotta_id: '',
+    quantita: '',
+    suggerimenti: [],
+    caricamentoSuggerimenti: false
+  }
 }
 
 function ModalError({ message }: { message: string }): React.JSX.Element {
@@ -131,9 +204,13 @@ export default function Vendite(): React.JSX.Element {
   const [modalOpen, setModalOpen] = useState(false)
   const [clienti, setClienti] = useState<ClienteOpt[]>([])
   const [giacenze, setGiacenze] = useState<GiacenzaRiga[]>([])
+  const [giacenzePfBottiglie, setGiacenzePfBottiglie] = useState<GiacenzaPfLotto[]>([])
+  const [birreAttive, setBirreAttive] = useState<BirraOpt[]>([])
   const [clienteId, setClienteId] = useState('')
   const [dataVendita, setDataVendita] = useState(oggi())
   const [noteVendita, setNoteVendita] = useState('')
+  const [omaggio, setOmaggio] = useState(false)
+  const [occasione, setOccasione] = useState('')
   const [righe, setRighe] = useState<RigaForm[]>([newRigaForm()])
   const [erroreModal, setErroreModal] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -144,8 +221,10 @@ export default function Vendite(): React.JSX.Element {
   const [editClienteId, setEditClienteId] = useState('')
   const [editData, setEditData] = useState('')
   const [editNote, setEditNote] = useState('')
+  const [editOmaggio, setEditOmaggio] = useState(false)
+  const [editOccasione, setEditOccasione] = useState('')
   const [editRigheEsistenti, setEditRigheEsistenti] = useState<RigaEsistenteForm[]>([])
-  const [editRigheNuove, setEditRigheNuove] = useState<RigaForm[]>([])
+  const [editRigheNuove, setEditRigheNuove] = useState<RigaStandardForm[]>([])
   const [erroreEdit, setErroreEdit] = useState('')
   const [submittingEdit, setSubmittingEdit] = useState(false)
 
@@ -193,16 +272,30 @@ export default function Vendite(): React.JSX.Element {
     setClienteId('')
     setDataVendita(oggi())
     setNoteVendita('')
+    setOmaggio(false)
+    setOccasione('')
     setRighe([newRigaForm()])
     setCaricandoModal(true)
     setModalOpen(true)
     try {
-      const [c, g] = await Promise.all([
+      const [c, g, b, pf] = await Promise.all([
         window.api.vendite.clienti(),
-        window.api.vendite.giacenzeDisponibili()
+        window.api.vendite.giacenzeDisponibili(),
+        window.api.prod.birreAttive(),
+        window.api.pf.giacenze()
       ])
       setClienti(c as ClienteOpt[])
       setGiacenze(g as GiacenzaRiga[])
+      setBirreAttive(b.map((x) => ({ id: x.id, nome: x.nome, stile: x.stile })))
+      setGiacenzePfBottiglie(
+        pf.map((x) => ({
+          cotta_id: x.cotta_id,
+          numero_lotto: x.numero_lotto,
+          birra_nome: x.birra_nome,
+          data_scadenza: x.data_scadenza,
+          totale_bottiglie: x.totale_bottiglie
+        }))
+      )
     } catch (e) {
       setErroreModal(e instanceof Error ? e.message : 'Errore caricamento')
     } finally {
@@ -219,33 +312,77 @@ export default function Vendite(): React.JSX.Element {
     setRighe((p) => [...p, newRigaForm()])
   }
 
+  const aggiungiRigaBottiglia = (): void => {
+    setRighe((p) => [...p, newRigaBottigliaForm()])
+  }
+
   const rimuoviRiga = (rowId: string): void => {
     setRighe((p) => (p.length <= 1 ? p : p.filter((r) => r.rowId !== rowId)))
   }
 
-  const aggiornaRiga = (rowId: string, patch: Partial<Pick<RigaForm, 'key' | 'quantita'>>): void => {
-    setRighe((p) => p.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)))
+  const aggiornaRigaStandard = (
+    rowId: string,
+    patch: Partial<Pick<RigaStandardForm, 'key' | 'quantita'>>
+  ): void => {
+    setRighe((p) =>
+      p.map((r) => (r.rowId === rowId && r.tipo === 'standard' ? { ...r, ...patch } : r))
+    )
+  }
+
+  const aggiornaRigaBottiglia = (rowId: string, patch: Partial<RigaBottigliaForm>): void => {
+    setRighe((p) =>
+      p.map((r) => (r.rowId === rowId && r.tipo === 'bottiglia' ? { ...r, ...patch } : r))
+    )
+  }
+
+  const cambiaBirraRigaBottiglia = async (rowId: string, birra_id: string): Promise<void> => {
+    aggiornaRigaBottiglia(rowId, {
+      birra_id,
+      cotta_id: '',
+      quantita: '',
+      suggerimenti: [],
+      caricamentoSuggerimenti: Boolean(birra_id)
+    })
+    if (!birra_id) return
+    try {
+      const sugg = await window.api.pf.suggerisciLottoBottiglie(Number(birra_id))
+      aggiornaRigaBottiglia(rowId, {
+        suggerimenti: sugg,
+        cotta_id: sugg.length > 0 ? String(sugg[0].cotta_id) : '',
+        caricamentoSuggerimenti: false
+      })
+    } catch {
+      aggiornaRigaBottiglia(rowId, { caricamentoSuggerimenti: false, suggerimenti: [] })
+    }
   }
 
   const validaEInvia = async (): Promise<void> => {
     setErroreModal('')
-    if (!clienteId) {
+    if (!omaggio && !clienteId) {
       setErroreModal('Seleziona un cliente')
       return
     }
-    const righeCompilate = righe.filter((r) => r.key.trim() && (parseInt(r.quantita, 10) || 0) > 0)
-    if (righeCompilate.length === 0) {
-      setErroreModal('Aggiungi almeno un prodotto con quantità')
+
+    const righeStandardCompilate = righe.filter(
+      (r): r is RigaStandardForm =>
+        r.tipo === 'standard' && r.key.trim() !== '' && (parseInt(r.quantita, 10) || 0) > 0
+    )
+    const righeBottigliaCompilate = righe.filter(
+      (r): r is RigaBottigliaForm =>
+        r.tipo === 'bottiglia' &&
+        r.cotta_id.trim() !== '' &&
+        (parseInt(r.quantita, 10) || 0) > 0
+    )
+
+    if (righeStandardCompilate.length === 0 && righeBottigliaCompilate.length === 0) {
+      setErroreModal('Aggiungi almeno un prodotto con quantita')
       return
     }
 
     const somme = new Map<string, number>()
-    for (const r of righeCompilate) {
-      if (!r.key) continue
+    for (const r of righeStandardCompilate) {
       const q = parseInt(r.quantita, 10) || 0
-      if (q <= 0) continue
-      const prev = somme.get(r.key) ?? 0
-      somme.set(r.key, prev + q)
+      somme.set(r.key, (somme.get(r.key) ?? 0) + q)
     }
     for (const [k, somma] of somme) {
       const g = byKey.get(k)
@@ -254,28 +391,58 @@ export default function Vendite(): React.JSX.Element {
         return
       }
       if (somma > g.quantita_disponibile) {
-        setErroreModal(`La quantità totale per un prodotto non può superare ${g.quantita_disponibile} (riga: ${k})`)
+        setErroreModal(
+          `La quantita totale per un prodotto non puo superare ${g.quantita_disponibile}`
+        )
+        return
+      }
+    }
+
+    const sommeBottigliePerCotta = new Map<number, number>()
+    for (const r of righeBottigliaCompilate) {
+      const cottaId = Number(r.cotta_id)
+      const q = parseInt(r.quantita, 10) || 0
+      sommeBottigliePerCotta.set(cottaId, (sommeBottigliePerCotta.get(cottaId) ?? 0) + q)
+    }
+    for (const r of righeBottigliaCompilate) {
+      const cottaId = Number(r.cotta_id)
+      const lotto = r.suggerimenti.find((s) => s.cotta_id === cottaId)
+      const somma = sommeBottigliePerCotta.get(cottaId) ?? 0
+      if (lotto && somma > lotto.totale_bottiglie) {
+        setErroreModal(
+          `Bottiglie totali per il lotto ${lotto.numero_lotto} superano il disponibile (${lotto.totale_bottiglie})`
+        )
         return
       }
     }
 
     const righeApi: Array<{
       cotta_id: number
-      tipo_prodotto: 'cartone' | 'fusto'
+      tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
       materiale_id: number | null
       quantita: number
     }> = []
-    for (const r of righeCompilate) {
+    for (const r of righeStandardCompilate) {
       const p = parseProdottoKey(r.key)
       righeApi.push({ ...p, quantita: parseInt(r.quantita, 10) || 0 })
+    }
+    for (const r of righeBottigliaCompilate) {
+      righeApi.push({
+        cotta_id: Number(r.cotta_id),
+        tipo_prodotto: 'bottiglia',
+        materiale_id: null,
+        quantita: parseInt(r.quantita, 10) || 0
+      })
     }
 
     setSubmitting(true)
     try {
       const res = await window.api.vendite.registra({
-        cliente_id: Number(clienteId),
+        cliente_id: clienteId ? Number(clienteId) : null,
         data: dataVendita,
         note: noteVendita.trim() || null,
+        omaggio,
+        occasione: omaggio ? occasione.trim() || null : null,
         righe: righeApi
       })
       if (!res.ok) {
@@ -294,36 +461,47 @@ export default function Vendite(): React.JSX.Element {
   const apriDialogModifica = async (): Promise<void> => {
     if (!selezionata) return
     setErroreEdit('')
-    setEditClienteId(String(selezionata.cliente_id))
+    setEditClienteId(selezionata.cliente_id != null ? String(selezionata.cliente_id) : '')
     setEditData(selezionata.data)
     setEditNote(selezionata.note ?? '')
+    setEditOmaggio(selezionata.omaggio === 1)
+    setEditOccasione(selezionata.occasione ?? '')
     setEditRigheEsistenti(
-      dettaglio.map((r) => ({
-        id: r.id,
-        key: prodottoKey(
-          r.tipo_prodotto === 'cartone' ? 'cartone' : 'fusto',
-          r.cotta_id,
-          r.materiale_id
-        ),
-        label: labelProdottoDaRiga(r),
-        cotta_id: r.cotta_id,
-        tipo_prodotto: r.tipo_prodotto === 'cartone' ? 'cartone' : 'fusto',
-        materiale_id: r.materiale_id,
-        quantitaOriginale: r.quantita,
-        quantita: String(r.quantita),
-        eliminata: false
-      }))
+      dettaglio.map((r) => {
+        const tp = tipoEsistenteDaStringa(r.tipo_prodotto)
+        return {
+          id: r.id,
+          key: prodottoKey(tp, r.cotta_id, r.materiale_id),
+          label: labelProdottoDaRiga(r),
+          cotta_id: r.cotta_id,
+          tipo_prodotto: tp,
+          materiale_id: r.materiale_id,
+          quantitaOriginale: r.quantita,
+          quantita: String(r.quantita),
+          eliminata: false
+        }
+      })
     )
     setEditRigheNuove([])
     setCaricandoEdit(true)
     setEditOpen(true)
     try {
-      const [c, g] = await Promise.all([
+      const [c, g, pf] = await Promise.all([
         window.api.vendite.clienti(),
-        window.api.vendite.giacenzeDisponibili()
+        window.api.vendite.giacenzeDisponibili(),
+        window.api.pf.giacenze()
       ])
       setClienti(c as ClienteOpt[])
       setGiacenze(g as GiacenzaRiga[])
+      setGiacenzePfBottiglie(
+        pf.map((x) => ({
+          cotta_id: x.cotta_id,
+          numero_lotto: x.numero_lotto,
+          birra_nome: x.birra_nome,
+          data_scadenza: x.data_scadenza,
+          totale_bottiglie: x.totale_bottiglie
+        }))
+      )
     } catch (e) {
       setErroreEdit(e instanceof Error ? e.message : 'Errore caricamento')
     } finally {
@@ -342,6 +520,14 @@ export default function Vendite(): React.JSX.Element {
         originaleSuVendita: 0
       })
     }
+    for (const pf of giacenzePfBottiglie) {
+      const key = prodottoKey('bottiglia', pf.cotta_id, null)
+      map.set(key, {
+        label: `${pf.birra_nome} — ${pf.numero_lotto} — bottiglie singole — disponibili ${pf.totale_bottiglie}`,
+        giacenza: pf.totale_bottiglie,
+        originaleSuVendita: 0
+      })
+    }
     for (const r of editRigheEsistenti) {
       const prev = map.get(r.key)
       if (prev) {
@@ -355,7 +541,7 @@ export default function Vendite(): React.JSX.Element {
       }
     }
     return map
-  }, [giacenze, editRigheEsistenti])
+  }, [giacenze, giacenzePfBottiglie, editRigheEsistenti])
 
   const aggiornaRigaEsistente = (
     id: number,
@@ -365,7 +551,10 @@ export default function Vendite(): React.JSX.Element {
   }
 
   const aggiungiRigaNuova = (): void => {
-    setEditRigheNuove((p) => [...p, newRigaForm()])
+    setEditRigheNuove((p) => [
+      ...p,
+      { rowId: newRowId(), tipo: 'standard', key: '', quantita: '' }
+    ])
   }
 
   const rimuoviRigaNuova = (rowId: string): void => {
@@ -374,7 +563,7 @@ export default function Vendite(): React.JSX.Element {
 
   const aggiornaRigaNuova = (
     rowId: string,
-    patch: Partial<Pick<RigaForm, 'key' | 'quantita'>>
+    patch: Partial<Pick<RigaStandardForm, 'key' | 'quantita'>>
   ): void => {
     setEditRigheNuove((p) => p.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)))
   }
@@ -382,7 +571,7 @@ export default function Vendite(): React.JSX.Element {
   const confermaModifica = async (): Promise<void> => {
     if (!selezionata) return
     setErroreEdit('')
-    if (!editClienteId) {
+    if (!editOmaggio && !editClienteId) {
       setErroreEdit('Seleziona un cliente')
       return
     }
@@ -432,7 +621,7 @@ export default function Vendite(): React.JSX.Element {
     const righePayload: Array<{
       id: number | null
       cotta_id: number
-      tipo_prodotto: 'cartone' | 'fusto'
+      tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
       materiale_id: number | null
       quantita: number
     }> = []
@@ -459,9 +648,11 @@ export default function Vendite(): React.JSX.Element {
     setSubmittingEdit(true)
     try {
       const res = await window.api.vendite.modifica(selezionata.id, {
-        cliente_id: Number(editClienteId),
+        cliente_id: editClienteId ? Number(editClienteId) : null,
         data: editData,
         note: editNote.trim() || null,
+        omaggio: editOmaggio,
+        occasione: editOmaggio ? editOccasione.trim() || null : null,
         righe: righePayload
       })
       if (!res.ok) {
@@ -530,9 +721,22 @@ export default function Vendite(): React.JSX.Element {
         </div>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">Vendita</p>
+            <div className="flex items-center gap-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Vendita</p>
+              {selezionata.omaggio === 1 && (
+                <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/20">
+                  <Gift className="mr-1 h-3 w-3" />
+                  Omaggio
+                </Badge>
+              )}
+            </div>
             <h2 className="text-2xl font-semibold text-foreground">{formatDataIt(selezionata.data)}</h2>
-            <p className="mt-1 text-lg text-foreground/80">{selezionata.cliente_nome}</p>
+            <p className="mt-1 text-lg text-foreground/80">{selezionata.cliente_nome ?? '—'}</p>
+            {selezionata.omaggio === 1 && selezionata.occasione && (
+              <p className="mt-1 text-sm text-amber-400/80">
+                Occasione: {selezionata.occasione}
+              </p>
+            )}
             {selezionata.note && <p className="mt-2 text-sm text-muted-foreground">Nota: {selezionata.note}</p>}
           </div>
           <div className="flex gap-2">
@@ -597,7 +801,8 @@ export default function Vendite(): React.JSX.Element {
           )}
         </div>
         <p className="text-sm text-muted-foreground">
-          Cartoni: {selezionata.totale_cartoni} — Fusti: {selezionata.totale_fusti}
+          Cartoni: {selezionata.totale_cartoni} — Fusti: {selezionata.totale_fusti} — Bottiglie:{' '}
+          {selezionata.totale_bottiglie}
         </p>
 
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
@@ -616,8 +821,51 @@ export default function Vendite(): React.JSX.Element {
             {caricandoEdit && <p className="text-sm text-muted-foreground">Caricamento elenchi…</p>}
 
             <div className="grid gap-4">
+              <label
+                className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 ${
+                  editOmaggio
+                    ? 'border-amber-500/40 bg-amber-500/10'
+                    : 'border-border bg-secondary/30'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4"
+                  checked={editOmaggio}
+                  onChange={(e) => {
+                    setEditOmaggio(e.target.checked)
+                    if (!e.target.checked) setEditOccasione('')
+                  }}
+                />
+                <Gift
+                  className={`h-4 w-4 ${
+                    editOmaggio ? 'text-amber-400' : 'text-muted-foreground'
+                  }`}
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-foreground">Vendita omaggio</div>
+                  <div className="text-xs text-muted-foreground">
+                    La giacenza viene scalata normalmente. Cliente opzionale.
+                  </div>
+                </div>
+              </label>
+
+              {editOmaggio && (
+                <div className="grid gap-1.5">
+                  <Label htmlFor="edit_occasione">Occasione</Label>
+                  <Input
+                    id="edit_occasione"
+                    value={editOccasione}
+                    onChange={(e) => setEditOccasione(e.target.value)}
+                    placeholder="Es. Fiera Napoli, Evento, Omaggio cliente…"
+                  />
+                </div>
+              )}
+
               <div className="grid gap-1.5">
-                <Label htmlFor="edit_cliente">Cliente *</Label>
+                <Label htmlFor="edit_cliente">
+                  Cliente{editOmaggio ? ' (opzionale per omaggi)' : ' *'}
+                </Label>
                 <select
                   id="edit_cliente"
                   className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
@@ -625,7 +873,7 @@ export default function Vendite(): React.JSX.Element {
                   onChange={(e) => setEditClienteId(e.target.value)}
                   disabled={caricandoEdit}
                 >
-                  <option value="">Seleziona…</option>
+                  <option value="">{editOmaggio ? 'Nessuno' : 'Seleziona…'}</option>
                   {clienti.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.nome}
@@ -822,11 +1070,16 @@ export default function Vendite(): React.JSX.Element {
                 {formatDataIt(selezionata.data)}
               </div>
               <div className="text-foreground">
-                <span className="text-muted-foreground">Cliente:</span> {selezionata.cliente_nome}
+                <span className="text-muted-foreground">Cliente:</span>{' '}
+                {selezionata.cliente_nome ?? '—'}
+                {selezionata.omaggio === 1 && (
+                  <span className="ml-2 text-amber-400">(omaggio)</span>
+                )}
               </div>
               <div className="text-foreground">
                 <span className="text-muted-foreground">Totali:</span>{' '}
-                {selezionata.totale_cartoni} cartoni · {selezionata.totale_fusti} fusti
+                {selezionata.totale_cartoni} cartoni · {selezionata.totale_bottiglie} bottiglie ·{' '}
+                {selezionata.totale_fusti} fusti
               </div>
             </div>
 
@@ -877,12 +1130,13 @@ export default function Vendite(): React.JSX.Element {
         <p className="text-sm text-muted-foreground">Caricamento...</p>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-[640px] text-sm">
+          <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-border bg-secondary/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-2 text-left font-medium">Data</th>
                 <th className="px-4 py-2 text-left font-medium">Cliente</th>
                 <th className="px-4 py-2 text-right font-medium">Cartoni</th>
+                <th className="px-4 py-2 text-right font-medium">Bottiglie</th>
                 <th className="px-4 py-2 text-right font-medium">Fusti</th>
                 <th className="px-4 py-2 text-left font-medium">Note</th>
               </tr>
@@ -890,7 +1144,7 @@ export default function Vendite(): React.JSX.Element {
             <tbody>
               {lista.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                     <ShoppingCart className="mx-auto mb-1 h-8 w-8 text-muted-foreground/40" />
                     Nessuna vendita registrata
                   </td>
@@ -902,9 +1156,27 @@ export default function Vendite(): React.JSX.Element {
                     onClick={() => selezionaVendita(v)}
                     className="cursor-pointer border-b border-border/50 hover:bg-secondary/40"
                   >
-                    <td className="px-4 py-2.5 text-foreground/80">{formatDataIt(v.data)}</td>
-                    <td className="px-4 py-2.5 font-medium text-foreground">{v.cliente_nome}</td>
+                    <td className="px-4 py-2.5 text-foreground/80">
+                      <div className="flex items-center gap-2">
+                        <span>{formatDataIt(v.data)}</span>
+                        {v.omaggio === 1 && (
+                          <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/20">
+                            <Gift className="mr-1 h-3 w-3" />
+                            Omaggio
+                          </Badge>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 font-medium text-foreground">
+                      <div>{v.cliente_nome ?? '—'}</div>
+                      {v.omaggio === 1 && v.occasione && (
+                        <div className="text-xs font-normal text-amber-400/80">
+                          {v.occasione}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{v.totale_cartoni}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{v.totale_bottiglie}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-foreground/80">{v.totale_fusti}</td>
                     <td className="max-w-[200px] truncate px-4 py-2.5 text-muted-foreground">{v.note || '-'}</td>
                   </tr>
@@ -928,8 +1200,49 @@ export default function Vendite(): React.JSX.Element {
           {caricandoModal && <p className="text-sm text-muted-foreground">Caricamento elenchi…</p>}
 
           <div className="grid gap-4">
+            <label
+              className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 ${
+                omaggio
+                  ? 'border-amber-500/40 bg-amber-500/10'
+                  : 'border-border bg-secondary/30'
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4"
+                checked={omaggio}
+                onChange={(e) => {
+                  setOmaggio(e.target.checked)
+                  if (!e.target.checked) setOccasione('')
+                }}
+              />
+              <Gift
+                className={`h-4 w-4 ${omaggio ? 'text-amber-400' : 'text-muted-foreground'}`}
+              />
+              <div className="flex-1">
+                <div className="text-sm font-medium text-foreground">Vendita omaggio</div>
+                <div className="text-xs text-muted-foreground">
+                  La giacenza viene scalata normalmente. Cliente opzionale.
+                </div>
+              </div>
+            </label>
+
+            {omaggio && (
+              <div className="grid gap-1.5">
+                <Label htmlFor="v_occasione">Occasione</Label>
+                <Input
+                  id="v_occasione"
+                  value={occasione}
+                  onChange={(e) => setOccasione(e.target.value)}
+                  placeholder="Es. Fiera Napoli, Evento, Omaggio cliente…"
+                />
+              </div>
+            )}
+
             <div className="grid gap-1.5">
-              <Label htmlFor="v_cliente">Cliente *</Label>
+              <Label htmlFor="v_cliente">
+                Cliente{omaggio ? ' (opzionale per omaggi)' : ' *'}
+              </Label>
               <select
                 id="v_cliente"
                 className="h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm"
@@ -937,7 +1250,7 @@ export default function Vendite(): React.JSX.Element {
                 onChange={(e) => setClienteId(e.target.value)}
                 disabled={caricandoModal}
               >
-                <option value="">Seleziona…</option>
+                <option value="">{omaggio ? 'Nessuno' : 'Seleziona…'}</option>
                 {clienti.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nome}
@@ -964,52 +1277,216 @@ export default function Vendite(): React.JSX.Element {
             <div>
               <div className="mb-2 flex items-center justify-between">
                 <Label>Prodotti</Label>
-                <Button type="button" variant="outline" size="sm" onClick={aggiungiRiga} disabled={caricandoModal}>
-                  <Plus className="mr-1 h-3.5 w-3.5" />
-                  Aggiungi prodotto
-                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={aggiungiRiga}
+                    disabled={caricandoModal}
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Cartone / Fusto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={aggiungiRigaBottiglia}
+                    disabled={caricandoModal}
+                  >
+                    <Beer className="mr-1 h-3.5 w-3.5" />
+                    Bottiglie singole
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 {righe.map((r) => {
-                  const maxQ = r.key && byKey.has(r.key) ? (byKey.get(r.key)!.quantita_disponibile ?? 0) : 0
-                  return (
-                    <div key={r.rowId} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-                      <div className="min-w-0 flex-1">
-                        <select
-                          className="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
-                          value={r.key}
-                          onChange={(e) => aggiornaRiga(r.rowId, { key: e.target.value })}
-                        >
-                          <option value="">Seleziona prodotto…</option>
-                          {giacenze.map((g) => (
-                            <option key={prodottoKeyDaGiacenza(g)} value={prodottoKeyDaGiacenza(g)}>
-                              {labelProdottoDaGiacenza(g)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="flex w-full items-center gap-2 sm:w-36">
-                        <Input
-                          type="number"
-                          min={0}
-                          max={r.key ? maxQ : undefined}
-                          placeholder="Qtà"
-                          className="h-9"
-                          value={r.quantita}
-                          onChange={(e) => aggiornaRiga(r.rowId, { quantita: e.target.value })}
-                        />
-                        {r.key && <span className="whitespace-nowrap text-xs text-muted-foreground">max {maxQ}</span>}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-9 w-9 shrink-0 p-0"
-                        onClick={() => rimuoviRiga(r.rowId)}
-                        disabled={righe.length <= 1}
+                  if (r.tipo === 'standard') {
+                    const maxQ =
+                      r.key && byKey.has(r.key) ? byKey.get(r.key)!.quantita_disponibile ?? 0 : 0
+                    return (
+                      <div
+                        key={r.rowId}
+                        className="flex flex-col gap-2 sm:flex-row sm:items-end"
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                        <div className="min-w-0 flex-1">
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                            value={r.key}
+                            onChange={(e) => aggiornaRigaStandard(r.rowId, { key: e.target.value })}
+                          >
+                            <option value="">Seleziona prodotto (cartone / fusto)…</option>
+                            {giacenze.map((g) => (
+                              <option
+                                key={prodottoKeyDaGiacenza(g)}
+                                value={prodottoKeyDaGiacenza(g)}
+                              >
+                                {labelProdottoDaGiacenza(g)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex w-full items-center gap-2 sm:w-36">
+                          <Input
+                            type="number"
+                            min={0}
+                            max={r.key ? maxQ : undefined}
+                            placeholder="Qta"
+                            className="h-9"
+                            value={r.quantita}
+                            onChange={(e) =>
+                              aggiornaRigaStandard(r.rowId, { quantita: e.target.value })
+                            }
+                          />
+                          {r.key && (
+                            <span className="whitespace-nowrap text-xs text-muted-foreground">
+                              max {maxQ}
+                            </span>
+                          )}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 w-9 shrink-0 p-0"
+                          onClick={() => rimuoviRiga(r.rowId)}
+                          disabled={righe.length <= 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )
+                  }
+
+                  const lottoSelezionato = r.suggerimenti.find(
+                    (s) => s.cotta_id === Number(r.cotta_id)
+                  )
+                  const maxBottiglie = lottoSelezionato?.totale_bottiglie ?? 0
+                  return (
+                    <div
+                      key={r.rowId}
+                      className="flex flex-col gap-2 rounded-md border border-amber-500/20 bg-amber-500/5 p-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium uppercase tracking-wide text-amber-400">
+                          <Beer className="mr-1 inline h-3.5 w-3.5" />
+                          Bottiglie singole
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 shrink-0 p-0"
+                          onClick={() => rimuoviRiga(r.rowId)}
+                          disabled={righe.length <= 1}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Birra *</Label>
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                            value={r.birra_id}
+                            onChange={(e) =>
+                              void cambiaBirraRigaBottiglia(r.rowId, e.target.value)
+                            }
+                          >
+                            <option value="">Seleziona birra…</option>
+                            {birreAttive.map((b) => (
+                              <option key={b.id} value={b.id}>
+                                {b.nome}
+                                {b.stile ? ` (${b.stile})` : ''}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Bottiglie *</Label>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={maxBottiglie || undefined}
+                            placeholder="Numero bottiglie"
+                            className="h-9"
+                            value={r.quantita}
+                            disabled={!r.cotta_id}
+                            onChange={(e) =>
+                              aggiornaRigaBottiglia(r.rowId, { quantita: e.target.value })
+                            }
+                          />
+                          {r.cotta_id && (
+                            <span className="text-xs text-muted-foreground">
+                              max {maxBottiglie}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {r.birra_id && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">Lotto di provenienza *</Label>
+                          {r.caricamentoSuggerimenti ? (
+                            <p className="text-xs text-muted-foreground">Caricamento lotti…</p>
+                          ) : r.suggerimenti.length === 0 ? (
+                            <p className="text-xs text-red-400">
+                              Nessun lotto con bottiglie disponibili per questa birra.
+                            </p>
+                          ) : (
+                            <div className="space-y-1">
+                              {r.suggerimenti.map((s, idx) => {
+                                const checked = String(s.cotta_id) === r.cotta_id
+                                return (
+                                  <label
+                                    key={s.cotta_id}
+                                    className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
+                                      checked
+                                        ? 'border-amber-500/50 bg-amber-500/10'
+                                        : 'border-border bg-background/40'
+                                    }`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name={`lotto-${r.rowId}`}
+                                      checked={checked}
+                                      onChange={() =>
+                                        aggiornaRigaBottiglia(r.rowId, {
+                                          cotta_id: String(s.cotta_id),
+                                          quantita: ''
+                                        })
+                                      }
+                                    />
+                                    <div className="flex flex-1 flex-wrap items-center gap-2">
+                                      <span className="font-medium text-foreground">
+                                        {s.numero_lotto}
+                                      </span>
+                                      {idx === 0 && (
+                                        <Badge className="bg-amber-500/15 text-amber-400">
+                                          Consigliato
+                                        </Badge>
+                                      )}
+                                      <span className="text-muted-foreground">
+                                        scad. {formatDataIt(s.data_scadenza)}
+                                      </span>
+                                      <span className="ml-auto text-muted-foreground">
+                                        {s.cartoni_disponibili} cart. · {s.bottiglie_sfuse} sfuse
+                                        {' = '}
+                                        <span className="font-medium text-foreground">
+                                          {s.totale_bottiglie}
+                                        </span>{' '}
+                                        bott.
+                                      </span>
+                                    </div>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}

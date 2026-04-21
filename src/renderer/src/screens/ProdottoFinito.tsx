@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Box, Package, Plus } from 'lucide-react'
+import { AlertCircle, Beer, Box, Package, Plus } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -25,8 +25,21 @@ type GiacenzaCartoni = {
   bottiglie_prodotte: number
   cartoni_prodotti: number
   cartoni_disponibili: number
+  bottiglie_sfuse: number
+  totale_bottiglie: number
+  bottiglie_per_cartone: number
   data_confezionamento: string | null
 }
+
+type TogliBottiglieForm = {
+  quantita: string
+  causale: string
+}
+
+const defaultTogliBottiglieForm = (): TogliBottiglieForm => ({
+  quantita: '',
+  causale: ''
+})
 
 type GiacenzaFusti = {
   cotta_id: number
@@ -130,6 +143,13 @@ export default function ProdottoFinito(): React.JSX.Element {
   const [erroreCaricoIniziale, setErroreCaricoIniziale] = useState('')
   const [submittingCaricoIniziale, setSubmittingCaricoIniziale] = useState(false)
 
+  const [lottoTogliBottiglie, setLottoTogliBottiglie] = useState<GiacenzaCartoni | null>(null)
+  const [togliBottiglieForm, setTogliBottiglieForm] = useState<TogliBottiglieForm>(
+    defaultTogliBottiglieForm()
+  )
+  const [erroreTogliBottiglie, setErroreTogliBottiglie] = useState('')
+  const [submittingTogliBottiglie, setSubmittingTogliBottiglie] = useState(false)
+
   async function carica(): Promise<void> {
     setLoading(true)
     setErrore('')
@@ -228,8 +248,55 @@ export default function ProdottoFinito(): React.JSX.Element {
     }
   }
 
-  const { totaleCartoni, totaleFusti, lottiInScadenza } = useMemo(() => {
+  function apriDialogTogliBottiglie(lotto: GiacenzaCartoni): void {
+    setLottoTogliBottiglie(lotto)
+    setTogliBottiglieForm(defaultTogliBottiglieForm())
+    setErroreTogliBottiglie('')
+  }
+
+  function chiudiDialogTogliBottiglie(): void {
+    setLottoTogliBottiglie(null)
+    setTogliBottiglieForm(defaultTogliBottiglieForm())
+    setErroreTogliBottiglie('')
+  }
+
+  async function confermaTogliBottiglie(): Promise<void> {
+    if (!lottoTogliBottiglie) return
+    setErroreTogliBottiglie('')
+    const qtaNum = Number(togliBottiglieForm.quantita)
+    if (!Number.isFinite(qtaNum) || qtaNum <= 0) {
+      setErroreTogliBottiglie('Quantita non valida')
+      return
+    }
+    if (qtaNum > lottoTogliBottiglie.totale_bottiglie) {
+      setErroreTogliBottiglie(
+        `Quantita superiore al disponibile (${lottoTogliBottiglie.totale_bottiglie})`
+      )
+      return
+    }
+    setSubmittingTogliBottiglie(true)
+    try {
+      const res = await window.api.pf.togliBottiglie({
+        cotta_id: lottoTogliBottiglie.cotta_id,
+        quantita: Math.floor(qtaNum),
+        causale: togliBottiglieForm.causale.trim() || null
+      })
+      if (!res.ok) {
+        setErroreTogliBottiglie(res.errore)
+        return
+      }
+      chiudiDialogTogliBottiglie()
+      await carica()
+    } catch (err) {
+      setErroreTogliBottiglie(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSubmittingTogliBottiglie(false)
+    }
+  }
+
+  const { totaleCartoni, totaleBottiglieSfuse, totaleFusti, lottiInScadenza } = useMemo(() => {
     const tot = giacenze.reduce((a, c) => a + (c.cartoni_disponibili ?? 0), 0)
+    const totSfuse = giacenze.reduce((a, c) => a + (c.bottiglie_sfuse ?? 0), 0)
     const tf = fusti.reduce((a, f) => a + f.quantita_disponibile, 0)
     const ids = new Set<number>()
     for (const c of giacenze) {
@@ -242,7 +309,12 @@ export default function ProdottoFinito(): React.JSX.Element {
         ids.add(f.cotta_id)
       }
     }
-    return { totaleCartoni: tot, totaleFusti: tf, lottiInScadenza: ids.size }
+    return {
+      totaleCartoni: tot,
+      totaleBottiglieSfuse: totSfuse,
+      totaleFusti: tf,
+      lottiInScadenza: ids.size
+    }
   }, [giacenze, fusti])
 
   return (
@@ -264,7 +336,7 @@ export default function ProdottoFinito(): React.JSX.Element {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cartoni disponibili</CardTitle>
@@ -273,6 +345,17 @@ export default function ProdottoFinito(): React.JSX.Element {
           <CardContent>
             <div className="text-2xl font-semibold tabular-nums">
               {loading ? '—' : totaleCartoni}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Bottiglie sfuse</CardTitle>
+            <Beer className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-semibold tabular-nums">
+              {loading ? '—' : totaleBottiglieSfuse}
             </div>
           </CardContent>
         </Card>
@@ -301,31 +384,32 @@ export default function ProdottoFinito(): React.JSX.Element {
       </div>
 
       <section>
-        <h3 className="mb-3 text-lg font-medium text-foreground">Cartoni disponibili</h3>
+        <h3 className="mb-3 text-lg font-medium text-foreground">Cartoni e bottiglie</h3>
         <div className="overflow-x-auto rounded-lg border border-border bg-card">
-          <table className="w-full min-w-[900px] text-sm">
+          <table className="w-full min-w-[1100px] text-sm">
             <thead className="bg-secondary/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3 font-medium">Lotto</th>
                 <th className="px-4 py-3 font-medium">Birra</th>
-                <th className="px-4 py-3 font-medium">Confezionato il</th>
                 <th className="px-4 py-3 font-medium">Scadenza</th>
-                <th className="px-4 py-3 text-right font-medium">Cartoni prodotti</th>
-                <th className="px-4 py-3 text-right font-medium">Cartoni disponibili</th>
+                <th className="px-4 py-3 text-right font-medium">Cartoni interi</th>
+                <th className="px-4 py-3 text-right font-medium">Bottiglie sfuse</th>
+                <th className="px-4 py-3 text-right font-medium">Totale bottiglie</th>
                 <th className="px-4 py-3 font-medium">Stato scadenza</th>
+                <th className="px-4 py-3 text-right font-medium">Azioni</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                     Caricamento…
                   </td>
                 </tr>
               ) : giacenze.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                    Nessuna giacenza cartoni.
+                  <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                    Nessuna giacenza.
                   </td>
                 </tr>
               ) : (
@@ -339,12 +423,26 @@ export default function ProdottoFinito(): React.JSX.Element {
                       {r.birra_nome}
                       {r.stile ? <span className="text-muted-foreground"> · {r.stile}</span> : null}
                     </td>
-                    <td className="px-4 py-2.5 tabular-nums">{formatData(r.data_confezionamento)}</td>
                     <td className="px-4 py-2.5 tabular-nums">{formatData(r.data_scadenza)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums">{r.cartoni_prodotti}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums">{r.cartoni_disponibili}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums">{r.bottiglie_sfuse}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-foreground">
+                      {r.totale_bottiglie}
+                    </td>
                     <td className="px-4 py-2.5">
                       <BadgeStatoScadenza data={r.data_scadenza} />
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => apriDialogTogliBottiglie(r)}
+                        disabled={r.totale_bottiglie <= 0}
+                      >
+                        <Beer className="mr-1.5 h-3.5 w-3.5" />
+                        Togli bottiglie
+                      </Button>
                     </td>
                   </tr>
                 ))
@@ -486,6 +584,90 @@ export default function ProdottoFinito(): React.JSX.Element {
               disabled={submittingCaricoIniziale}
             >
               {submittingCaricoIniziale ? 'Salvataggio...' : 'Registra carico'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={lottoTogliBottiglie !== null}
+        onOpenChange={(open) => {
+          if (!open) chiudiDialogTogliBottiglie()
+        }}
+      >
+        <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Togli bottiglie dal lotto</DialogTitle>
+            <DialogDescription>
+              Scarico manuale di bottiglie (omaggi, scarti, ecc.). Verranno prese prima le bottiglie
+              sfuse, poi, se necessario, rotto uno o piu cartoni interi.
+            </DialogDescription>
+          </DialogHeader>
+
+          {lottoTogliBottiglie && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm">
+                <div className="font-medium text-foreground">
+                  {lottoTogliBottiglie.birra_nome} — {lottoTogliBottiglie.numero_lotto}
+                </div>
+                <div className="mt-1 text-muted-foreground">
+                  Cartoni: {lottoTogliBottiglie.cartoni_disponibili} · Bottiglie sfuse:{' '}
+                  {lottoTogliBottiglie.bottiglie_sfuse} · Totale bottiglie:{' '}
+                  <span className="font-medium text-foreground">
+                    {lottoTogliBottiglie.totale_bottiglie}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="tb_quantita">Bottiglie da togliere *</Label>
+                <Input
+                  id="tb_quantita"
+                  type="number"
+                  min={1}
+                  max={lottoTogliBottiglie.totale_bottiglie}
+                  placeholder="es. 3"
+                  value={togliBottiglieForm.quantita}
+                  onChange={(event) =>
+                    setTogliBottiglieForm((prev) => ({ ...prev, quantita: event.target.value }))
+                  }
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="tb_causale">Causale</Label>
+                <Input
+                  id="tb_causale"
+                  type="text"
+                  placeholder="omaggio, scarto, degustazione..."
+                  value={togliBottiglieForm.causale}
+                  onChange={(event) =>
+                    setTogliBottiglieForm((prev) => ({ ...prev, causale: event.target.value }))
+                  }
+                />
+              </div>
+
+              {erroreTogliBottiglie && (
+                <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                  {erroreTogliBottiglie}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={chiudiDialogTogliBottiglie}
+              disabled={submittingTogliBottiglie}
+            >
+              Annulla
+            </Button>
+            <Button
+              onClick={() => void confermaTogliBottiglie()}
+              disabled={submittingTogliBottiglie}
+            >
+              {submittingTogliBottiglie ? 'Scarico...' : 'Conferma scarico'}
             </Button>
           </DialogFooter>
         </DialogContent>

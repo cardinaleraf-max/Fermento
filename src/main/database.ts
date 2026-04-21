@@ -106,5 +106,26 @@ export function initDatabase(): BetterSqlite3.Database {
 
   bootstrap()
   ensureBackupConfigRow(db)
+  runAdditiveMigrations(db)
   return db
+}
+
+function runAdditiveMigrations(database: BetterSqlite3.Database): void {
+  try {
+    database.exec(
+      `ALTER TABLE giacenza_prodotto_finito_cartoni ADD COLUMN bottiglie_sfuse INTEGER NOT NULL DEFAULT 0`
+    )
+  } catch {
+    // colonna gia esistente su DB gia migrati
+  }
+  try {
+    database.exec(`ALTER TABLE vendite ADD COLUMN omaggio INTEGER NOT NULL DEFAULT 0`)
+  } catch {
+    // colonna gia esistente su DB gia migrati
+  }
+  try {
+    database.exec(`ALTER TABLE vendite ADD COLUMN occasione TEXT`)
+  } catch {
+    // colonna gia esistente su DB gia migrati
+  }
 }

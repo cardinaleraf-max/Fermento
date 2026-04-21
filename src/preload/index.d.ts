@@ -192,8 +192,29 @@ type GiacenzaProdottoFinitoCartoni = {
   bottiglie_prodotte: number
   cartoni_prodotti: number
   cartoni_disponibili: number
+  bottiglie_sfuse: number
+  totale_bottiglie: number
+  bottiglie_per_cartone: number
   data_confezionamento: string | null
 }
+
+type LottoBottigliaSuggerito = {
+  cotta_id: number
+  numero_lotto: string
+  data_scadenza: string
+  cartoni_disponibili: number
+  bottiglie_sfuse: number
+  totale_bottiglie: number
+  bottiglie_per_cartone: number
+}
+
+type PfTogliBottigliePayload = {
+  cotta_id: number
+  quantita: number
+  causale?: string | null
+}
+
+type PfTogliBottiglieResult = { ok: true } | { ok: false; errore: string }
 
 type GiacenzaProdottoFinitoFusti = {
   cotta_id: number
@@ -236,26 +257,32 @@ type VenditaStoricoRiga = {
   id: number
   data: string
   note: string | null
+  omaggio: number
+  occasione: string | null
   totale_cartoni: number
   totale_fusti: number
+  totale_bottiglie: number
 }
 
 type VenditaListaRiga = {
   id: number
-  cliente_id: number
+  cliente_id: number | null
   data: string
   note: string | null
   creato_il: string
-  cliente_nome: string
+  cliente_nome: string | null
+  omaggio: number
+  occasione: string | null
   totale_cartoni: number
   totale_fusti: number
+  totale_bottiglie: number
 }
 
 type VenditaDettaglioRiga = {
   id: number
   vendita_id: number
   cotta_id: number
-  tipo_prodotto: string
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia' | string
   materiale_id: number | null
   quantita: number
   birra_nome: string
@@ -276,15 +303,17 @@ type GiacenzaVenditaDisponibile = {
 
 type VenditaRigaRegistro = {
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto'
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
   materiale_id: number | null
   quantita: number
 }
 
 type VenditeRegistraPayload = {
-  cliente_id: number
+  cliente_id: number | null
   data: string
   note?: string | null
+  omaggio?: boolean
+  occasione?: string | null
   righe: VenditaRigaRegistro[]
 }
 
@@ -295,15 +324,17 @@ type VenditeRegistraResult =
 type VenditeModificaRiga = {
   id: number | null
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto'
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
   materiale_id: number | null
   quantita: number
 }
 
 type VenditeModificaPayload = {
-  cliente_id: number
+  cliente_id: number | null
   data: string
   note?: string | null
+  omaggio?: boolean
+  occasione?: string | null
   righe: VenditeModificaRiga[]
 }
 
@@ -430,6 +461,27 @@ type ReportVenditeBirraRiga = {
 
 type ReportTrendMensileRiga = { mese: string; cartoni: number; fusti: number }
 
+type ReportOmaggioRigaDettaglio = {
+  birra_nome: string
+  numero_lotto: string
+  tipo_prodotto: string
+  formato_nome: string | null
+  quantita: number
+}
+
+type ReportOmaggioRiga = {
+  id: number
+  data: string
+  note: string | null
+  occasione: string | null
+  cliente_nome: string | null
+  totale_cartoni: number
+  totale_fusti: number
+  totale_bottiglie: number
+  totale_bottiglie_equivalenti: number
+  righe: ReportOmaggioRigaDettaglio[]
+}
+
 type ConfigurazioneRiga = {
   id: number
   chiave: string
@@ -531,6 +583,8 @@ interface FermentoAPI {
     giacenzeFusti: () => Promise<GiacenzaProdottoFinitoFusti[]>
     fustiAttivi: () => Promise<FustoAttivo[]>
     caricoIniziale: (dati: CaricoInizialePayload) => Promise<CaricoInizialeResult>
+    togliBottiglie: (dati: PfTogliBottigliePayload) => Promise<PfTogliBottiglieResult>
+    suggerisciLottoBottiglie: (birra_id: number) => Promise<LottoBottigliaSuggerito[]>
   }
   clienti: {
     lista: () => Promise<ClienteConStatistiche[]>
@@ -562,6 +616,7 @@ interface FermentoAPI {
     venditePerCliente: (da: string, a: string) => Promise<ReportVenditeClienteRiga[]>
     venditePerId: (da: string, a: string) => Promise<ReportVenditeBirraRiga[]>
     trendMensile: (da: string, a: string) => Promise<ReportTrendMensileRiga[]>
+    omaggi: (da: string | null, a: string | null) => Promise<ReportOmaggioRiga[]>
   }
   impostazioni: {
     lista: () => Promise<ConfigurazioneRiga[]>

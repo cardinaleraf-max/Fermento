@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Gift } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -36,6 +38,14 @@ type ProduzioneRiga = Awaited<ReturnType<typeof window.api.report.produzione>>[n
 type VcRiga = Awaited<ReturnType<typeof window.api.report.venditePerCliente>>[number]
 type VbRiga = Awaited<ReturnType<typeof window.api.report.venditePerId>>[number]
 type TrendRiga = Awaited<ReturnType<typeof window.api.report.trendMensile>>[number]
+type OmaggioRiga = Awaited<ReturnType<typeof window.api.report.omaggi>>[number]
+
+function labelTipo(t: string): string {
+  if (t === 'cartone') return 'cartone'
+  if (t === 'fusto') return 'fusto'
+  if (t === 'bottiglia') return 'bott.'
+  return t
+}
 
 export default function Report(): React.JSX.Element {
   const iniziale = useMemo(() => defaultRange(), [])
@@ -45,6 +55,7 @@ export default function Report(): React.JSX.Element {
   const [venditeCli, setVenditeCli] = useState<VcRiga[]>([])
   const [venditeBir, setVenditeBir] = useState<VbRiga[]>([])
   const [trend, setTrend] = useState<TrendRiga[]>([])
+  const [omaggi, setOmaggi] = useState<OmaggioRiga[]>([])
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState<string | null>(null)
 
@@ -52,26 +63,34 @@ export default function Report(): React.JSX.Element {
     setCaricamento(true)
     setErrore(null)
     try {
-      const [p, vc, vb, t] = await Promise.all([
+      const [p, vc, vb, t, om] = await Promise.all([
         window.api.report.produzione(da, a),
         window.api.report.venditePerCliente(da, a),
         window.api.report.venditePerId(da, a),
-        window.api.report.trendMensile(da, a)
+        window.api.report.trendMensile(da, a),
+        window.api.report.omaggi(da, a)
       ])
       setProduzione(p)
       setVenditeCli(vc)
       setVenditeBir(vb)
       setTrend(t)
+      setOmaggi(om)
     } catch (e) {
       setErrore(e instanceof Error ? e.message : 'Errore caricamento report')
       setProduzione([])
       setVenditeCli([])
       setVenditeBir([])
       setTrend([])
+      setOmaggi([])
     } finally {
       setCaricamento(false)
     }
   }, [da, a])
+
+  const totaleOmaggiEquivalenti = useMemo(
+    () => omaggi.reduce((sum, r) => sum + (r.totale_bottiglie_equivalenti || 0), 0),
+    [omaggi]
+  )
 
   useEffect(() => {
     void carica()
@@ -256,6 +275,107 @@ export default function Report(): React.JSX.Element {
                 </tr>
               )}
             </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Gift className="h-4 w-4 text-amber-400" />
+            Omaggi
+          </h3>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span>
+              <span className="font-semibold text-foreground">{omaggi.length}</span> nel periodo
+            </span>
+            <span>
+              Totale bottiglie equivalenti:{' '}
+              <span className="font-semibold text-amber-400">
+                {intg(totaleOmaggiEquivalenti)}
+              </span>
+            </span>
+          </div>
+        </div>
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
+          <table className="w-full min-w-[820px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-border bg-secondary/40 text-left text-muted-foreground">
+                <th className="p-3 font-medium">Data</th>
+                <th className="p-3 font-medium">Cliente</th>
+                <th className="p-3 font-medium">Occasione</th>
+                <th className="p-3 font-medium">Dettaglio prodotti</th>
+                <th className="p-3 text-right font-medium">Bott. equivalenti</th>
+              </tr>
+            </thead>
+            <tbody>
+              {caricamento && (
+                <tr>
+                  <td colSpan={5} className="p-4 text-muted-foreground">…</td>
+                </tr>
+              )}
+              {!caricamento &&
+                omaggi.map((r) => (
+                  <tr key={r.id} className="border-b border-border/50 align-top">
+                    <td className="p-3 text-foreground/80 whitespace-nowrap">
+                      {fmtDataIt(r.data)}
+                    </td>
+                    <td className="p-3 font-medium text-foreground">
+                      {r.cliente_nome ?? '—'}
+                    </td>
+                    <td className="p-3 text-foreground/80">
+                      {r.occasione ? (
+                        <Badge className="bg-amber-500/15 text-amber-400 hover:bg-amber-500/20">
+                          {r.occasione}
+                        </Badge>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td className="p-3 text-foreground/80">
+                      {r.righe.length === 0 ? (
+                        <span className="text-muted-foreground">—</span>
+                      ) : (
+                        <ul className="space-y-0.5">
+                          {r.righe.map((x, i) => (
+                            <li key={i} className="text-xs">
+                              <span className="font-medium text-foreground">{x.birra_nome}</span>{' '}
+                              <span className="text-muted-foreground">
+                                ({x.numero_lotto}) — {intg(x.quantita)} {labelTipo(x.tipo_prodotto)}
+                                {x.tipo_prodotto === 'fusto' && x.formato_nome
+                                  ? ` ${x.formato_nome}`
+                                  : ''}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </td>
+                    <td className="p-3 text-right tabular-nums text-foreground/80">
+                      {intg(r.totale_bottiglie_equivalenti)}
+                    </td>
+                  </tr>
+                ))}
+              {!caricamento && omaggi.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="p-4 text-muted-foreground">
+                    Nessun omaggio nel periodo
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {!caricamento && omaggi.length > 0 && (
+              <tfoot>
+                <tr className="border-t border-border bg-secondary/30 text-foreground">
+                  <td className="p-3 font-medium" colSpan={4}>
+                    Totale {omaggi.length} omaggi
+                  </td>
+                  <td className="p-3 text-right font-semibold tabular-nums text-amber-400">
+                    {intg(totaleOmaggiEquivalenti)}
+                  </td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </section>

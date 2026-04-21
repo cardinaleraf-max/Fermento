@@ -68,32 +68,44 @@ type ClientePayload = {
 
 type VenditaRigaRegistro = {
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto'
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
   materiale_id: number | null
   quantita: number
 }
 
 type VenditeRegistraPayload = {
-  cliente_id: number
+  cliente_id: number | null
   data: string
   note?: string | null
+  omaggio?: boolean
+  occasione?: string | null
   righe: VenditaRigaRegistro[]
 }
 
 type VenditeModificaRiga = {
   id: number | null
   cotta_id: number
-  tipo_prodotto: 'cartone' | 'fusto'
+  tipo_prodotto: 'cartone' | 'fusto' | 'bottiglia'
   materiale_id: number | null
   quantita: number
 }
 
+type PfTogliBottigliePayload = {
+  cotta_id: number
+  quantita: number
+  causale?: string | null
+}
+
 type VenditeModificaPayload = {
-  cliente_id: number
+  cliente_id: number | null
   data: string
   note?: string | null
+  omaggio?: boolean
+  occasione?: string | null
   righe: VenditeModificaRiga[]
 }
+
+type ReportOmaggiPeriodo = { da?: string | null; a?: string | null }
 
 type ModificaLottoPayload = {
   data_scadenza: string
@@ -180,7 +192,11 @@ const api = {
     giacenzeFusti: () => ipcRenderer.invoke('pf:giacenze-fusti'),
     fustiAttivi: () => ipcRenderer.invoke('pf:fusti-attivi'),
     caricoIniziale: (dati: CaricoInizialePayload) =>
-      ipcRenderer.invoke('pf:carico-iniziale', dati)
+      ipcRenderer.invoke('pf:carico-iniziale', dati),
+    togliBottiglie: (dati: PfTogliBottigliePayload) =>
+      ipcRenderer.invoke('pf:togli-bottiglie', dati),
+    suggerisciLottoBottiglie: (birra_id: number) =>
+      ipcRenderer.invoke('pf:suggerisci-lotto-bottiglie', birra_id)
   },
   clienti: {
     lista: () => ipcRenderer.invoke('clienti:lista'),
@@ -212,7 +228,9 @@ const api = {
     produzione: (da: string, a: string) => ipcRenderer.invoke('report:produzione', { da, a } as ReportPeriodo),
     venditePerCliente: (da: string, a: string) => ipcRenderer.invoke('report:vendite-per-cliente', { da, a } as ReportPeriodo),
     venditePerId: (da: string, a: string) => ipcRenderer.invoke('report:vendite-per-birra', { da, a } as ReportPeriodo),
-    trendMensile: (da: string, a: string) => ipcRenderer.invoke('report:trend-mensile', { da, a } as ReportPeriodo)
+    trendMensile: (da: string, a: string) => ipcRenderer.invoke('report:trend-mensile', { da, a } as ReportPeriodo),
+    omaggi: (da: string | null, a: string | null) =>
+      ipcRenderer.invoke('report:omaggi', { da, a } as ReportOmaggiPeriodo)
   },
   impostazioni: {
     lista: () => ipcRenderer.invoke('impostazioni:lista'),
