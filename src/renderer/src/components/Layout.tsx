@@ -12,6 +12,7 @@ import {
   Warehouse
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BiraLauncher } from './BiraLauncher'
 
 export type Sezione =
   | 'dashboard'
@@ -145,6 +146,8 @@ export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutPro
             </span>
           </button>
         </div>
+
+        <BiraLauncher />
       </aside>
 
       <div className="ml-56 flex min-h-screen flex-1 flex-col">

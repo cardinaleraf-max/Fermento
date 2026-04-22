@@ -146,6 +146,31 @@ type SalvaRicettaPayload = {
 }
 type CambiaPasswordPayload = { password_attuale: string; password_nuova: string }
 
+type AiTurnoMessaggio =
+  | { ruolo: 'user'; contenuto: string }
+  | { ruolo: 'assistant'; contenuto: string }
+
+type AiChatRichiesta = {
+  conversazioneId: string
+  cronologia: AiTurnoMessaggio[]
+}
+
+type AiEvento =
+  | { tipo: 'inizio'; modello: string }
+  | { tipo: 'tool_call'; nome: string; argomenti: Record<string, unknown> }
+  | { tipo: 'tool_risultato'; nome: string; ok: boolean; anteprima: string }
+  | { tipo: 'risposta'; testo: string }
+  | { tipo: 'errore'; messaggio: string }
+  | { tipo: 'fine' }
+
+type AiEventoPayload = { conversazioneId: string; evento: AiEvento }
+
+type AiNavigaPayload = {
+  conversazioneId: string
+  sezione: string
+  motivo: string | null
+}
+
 // Custom APIs for renderer
 const api = {
   login: {
@@ -251,6 +276,28 @@ const api = {
     configuraPercorso: (percorso: string) => ipcRenderer.invoke('backup:configura-percorso', { percorso }),
     lista: () => ipcRenderer.invoke('backup:lista'),
     ripristina: (percorsoFile: string) => ipcRenderer.invoke('backup:ripristina', { percorso_file: percorsoFile })
+  },
+  ai: {
+    health: () => ipcRenderer.invoke('ai:health'),
+    listaModelli: () => ipcRenderer.invoke('ai:lista-modelli'),
+    listaTool: () => ipcRenderer.invoke('ai:lista-tool'),
+    avvisiIntelligenti: () => ipcRenderer.invoke('ai:avvisi-intelligenti'),
+    chat: (richiesta: AiChatRichiesta) => ipcRenderer.send('ai:chat', richiesta),
+    annulla: (conversazioneId: string) => ipcRenderer.send('ai:annulla', conversazioneId),
+    onEvento: (handler: (payload: AiEventoPayload) => void) => {
+      const listener = (_event: unknown, payload: AiEventoPayload): void => handler(payload)
+      ipcRenderer.on('ai:evento', listener)
+      return () => {
+        ipcRenderer.removeListener('ai:evento', listener)
+      }
+    },
+    onNaviga: (handler: (payload: AiNavigaPayload) => void) => {
+      const listener = (_event: unknown, payload: AiNavigaPayload): void => handler(payload)
+      ipcRenderer.on('ai:naviga', listener)
+      return () => {
+        ipcRenderer.removeListener('ai:naviga', listener)
+      }
+    }
   }
 }
 

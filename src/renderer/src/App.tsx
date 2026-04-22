@@ -12,6 +12,7 @@ import Vendite from './screens/Vendite'
 import Avvisi from './screens/Avvisi'
 import Report from './screens/Report'
 import Impostazioni from './screens/Impostazioni'
+import { ProposteNavigazione } from './components/ProposteNavigazione'
 
 function App(): React.JSX.Element {
   const [stato, setStato] = useState<'loading' | 'login' | 'app'>('loading')
@@ -60,6 +61,7 @@ function App(): React.JSX.Element {
 
   return (
     <Layout sezioneCorrente={sezioneCorrente} onSezioneChange={setSezioneCorrente}>
+      <ProposteNavigazione onNaviga={setSezioneCorrente} />
       {sezioneCorrente === 'dashboard' && <Dashboard onVaiAvvisi={() => setSezioneCorrente('avvisi')} />}
       {sezioneCorrente === 'magazzino-mp' && <MagazzinoMP />}
       {sezioneCorrente === 'magazzino-conf' && <MagazzinoConf />}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Sparkles } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,25 +15,34 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-type TabId = 'parametri' | 'birre' | 'sicurezza' | 'backup'
+type TabId = 'parametri' | 'assistente' | 'birre' | 'sicurezza' | 'backup'
 
 type ConfigRiga = Awaited<ReturnType<typeof window.api.impostazioni.lista>>[number]
+type AiHealth = Awaited<ReturnType<typeof window.api.ai.health>>
 type BirraRiga = Awaited<ReturnType<typeof window.api.impostazioni.birre>>[number]
 type RicettaRiga = Awaited<ReturnType<typeof window.api.impostazioni.ricetta>>[number]
 type MpRiga = Awaited<ReturnType<typeof window.api.mp.lista>>[number]
 
 type IngredienteBozza = { materia_prima_id: number; quantita: number; note: string }
 
-const tabs: { id: TabId; label: string }[] = [
+const tabs: { id: TabId; label: string; icon?: typeof Sparkles }[] = [
   { id: 'parametri', label: 'Parametri' },
+  { id: 'assistente', label: 'Assistente AI', icon: Sparkles },
   { id: 'birre', label: 'Birre e ricette' },
   { id: 'sicurezza', label: 'Sicurezza' },
   { id: 'backup', label: 'Backup' }
 ]
 
-function groupByCategoria(items: ConfigRiga[]): Map<string, ConfigRiga[]> {
+const CAT_ASSISTENTE = 'assistente_ai'
+
+function groupByCategoria(
+  items: ConfigRiga[],
+  options?: { escludiCategorie?: string[] }
+): Map<string, ConfigRiga[]> {
+  const skip = new Set(options?.escludiCategorie ?? [])
   const m = new Map<string, ConfigRiga[]>()
   for (const c of items) {
+    if (c.categoria && skip.has(c.categoria)) continue
     const key = c.categoria || 'Altro'
     const list = m.get(key) ?? []
     list.push(c)
@@ -75,6 +84,9 @@ export default function Impostazioni(): React.JSX.Element {
   const [eseguendoBackup, setEseguendoBackup] = useState(false)
   const [msgBackup, setMsgBackup] = useState<string | null>(null)
   const [errBackup, setErrBackup] = useState<string | null>(null)
+
+  const [aiHealth, setAiHealth] = useState<AiHealth | null>(null)
+  const [aiHealthLoad, setAiHealthLoad] = useState(false)
 
   const caricaStoricoBackup = useCallback(async () => {
     setErrBackup(null)
@@ -135,6 +147,38 @@ export default function Impostazioni(): React.JSX.Element {
     }
   }, [tab, caricaConfig, caricaStoricoBackup])
 
+  useEffect(() => {
+    if (tab !== 'assistente') return
+    void caricaConfig()
+  }, [tab, caricaConfig])
+
+  const caricaAiHealth = useCallback(async () => {
+    setAiHealthLoad(true)
+    try {
+      setAiHealth(await window.api.ai.health())
+    } catch (e) {
+      setAiHealth({
+        abilitato: true,
+        provider: 'ollama',
+        url: '',
+        modello: '',
+        remoto: false,
+        raggiungibile: false,
+        errore: e instanceof Error ? e.message : 'Impossibile contattare l’assistente'
+      })
+    } finally {
+      setAiHealthLoad(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (tab !== 'assistente') {
+      setAiHealth(null)
+      return
+    }
+    void caricaAiHealth()
+  }, [tab, caricaAiHealth])
+
   const ricaricaRicetta = useCallback(
     async (birraId: number) => {
       try {
@@ -160,7 +204,18 @@ export default function Impostazioni(): React.JSX.Element {
     }
   }, [selezionata, ricaricaRicetta])
 
-  const grouped = useMemo(() => groupByCategoria(config), [config])
+  const groupedParametri = useMemo(
+    () => groupByCategoria(config, { escludiCategorie: [CAT_ASSISTENTE] }),
+    [config]
+  )
+
+  const righeAssistente = useMemo(
+    () =>
+      config
+        .filter((c) => c.categoria === CAT_ASSISTENTE)
+        .sort((a, b) => (a.etichetta || a.chiave).localeCompare(b.etichetta || b.chiave, 'it')),
+    [config]
+  )
 
   const salvaParam = async (r: ConfigRiga) => {
     setSavingKey(r.chiave)
@@ -169,6 +224,9 @@ export default function Impostazioni(): React.JSX.Element {
       const v = valori[r.chiave] ?? r.valore
       await window.api.impostazioni.aggiorna(r.chiave, v)
       await caricaConfig()
+      if (r.categoria === CAT_ASSISTENTE && tab === 'assistente') {
+        void caricaAiHealth()
+      }
     } catch (e) {
       setErrParam(e instanceof Error ? e.message : 'Salvataggio non riuscito')
     } finally {
@@ -343,19 +401,23 @@ export default function Impostazioni(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="inline-flex flex-wrap gap-1 rounded-md border border-border bg-secondary/50 p-1">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={cn(
-              'rounded px-3 py-1.5 text-sm font-medium',
-              tab === t.id ? 'bg-secondary text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+        {tabs.map((t) => {
+          const Icon = t.icon
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium',
+                tab === t.id ? 'bg-secondary text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden /> : null}
+              {t.label}
+            </button>
+          )
+        })}
       </div>
 
       {tab === 'parametri' && (
@@ -365,7 +427,7 @@ export default function Impostazioni(): React.JSX.Element {
               {errParam}
             </p>
           )}
-          {[...grouped.entries()]
+          {[...groupedParametri.entries()]
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([categoria, righe]) => (
               <Card key={categoria}>
@@ -375,6 +437,8 @@ export default function Impostazioni(): React.JSX.Element {
                 <CardContent className="space-y-4">
                   {righe.map((r) => {
                     const isInt = r.tipo === 'int' || r.tipo === 'number'
+                    const isPassword = r.tipo === 'password' || r.tipo === 'secret'
+                    const inputType = isInt ? 'number' : isPassword ? 'password' : 'text'
                     return (
                       <div
                         key={r.id}
@@ -384,23 +448,17 @@ export default function Impostazioni(): React.JSX.Element {
                           <Label htmlFor={`v-${r.chiave}`}>
                             {r.etichetta || r.chiave}
                           </Label>
-                          {isInt ? (
-                            <Input
-                              id={`v-${r.chiave}`}
-                              type="number"
-                              className="mt-1"
-                              value={valori[r.chiave] ?? r.valore}
-                              onChange={(e) => setValori((prev) => ({ ...prev, [r.chiave]: e.target.value }))}
-                            />
-                          ) : (
-                            <Input
-                              id={`v-${r.chiave}`}
-                              type="text"
-                              className="mt-1"
-                              value={valori[r.chiave] ?? r.valore}
-                              onChange={(e) => setValori((prev) => ({ ...prev, [r.chiave]: e.target.value }))}
-                            />
-                          )}
+                          <Input
+                            id={`v-${r.chiave}`}
+                            type={inputType}
+                            className="mt-1"
+                            autoComplete={isPassword ? 'new-password' : undefined}
+                            placeholder={isPassword ? '••••••••••••••••' : undefined}
+                            value={valori[r.chiave] ?? r.valore}
+                            onChange={(e) =>
+                              setValori((prev) => ({ ...prev, [r.chiave]: e.target.value }))
+                            }
+                          />
                         </div>
                         <Button
                           type="button"
@@ -416,6 +474,117 @@ export default function Impostazioni(): React.JSX.Element {
                 </CardContent>
               </Card>
             ))}
+        </div>
+      )}
+
+      {tab === 'assistente' && (
+        <div className="space-y-4">
+          {errParam && (
+            <p className="text-sm text-red-400" role="alert">
+              {errParam}
+            </p>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Assistente Bira</CardTitle>
+              <CardDescription>
+                Modello in locale (Ollama) o in cloud (Groq). I parametri sotto riguardano provider, chiavi e limiti. Per
+                la chat usa il launcher in basso a sinistra nella barra laterale.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {aiHealthLoad && (
+                <p className="text-sm text-muted-foreground" role="status">
+                  Verifica connessione…
+                </p>
+              )}
+              {!aiHealthLoad && aiHealth && (() => {
+                const h = aiHealth
+                const nomeProvider = h.provider === 'groq' ? 'Groq' : 'Ollama'
+                const pronto = h.abilitato && h.raggiungibile
+                const titolo = !h.abilitato
+                  ? 'Disabilitato'
+                  : h.raggiungibile
+                    ? 'Pronto'
+                    : `${nomeProvider} non raggiungibile`
+                const sottotesto = h.errore
+                  ?? (pronto
+                    ? `Online · ${h.modello || 'modello sconosciuto'}`
+                    : h.provider === 'groq'
+                      ? 'Verifica API key e internet.'
+                      : h.url
+                        ? `Controlla Ollama su ${h.url}`
+                        : 'Avvia Ollama o passa a Groq.')
+                return (
+                  <div
+                    className={cn(
+                      'mb-4 rounded-md border px-3 py-2 text-sm',
+                      pronto
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                    )}
+                    role="status"
+                  >
+                    <span className="font-medium">{titolo}</span>
+                    <span className="text-foreground/80"> — {sottotesto}</span>
+                    {h.abilitato && (
+                      <div className="mt-1 text-xs text-foreground/60">
+                        Provider: {nomeProvider} · {h.remoto ? 'cloud' : 'locale'}
+                        {h.url ? ` · ${h.url}` : ''}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+            </CardContent>
+          </Card>
+
+          {righeAssistente.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nessun parametro assistente in database (controlla la migrazione).</p>
+          )}
+
+          {righeAssistente.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Parametri</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {righeAssistente.map((r) => {
+                  const isInt = r.tipo === 'int' || r.tipo === 'number'
+                  const isPassword = r.tipo === 'password' || r.tipo === 'secret'
+                  const inputType = isInt ? 'number' : isPassword ? 'password' : 'text'
+                  return (
+                    <div
+                      key={r.id}
+                      className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <Label htmlFor={`a-${r.chiave}`}>{r.etichetta || r.chiave}</Label>
+                        <Input
+                          id={`a-${r.chiave}`}
+                          type={inputType}
+                          className="mt-1"
+                          autoComplete={isPassword ? 'new-password' : undefined}
+                          placeholder={isPassword ? '••••••••••••••••' : undefined}
+                          value={valori[r.chiave] ?? r.valore}
+                          onChange={(e) => setValori((prev) => ({ ...prev, [r.chiave]: e.target.value }))}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        className="shrink-0"
+                        disabled={savingKey === r.chiave}
+                        onClick={() => void salvaParam(r)}
+                      >
+                        {savingKey === r.chiave ? 'Salva…' : 'Salva'}
+                      </Button>
+                    </div>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 

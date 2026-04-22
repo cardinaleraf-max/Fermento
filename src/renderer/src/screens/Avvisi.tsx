@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { ConsigliIntelligenti } from '@/components/ConsigliIntelligenti'
 
 type AvvisoRiga = Awaited<ReturnType<typeof window.api.avvisi.lista>>[number]
 
@@ -108,6 +109,8 @@ export default function Avvisi(): React.JSX.Element {
 
   return (
     <div className="space-y-6">
+      <ConsigliIntelligenti />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="space-y-2">
           <Label htmlFor="filtro-avvisi-tipo">Tipo</Label>

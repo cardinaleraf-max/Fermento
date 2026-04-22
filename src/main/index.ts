@@ -6,6 +6,7 @@ import { autoUpdater } from 'electron-updater'
 import bcrypt from 'bcryptjs'
 import icon from '../../resources/icon.png?asset'
 import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenDatabaseConnection } from './database'
+import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -3117,6 +3118,8 @@ app.whenReady().then(() => {
   })
 
   initDatabase()
+  ensureAiConfigRows(db)
+  registerAiIpcHandlers(() => db)
   registerMpIpcHandlers()
   registerConfIpcHandlers()
   registerProduzioneIpcHandlers()

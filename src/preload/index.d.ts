@@ -525,6 +525,97 @@ type BackupLogRiga = {
   messaggio_errore: string | null
 }
 
+type AiTurnoMessaggio =
+  | { ruolo: 'user'; contenuto: string }
+  | { ruolo: 'assistant'; contenuto: string }
+
+type AiChatRichiesta = {
+  conversazioneId: string
+  cronologia: AiTurnoMessaggio[]
+}
+
+type AiEvento =
+  | { tipo: 'inizio'; modello: string }
+  | { tipo: 'tool_call'; nome: string; argomenti: Record<string, unknown> }
+  | { tipo: 'tool_risultato'; nome: string; ok: boolean; anteprima: string }
+  | { tipo: 'risposta'; testo: string }
+  | { tipo: 'errore'; messaggio: string }
+  | { tipo: 'fine' }
+
+type AiEventoPayload = { conversazioneId: string; evento: AiEvento }
+
+type AiNavigaPayload = {
+  conversazioneId: string
+  sezione: string
+  motivo: string | null
+}
+
+type AiProviderTipo = 'ollama' | 'groq'
+
+type AiHealth = {
+  abilitato: boolean
+  provider: AiProviderTipo
+  url: string
+  modello: string
+  /** true se il provider e' cloud (dati escono dal PC). */
+  remoto: boolean
+  raggiungibile: boolean
+  errore: string | null
+}
+
+type AiListaModelliResult =
+  | { ok: true; modelli: string[] }
+  | { ok: false; errore: string }
+
+type AiListaToolResult = {
+  tutti: string[]
+  disponibili: string[]
+  bloccati_cloud: string[]
+  modalita_cloud: boolean
+}
+
+type AiRaccomandazionePriorita = 'critica' | 'alta' | 'media' | 'bassa'
+type AiRaccomandazioneAzioneTipo =
+  | 'riordina'
+  | 'produci'
+  | 'promo'
+  | 'sconta'
+  | 'vendi'
+  | 'revisiona'
+  | 'altro'
+type AiRaccomandazioneEntitaTipo = 'mp' | 'birra' | 'conf' | 'cliente'
+
+type AiRaccomandazioneAzione = {
+  tipo: AiRaccomandazioneAzioneTipo
+  testo: string
+}
+
+type AiRaccomandazioneRiferimento = {
+  tipo: AiRaccomandazioneEntitaTipo
+  id: number
+  nome: string
+}
+
+type AiRaccomandazione = {
+  priorita: AiRaccomandazionePriorita
+  titolo: string
+  descrizione: string
+  azioni: AiRaccomandazioneAzione[]
+  riferimenti: AiRaccomandazioneRiferimento[]
+  segnali_ids: number[]
+}
+
+type AiAvvisiIntelligentiResult =
+  | {
+      ok: true
+      generato_il: string
+      modello: string
+      remoto: boolean
+      raccomandazioni: AiRaccomandazione[]
+      segnali_analizzati: number
+    }
+  | { ok: false; errore: string }
+
 interface FermentoAPI {
   login: {
     verifica: (password: string) => Promise<LoginResponse>
@@ -624,6 +715,16 @@ interface FermentoAPI {
     configuraPercorso: (percorso: string) => Promise<{ ok: true }>
     lista: () => Promise<BackupLogRiga[]>
     ripristina: (percorsoFile: string) => Promise<BackupRipristinaResult>
+  }
+  ai: {
+    health: () => Promise<AiHealth>
+    listaModelli: () => Promise<AiListaModelliResult>
+    listaTool: () => Promise<AiListaToolResult>
+    avvisiIntelligenti: () => Promise<AiAvvisiIntelligentiResult>
+    chat: (richiesta: AiChatRichiesta) => void
+    annulla: (conversazioneId: string) => void
+    onEvento: (handler: (payload: AiEventoPayload) => void) => () => void
+    onNaviga: (handler: (payload: AiNavigaPayload) => void) => () => void
   }
 }
 
