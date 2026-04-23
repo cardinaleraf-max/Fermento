@@ -26,6 +26,8 @@ const createTableStatements = [
   `CREATE TABLE IF NOT EXISTS confezionamento_fusti (id INTEGER PRIMARY KEY, confezionamento_id INTEGER, materiale_id INTEGER, quantita INTEGER, FOREIGN KEY (confezionamento_id) REFERENCES confezionamento(id), FOREIGN KEY (materiale_id) REFERENCES materiali_confezionamento(id));`,
   `CREATE TABLE IF NOT EXISTS giacenza_prodotto_finito_cartoni (id INTEGER PRIMARY KEY, cotta_id INTEGER UNIQUE, cartoni_disponibili INTEGER, FOREIGN KEY (cotta_id) REFERENCES cotte(id));`,
   `CREATE TABLE IF NOT EXISTS giacenza_prodotto_finito_fusti (id INTEGER PRIMARY KEY, cotta_id INTEGER, materiale_id INTEGER, quantita_disponibile INTEGER, FOREIGN KEY (cotta_id) REFERENCES cotte(id), FOREIGN KEY (materiale_id) REFERENCES materiali_confezionamento(id));`,
+  `CREATE TABLE IF NOT EXISTS altri_prodotti (id INTEGER PRIMARY KEY, nome TEXT UNIQUE, attivo INTEGER DEFAULT 1, creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP, aggiornato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP);`,
+  `CREATE TABLE IF NOT EXISTS giacenza_altri_prodotti (id INTEGER PRIMARY KEY, altro_prodotto_id INTEGER UNIQUE, quantita_disponibile INTEGER NOT NULL DEFAULT 0, ultimo_aggiornamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (altro_prodotto_id) REFERENCES altri_prodotti(id));`,
   `CREATE TABLE IF NOT EXISTS vendite (id INTEGER PRIMARY KEY, cliente_id INTEGER, data DATE, note TEXT, creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (cliente_id) REFERENCES clienti(id));`,
   `CREATE TABLE IF NOT EXISTS vendita_dettaglio (id INTEGER PRIMARY KEY, vendita_id INTEGER, cotta_id INTEGER, tipo_prodotto TEXT, materiale_id INTEGER, quantita INTEGER, FOREIGN KEY (vendita_id) REFERENCES vendite(id), FOREIGN KEY (cotta_id) REFERENCES cotte(id));`,
   `CREATE TABLE IF NOT EXISTS avvisi (id INTEGER PRIMARY KEY, tipo TEXT, riferimento_tabella TEXT, riferimento_id INTEGER, messaggio TEXT, data_generazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP, letto INTEGER DEFAULT 0, risolto INTEGER DEFAULT 0, priorita TEXT);`
@@ -125,6 +127,16 @@ function runAdditiveMigrations(database: BetterSqlite3.Database): void {
   }
   try {
     database.exec(`ALTER TABLE vendite ADD COLUMN occasione TEXT`)
+  } catch {
+    // colonna gia esistente su DB gia migrati
+  }
+  try {
+    database.exec(`ALTER TABLE vendita_dettaglio ADD COLUMN altro_prodotto_id INTEGER`)
+  } catch {
+    // colonna gia esistente su DB gia migrati
+  }
+  try {
+    database.exec(`ALTER TABLE vendita_dettaglio ADD COLUMN omaggio INTEGER NOT NULL DEFAULT 0`)
   } catch {
     // colonna gia esistente su DB gia migrati
   }

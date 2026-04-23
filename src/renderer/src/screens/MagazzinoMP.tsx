@@ -119,6 +119,7 @@ export default function MagazzinoMP(): React.JSX.Element {
   const [erroreModal, setErroreModal] = useState('')
   const [dialogNuovaOpen, setDialogNuovaOpen] = useState(false)
   const [dialogModificaOpen, setDialogModificaOpen] = useState(false)
+  const [dialogEliminaMateriaOpen, setDialogEliminaMateriaOpen] = useState(false)
   const [dialogCaricoOpen, setDialogCaricoOpen] = useState(false)
   const [materiaForm, setMateriaForm] = useState<MateriaPrimaForm>(defaultMateriaPrimaForm)
   const [caricoForm, setCaricoForm] = useState<CaricoForm>(defaultCaricoForm)
@@ -236,6 +237,12 @@ export default function MagazzinoMP(): React.JSX.Element {
     setDialogModificaOpen(true)
   }
 
+  const openEliminaMateriaDialog = (): void => {
+    if (!materiaSelezionataId) return
+    setErroreModal('')
+    setDialogEliminaMateriaOpen(true)
+  }
+
   const openCaricoDialog = (): void => {
     if (!materiaSelezionataId) return
     setErroreModal('')
@@ -279,6 +286,26 @@ export default function MagazzinoMP(): React.JSX.Element {
       await loadLotti(materiaSelezionataId)
     } catch {
       setErroreModal("Errore durante l'aggiornamento")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEliminaMateriaPrima = async (): Promise<void> => {
+    if (!materiaSelezionataId) return
+    setIsSubmitting(true)
+    setErroreModal('')
+    try {
+      const result = await window.api.mp.eliminaMateria(materiaSelezionataId)
+      if (!result.ok) {
+        setErroreModal(result.errore)
+        return
+      }
+      setDialogEliminaMateriaOpen(false)
+      setDialogModificaOpen(false)
+      await loadMateriePrime()
+    } catch {
+      setErroreModal("Errore durante l'eliminazione della materia prima")
     } finally {
       setIsSubmitting(false)
     }
@@ -591,11 +618,60 @@ export default function MagazzinoMP(): React.JSX.Element {
           <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
           {erroreModal && <ModalError message={erroreModal} />}
           <DialogFooter>
+            <Button
+              variant="outline"
+              className="mr-auto text-red-400 hover:text-red-300"
+              onClick={openEliminaMateriaDialog}
+              disabled={isSubmitting}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Elimina
+            </Button>
             <Button variant="outline" onClick={() => setDialogModificaOpen(false)}>
               Annulla
             </Button>
             <Button onClick={handleAggiornaMateriaPrima} disabled={isSubmitting}>
               Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialogEliminaMateriaOpen}
+        onOpenChange={(open) => {
+          setDialogEliminaMateriaOpen(open)
+        }}
+      >
+        <DialogContent className="max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Elimina materia prima</DialogTitle>
+            <DialogDescription>
+              Confermi l&apos;eliminazione della materia prima selezionata? L&apos;operazione e consentita solo se non
+              usata in ricette, produzione o lotti.
+            </DialogDescription>
+          </DialogHeader>
+          {materiaSelezionata && (
+            <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm">
+              <div>
+                <span className="font-medium text-foreground/80">Nome:</span> {materiaSelezionata.nome}
+              </div>
+              <div>
+                <span className="font-medium text-foreground/80">Categoria:</span> {materiaSelezionata.categoria}
+              </div>
+            </div>
+          )}
+          {erroreModal && <ModalError message={erroreModal} />}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogEliminaMateriaOpen(false)}>
+              Annulla
+            </Button>
+            <Button
+              onClick={handleEliminaMateriaPrima}
+              disabled={isSubmitting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Elimina
             </Button>
           </DialogFooter>
         </DialogContent>

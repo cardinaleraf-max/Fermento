@@ -93,6 +93,11 @@ type ConfAggiornaSogliaPayload = {
   soglia_riordino: number
 }
 
+type ConfAggiornaMaterialePayload = {
+  nome: string
+  soglia_riordino: number
+}
+
 type ConfCreaMaterialePayload = {
   nome: string
   categoria: string
@@ -210,6 +215,26 @@ type LottoFustoSuggerito = {
   quantita_disponibile: number
 }
 
+type AltroProdottoGiacenza = {
+  id: number
+  nome: string
+  quantita_disponibile: number
+}
+
+type CreaAltroProdottoPayload = {
+  nome: string
+  quantita_iniziale: number
+}
+
+type CreaAltroProdottoResult = { ok: true; id: number } | { ok: false; errore: string }
+
+type AggiornaGiacenzaAltroProdottoPayload = {
+  altro_prodotto_id: number
+  quantita_disponibile: number
+}
+
+type AggiornaGiacenzaAltroProdottoResult = { ok: true } | { ok: false; errore: string }
+
 type PfTogliBottigliePayload = {
   cotta_id: number
   quantita: number
@@ -276,18 +301,22 @@ type VenditaListaRiga = {
   occasione: string | null
   totale_fusti: number
   totale_bottiglie: number
+  totale_altri: number
 }
 
 type VenditaDettaglioRiga = {
   id: number
   vendita_id: number
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id: number | null
   quantita: number
-  birra_nome: string
-  numero_lotto: string
+  birra_nome: string | null
+  numero_lotto: string | null
   formato_nome: string | null
+  altro_prodotto_nome: string | null
+  omaggio: number
 }
 
 type GiacenzaVenditaDisponibile = {
@@ -302,9 +331,11 @@ type GiacenzaVenditaDisponibile = {
 }
 
 type VenditaRigaRegistro = {
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id?: number | null
+  omaggio?: boolean
   quantita: number
 }
 
@@ -323,9 +354,11 @@ type VenditeRegistraResult =
 
 type VenditeModificaRiga = {
   id: number | null
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id?: number | null
+  omaggio?: boolean
   quantita: number
 }
 
@@ -350,6 +383,7 @@ type ModificaLottoPayload = {
 
 type ModificaLottoResult = { ok: true } | { ok: false; errore: string }
 type EliminaLottoResult = { ok: true } | { ok: false; errore: string }
+type EliminaMateriaResult = { ok: true } | { ok: false; errore: string }
 
 type ModificaMovimentoConfPayload = {
   quantita: number
@@ -358,6 +392,8 @@ type ModificaMovimentoConfPayload = {
 
 type ModificaMovimentoConfResult = { ok: true } | { ok: false; errore: string }
 type EliminaMovimentoConfResult = { ok: true } | { ok: false; errore: string }
+type AggiornaMaterialeConfResult = { ok: true } | { ok: false; errore: string }
+type EliminaMaterialeConfResult = { ok: true } | { ok: false; errore: string }
 
 type CaricoInizialePayload = {
   numero_lotto: string
@@ -639,6 +675,7 @@ interface FermentoAPI {
     fornitori: () => Promise<FornitoreOption[]>
     modificaLotto: (id: number, dati: ModificaLottoPayload) => Promise<ModificaLottoResult>
     eliminaLotto: (id: number) => Promise<EliminaLottoResult>
+    eliminaMateria: (id: number) => Promise<EliminaMateriaResult>
   }
   conf: {
     lista: () => Promise<MaterialeConfezionamento[]>
@@ -646,6 +683,11 @@ interface FermentoAPI {
     carico: (dati: ConfCaricoPayload) => Promise<{ ok: true }>
     movimenti: (materiale_id: number) => Promise<MovimentoConfezionamento[]>
     aggiornaSoglia: (dati: ConfAggiornaSogliaPayload) => Promise<{ ok: true }>
+    aggiornaMateriale: (
+      id: number,
+      dati: ConfAggiornaMaterialePayload
+    ) => Promise<AggiornaMaterialeConfResult>
+    eliminaMateriale: (id: number) => Promise<EliminaMaterialeConfResult>
     modificaMovimento: (
       id: number,
       dati: ModificaMovimentoConfPayload
@@ -674,6 +716,11 @@ interface FermentoAPI {
     togliBottiglie: (dati: PfTogliBottigliePayload) => Promise<PfTogliBottiglieResult>
     suggerisciLottoBottiglie: (birra_id: number) => Promise<LottoBottigliaSuggerito[]>
     suggerisciLottoFusti: (birra_id: number) => Promise<LottoFustoSuggerito[]>
+    altriProdotti: () => Promise<AltroProdottoGiacenza[]>
+    creaAltroProdotto: (dati: CreaAltroProdottoPayload) => Promise<CreaAltroProdottoResult>
+    aggiornaGiacenzaAltroProdotto: (
+      dati: AggiornaGiacenzaAltroProdottoPayload
+    ) => Promise<AggiornaGiacenzaAltroProdottoResult>
   }
   clienti: {
     lista: () => Promise<ClienteConStatistiche[]>

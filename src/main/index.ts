@@ -39,6 +39,11 @@ type ConfAggiornaSogliaPayload = {
   soglia_riordino: number
 }
 
+type ConfAggiornaMaterialePayload = {
+  nome: string
+  soglia_riordino: number
+}
+
 type ConfCreaMaterialePayload = {
   nome: string
   categoria: string
@@ -74,9 +79,11 @@ type ClientePayload = {
 }
 
 type VenditaRigaRegistro = {
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id?: number | null
+  omaggio?: boolean
   quantita: number
 }
 
@@ -91,10 +98,22 @@ type VenditeRegistraPayload = {
 
 type VenditeModificaRiga = {
   id: number | null
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id?: number | null
+  omaggio?: boolean
   quantita: number
+}
+
+type CreaAltroProdottoPayload = {
+  nome: string
+  quantita_iniziale: number
+}
+
+type AggiornaGiacenzaAltroProdottoPayload = {
+  altro_prodotto_id: number
+  quantita_disponibile: number
 }
 
 type VenditeModificaPayload = {
@@ -233,6 +252,58 @@ function registerMpIpcHandlers(): void {
     } catch (error) {
       console.error('[IPC mp:lotti] errore:', error)
       throw error
+    }
+  })
+
+  ipcMain.removeHandler('mp:elimina-materia')
+  ipcMain.handle('mp:elimina-materia', (_event, id: number) => {
+    try {
+      if (!id || !Number.isFinite(id)) {
+        return { ok: false as const, errore: 'Materia prima non valida' }
+      }
+      const materia = db
+        .prepare(`SELECT id, nome FROM materie_prime WHERE id = ?`)
+        .get(id) as { id: number; nome: string } | undefined
+      if (!materia) {
+        return { ok: false as const, errore: 'Materia prima non trovata' }
+      }
+
+      const ricetteRef = db
+        .prepare(`SELECT COUNT(*) as c FROM ricetta_ingredienti WHERE materia_prima_id = ?`)
+        .get(id) as { c: number }
+      if ((ricetteRef?.c ?? 0) > 0) {
+        return {
+          ok: false as const,
+          errore: 'Materia prima usata in ricette, non eliminabile.'
+        }
+      }
+
+      const lottiRef = db
+        .prepare(`SELECT COUNT(*) as c FROM lotti_materie_prime WHERE materia_prima_id = ?`)
+        .get(id) as { c: number }
+      if ((lottiRef?.c ?? 0) > 0) {
+        return {
+          ok: false as const,
+          errore: 'Materia prima con lotti registrati, non eliminabile.'
+        }
+      }
+
+      const usoProduzione = db
+        .prepare(`SELECT COUNT(*) as c FROM cotta_materie_prime WHERE materia_prima_id = ?`)
+        .get(id) as { c: number }
+      if ((usoProduzione?.c ?? 0) > 0) {
+        return {
+          ok: false as const,
+          errore: 'Materia prima gia usata in produzione, non eliminabile.'
+        }
+      }
+
+      db.prepare(`DELETE FROM materie_prime WHERE id = ?`).run(id)
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC mp:elimina-materia]', error)
+      const msg = error instanceof Error ? error.message : 'Errore durante eliminazione materia prima'
+      return { ok: false as const, errore: msg }
     }
   })
 
@@ -450,6 +521,95 @@ function registerConfIpcHandlers(): void {
     } catch (error) {
       console.error('[IPC conf:aggiorna-soglia] errore:', error)
       throw error
+    }
+  })
+
+  ipcMain.removeHandler('conf:aggiorna-materiale')
+  ipcMain.handle('conf:aggiorna-materiale', (_event, id: number, dati: ConfAggiornaMaterialePayload) => {
+    try {
+      if (!id || !Number.isFinite(id)) {
+        return { ok: false as const, errore: 'Materiale non valido' }
+      }
+      if (!dati?.nome?.trim()) {
+        return { ok: false as const, errore: 'Nome materiale obbligatorio' }
+      }
+      if (!Number.isFinite(dati.soglia_riordino) || dati.soglia_riordino < 0) {
+        return { ok: false as const, errore: 'Soglia non valida' }
+      }
+
+      const materiale = db
+        .prepare(`SELECT id FROM materiali_confezionamento WHERE id = ? AND attivo = 1`)
+        .get(id) as { id: number } | undefined
+      if (!materiale) {
+        return { ok: false as const, errore: 'Materiale non trovato' }
+      }
+
+      db.prepare(
+        `UPDATE materiali_confezionamento
+         SET nome = ?, soglia_riordino = ?, aggiornato_il = CURRENT_TIMESTAMP
+         WHERE id = ?`
+      ).run(dati.nome.trim(), dati.soglia_riordino, id)
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC conf:aggiorna-materiale]', error)
+      const msg = error instanceof Error ? error.message : 'Errore durante aggiornamento materiale'
+      return { ok: false as const, errore: msg }
+    }
+  })
+
+  ipcMain.removeHandler('conf:elimina-materiale')
+  ipcMain.handle('conf:elimina-materiale', (_event, id: number) => {
+    try {
+      if (!id || !Number.isFinite(id)) {
+        return { ok: false as const, errore: 'Materiale non valido' }
+      }
+      const materiale = db
+        .prepare(`SELECT id, nome FROM materiali_confezionamento WHERE id = ? AND attivo = 1`)
+        .get(id) as { id: number; nome: string } | undefined
+      if (!materiale) {
+        return { ok: false as const, errore: 'Materiale non trovato' }
+      }
+
+      const movimentiRef = db
+        .prepare(`SELECT COUNT(*) as c FROM movimenti_confezionamento WHERE materiale_id = ?`)
+        .get(id) as { c: number }
+      if ((movimentiRef?.c ?? 0) > 0) {
+        return {
+          ok: false as const,
+          errore: 'Materiale con movimenti registrati, non eliminabile.'
+        }
+      }
+
+      const confezionatoRef = db
+        .prepare(`SELECT COUNT(*) as c FROM confezionamento_fusti WHERE materiale_id = ?`)
+        .get(id) as { c: number }
+      if ((confezionatoRef?.c ?? 0) > 0) {
+        return {
+          ok: false as const,
+          errore: 'Materiale gia usato in confezionamento, non eliminabile.'
+        }
+      }
+
+      const giacenzaFustiRef = db
+        .prepare(`SELECT COUNT(*) as c FROM giacenza_prodotto_finito_fusti WHERE materiale_id = ?`)
+        .get(id) as { c: number }
+      if ((giacenzaFustiRef?.c ?? 0) > 0) {
+        return {
+          ok: false as const,
+          errore: 'Materiale presente in giacenze fusti, non eliminabile.'
+        }
+      }
+
+      const tx = db.transaction(() => {
+        db.prepare(`DELETE FROM giacenza_confezionamento WHERE materiale_id = ?`).run(id)
+        db.prepare(`DELETE FROM materiali_confezionamento WHERE id = ?`).run(id)
+      })
+      tx()
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC conf:elimina-materiale]', error)
+      const msg = error instanceof Error ? error.message : 'Errore durante eliminazione materiale'
+      return { ok: false as const, errore: msg }
     }
   })
 
@@ -1287,6 +1447,93 @@ function registerProdottoFinitoIpcHandlers(): void {
     }
   })
 
+  ipcMain.removeHandler('pf:altri-prodotti')
+  ipcMain.handle('pf:altri-prodotti', () => {
+    try {
+      return db
+        .prepare(
+          `SELECT ap.id, ap.nome, COALESCE(gap.quantita_disponibile, 0) as quantita_disponibile
+           FROM altri_prodotti ap
+           LEFT JOIN giacenza_altri_prodotti gap ON gap.altro_prodotto_id = ap.id
+           WHERE ap.attivo = 1
+           ORDER BY ap.nome ASC`
+        )
+        .all()
+    } catch (error) {
+      console.error('[IPC pf:altri-prodotti] errore:', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('pf:crea-altro-prodotto')
+  ipcMain.handle('pf:crea-altro-prodotto', (_event, dati: CreaAltroProdottoPayload) => {
+    try {
+      const nome = dati?.nome?.trim() ?? ''
+      if (!nome) {
+        return { ok: false as const, errore: 'Nome prodotto obbligatorio' }
+      }
+      if (!Number.isFinite(dati?.quantita_iniziale) || dati.quantita_iniziale < 0) {
+        return { ok: false as const, errore: 'Quantita iniziale non valida' }
+      }
+      const quantitaIniziale = Math.floor(dati.quantita_iniziale)
+
+      const esegui = db.transaction(() => {
+        const ins = db
+          .prepare(`INSERT INTO altri_prodotti (nome, attivo) VALUES (?, 1)`)
+          .run(nome)
+        const altroProdottoId = Number(ins.lastInsertRowid)
+        db.prepare(
+          `INSERT INTO giacenza_altri_prodotti (altro_prodotto_id, quantita_disponibile, ultimo_aggiornamento)
+           VALUES (?, ?, CURRENT_TIMESTAMP)`
+        ).run(altroProdottoId, quantitaIniziale)
+        return altroProdottoId
+      })
+      const id = esegui()
+      return { ok: true as const, id }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Errore durante creazione prodotto'
+      console.error('[IPC pf:crea-altro-prodotto] errore:', error)
+      if (/UNIQUE constraint failed: altri_prodotti\.nome/.test(msg)) {
+        return { ok: false as const, errore: 'Esiste gia un prodotto con questo nome' }
+      }
+      return { ok: false as const, errore: msg }
+    }
+  })
+
+  ipcMain.removeHandler('pf:aggiorna-giacenza-altro-prodotto')
+  ipcMain.handle(
+    'pf:aggiorna-giacenza-altro-prodotto',
+    (_event, dati: AggiornaGiacenzaAltroProdottoPayload) => {
+      try {
+        if (!Number.isFinite(dati?.altro_prodotto_id) || dati.altro_prodotto_id <= 0) {
+          return { ok: false as const, errore: 'Prodotto non valido' }
+        }
+        if (!Number.isFinite(dati?.quantita_disponibile) || dati.quantita_disponibile < 0) {
+          return { ok: false as const, errore: 'Quantita non valida' }
+        }
+        const quantita = Math.floor(dati.quantita_disponibile)
+        const presente = db
+          .prepare(`SELECT id FROM altri_prodotti WHERE id = ? AND attivo = 1`)
+          .get(dati.altro_prodotto_id) as { id: number } | undefined
+        if (!presente) {
+          return { ok: false as const, errore: 'Prodotto non trovato' }
+        }
+        db.prepare(
+          `INSERT INTO giacenza_altri_prodotti (altro_prodotto_id, quantita_disponibile, ultimo_aggiornamento)
+           VALUES (?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(altro_prodotto_id) DO UPDATE SET
+             quantita_disponibile = excluded.quantita_disponibile,
+             ultimo_aggiornamento = CURRENT_TIMESTAMP`
+        ).run(dati.altro_prodotto_id, quantita)
+        return { ok: true as const }
+      } catch (error) {
+        console.error('[IPC pf:aggiorna-giacenza-altro-prodotto] errore:', error)
+        const msg = error instanceof Error ? error.message : 'Errore durante aggiornamento giacenza'
+        return { ok: false as const, errore: msg }
+      }
+    }
+  )
+
   ipcMain.removeHandler('pf:togli-bottiglie')
   ipcMain.handle(
     'pf:togli-bottiglie',
@@ -1529,7 +1776,8 @@ function registerVenditeIpcHandlers(): void {
         .prepare(
           `SELECT v.*, cl.nome as cliente_nome,
             COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END), 0) as totale_fusti,
-            COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as totale_bottiglie
+            COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END), 0) as totale_bottiglie,
+            COALESCE(SUM(CASE WHEN vd.tipo_prodotto = 'altro' THEN vd.quantita ELSE 0 END), 0) as totale_altri
           FROM vendite v
           LEFT JOIN clienti cl ON cl.id = v.cliente_id
           JOIN vendita_dettaglio vd ON vd.vendita_id = v.id
@@ -1549,11 +1797,13 @@ function registerVenditeIpcHandlers(): void {
       return db
         .prepare(
           `SELECT vd.*, b.nome as birra_nome, c.numero_lotto,
-            mc.nome as formato_nome
+            mc.nome as formato_nome,
+            ap.nome as altro_prodotto_nome
             FROM vendita_dettaglio vd
-            JOIN cotte c ON c.id = vd.cotta_id
-            JOIN birre b ON b.id = c.birra_id
+            LEFT JOIN cotte c ON c.id = vd.cotta_id
+            LEFT JOIN birre b ON b.id = c.birra_id
             LEFT JOIN materiali_confezionamento mc ON mc.id = vd.materiale_id
+            LEFT JOIN altri_prodotti ap ON ap.id = vd.altro_prodotto_id
             WHERE vd.vendita_id = ?`
         )
         .all(venditaId)
@@ -1614,7 +1864,16 @@ function registerVenditeIpcHandlers(): void {
         if (r.tipo_prodotto === 'fusto' && (r.materiale_id == null || r.materiale_id === undefined)) {
           return { ok: false, errore: 'I fusti richiedono il formato' }
         }
-        if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia') {
+        if (r.tipo_prodotto === 'altro' && (!r.altro_prodotto_id || !Number.isFinite(r.altro_prodotto_id))) {
+          return { ok: false, errore: 'Gli altri prodotti richiedono una tipologia valida' }
+        }
+        if (r.tipo_prodotto === 'bottiglia' && (r.cotta_id == null || !Number.isFinite(r.cotta_id))) {
+          return { ok: false, errore: 'Le bottiglie richiedono un lotto valido' }
+        }
+        if (r.tipo_prodotto === 'fusto' && (r.cotta_id == null || !Number.isFinite(r.cotta_id))) {
+          return { ok: false, errore: 'I fusti richiedono una cotta valida' }
+        }
+        if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia' && r.tipo_prodotto !== 'altro') {
           return { ok: false, errore: 'Tipo prodotto non valido' }
         }
       }
@@ -1636,8 +1895,9 @@ function registerVenditeIpcHandlers(): void {
 
         const insRiga = db
           .prepare(
-            `INSERT INTO vendita_dettaglio (vendita_id, cotta_id, tipo_prodotto, materiale_id, quantita)
-             VALUES (?, ?, ?, ?, ?)`
+            `INSERT INTO vendita_dettaglio
+               (vendita_id, cotta_id, tipo_prodotto, materiale_id, altro_prodotto_id, quantita, omaggio)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`
           )
         const upFust = db
           .prepare(
@@ -1645,14 +1905,21 @@ function registerVenditeIpcHandlers(): void {
              SET quantita_disponibile = quantita_disponibile - ?
              WHERE cotta_id = ? AND materiale_id = ? AND quantita_disponibile >= ?`
           )
+        const upAltro = db.prepare(
+          `UPDATE giacenza_altri_prodotti
+           SET quantita_disponibile = quantita_disponibile - ?, ultimo_aggiornamento = CURRENT_TIMESTAMP
+           WHERE altro_prodotto_id = ? AND quantita_disponibile >= ?`
+        )
 
         for (const r of dati.righe) {
           insRiga.run(
             venditaId,
-            r.cotta_id,
+            r.tipo_prodotto === 'altro' ? null : r.cotta_id,
             r.tipo_prodotto,
             r.tipo_prodotto === 'fusto' ? r.materiale_id : null,
-            r.quantita
+            r.tipo_prodotto === 'altro' ? (r.altro_prodotto_id ?? null) : null,
+            r.quantita,
+            r.omaggio ? 1 : 0
           )
           if (r.tipo_prodotto === 'fusto') {
             const res = upFust.run(
@@ -1664,15 +1931,20 @@ function registerVenditeIpcHandlers(): void {
             if (res.changes === 0) {
               throw new Error(`Giacenza fusti insufficiente o formato errato per la cotta selezionata`)
             }
+          } else if (r.tipo_prodotto === 'altro') {
+            const res = upAltro.run(r.quantita, r.altro_prodotto_id, r.quantita)
+            if (res.changes === 0) {
+              throw new Error(`Giacenza altri prodotti insufficiente per la tipologia selezionata`)
+            }
           } else {
-            const esito = scaricaBottiglieDaLotto(r.cotta_id, r.quantita)
+            const esito = scaricaBottiglieDaLotto(r.cotta_id as number, r.quantita)
             if (!esito.ok) {
               throw new Error(esito.errore)
             }
           }
         }
 
-        const cottaIds = [...new Set(dati.righe.map((x) => x.cotta_id))]
+        const cottaIds = [...new Set(dati.righe.map((x) => x.cotta_id).filter((x): x is number => x != null))]
         for (const cid of cottaIds) {
           aggiornaStatoCotta(cid)
         }
@@ -1724,7 +1996,16 @@ function registerVenditeIpcHandlers(): void {
         if (r.tipo_prodotto === 'fusto' && (r.materiale_id == null)) {
           return { ok: false as const, errore: 'I fusti richiedono il formato' }
         }
-        if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia') {
+        if (r.tipo_prodotto === 'bottiglia' && (r.cotta_id == null || !Number.isFinite(r.cotta_id))) {
+          return { ok: false as const, errore: 'Le bottiglie richiedono un lotto valido' }
+        }
+        if (r.tipo_prodotto === 'fusto' && (r.cotta_id == null || !Number.isFinite(r.cotta_id))) {
+          return { ok: false as const, errore: 'I fusti richiedono una cotta valida' }
+        }
+        if (r.tipo_prodotto === 'altro' && (!r.altro_prodotto_id || !Number.isFinite(r.altro_prodotto_id))) {
+          return { ok: false as const, errore: 'Gli altri prodotti richiedono una tipologia valida' }
+        }
+        if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia' && r.tipo_prodotto !== 'altro') {
           return { ok: false as const, errore: 'Tipo prodotto non valido' }
         }
       }
@@ -1739,14 +2020,15 @@ function registerVenditeIpcHandlers(): void {
       const esegui = db.transaction(() => {
         type RigaEsistente = {
           id: number
-          cotta_id: number
-          tipo_prodotto: 'bottiglia' | 'fusto'
+          cotta_id: number | null
+          tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
           materiale_id: number | null
+          altro_prodotto_id: number | null
           quantita: number
         }
         const righeEsistenti = db
           .prepare(
-            `SELECT id, cotta_id, tipo_prodotto, materiale_id, quantita
+            `SELECT id, cotta_id, tipo_prodotto, materiale_id, altro_prodotto_id, quantita
              FROM vendita_dettaglio WHERE vendita_id = ?`
           )
           .all(id) as RigaEsistente[]
@@ -1755,7 +2037,9 @@ function registerVenditeIpcHandlers(): void {
           esistentiById.set(r.id, r)
         }
 
-        const cottaIdsCoinvolte = new Set<number>(righeEsistenti.map((r) => r.cotta_id))
+        const cottaIdsCoinvolte = new Set<number>(
+          righeEsistenti.map((r) => r.cotta_id).filter((x): x is number => x != null)
+        )
 
         db.prepare(
           `UPDATE vendite
@@ -1788,17 +2072,30 @@ function registerVenditeIpcHandlers(): void {
           `INSERT INTO giacenza_prodotto_finito_fusti (cotta_id, materiale_id, quantita_disponibile)
            VALUES (?, ?, ?)`
         )
+        const addAltro = db.prepare(
+          `INSERT INTO giacenza_altri_prodotti (altro_prodotto_id, quantita_disponibile, ultimo_aggiornamento)
+           VALUES (?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(altro_prodotto_id) DO UPDATE SET
+             quantita_disponibile = quantita_disponibile + excluded.quantita_disponibile,
+             ultimo_aggiornamento = CURRENT_TIMESTAMP`
+        )
+        const subAltro = db.prepare(
+          `UPDATE giacenza_altri_prodotti
+           SET quantita_disponibile = quantita_disponibile - ?, ultimo_aggiornamento = CURRENT_TIMESTAMP
+           WHERE altro_prodotto_id = ? AND quantita_disponibile >= ?`
+        )
 
         const addToGiacenza = (
-          cotta_id: number,
-          tipo: 'bottiglia' | 'fusto',
+          cotta_id: number | null,
+          tipo: 'bottiglia' | 'fusto' | 'altro',
           materiale_id: number | null,
+          altro_prodotto_id: number | null,
           qty: number
         ): void => {
           if (qty <= 0) return
           if (tipo === 'bottiglia') {
-            rimettiBottiglieInLotto(cotta_id, qty)
-          } else {
+            rimettiBottiglieInLotto(cotta_id as number, qty)
+          } else if (tipo === 'fusto') {
             const riga = selFusto.get(cotta_id, materiale_id) as
               | { id: number; quantita_disponibile: number }
               | undefined
@@ -1807,27 +2104,35 @@ function registerVenditeIpcHandlers(): void {
             } else {
               insFusto.run(cotta_id, materiale_id, qty)
             }
+          } else {
+            addAltro.run(altro_prodotto_id, qty)
           }
         }
 
         const subFromGiacenza = (
-          cotta_id: number,
-          tipo: 'bottiglia' | 'fusto',
+          cotta_id: number | null,
+          tipo: 'bottiglia' | 'fusto' | 'altro',
           materiale_id: number | null,
+          altro_prodotto_id: number | null,
           qty: number
         ): void => {
           if (qty <= 0) return
           if (tipo === 'bottiglia') {
-            const esito = scaricaBottiglieDaLotto(cotta_id, qty)
+            const esito = scaricaBottiglieDaLotto(cotta_id as number, qty)
             if (!esito.ok) {
               throw new Error(esito.errore)
             }
-          } else {
+          } else if (tipo === 'fusto') {
             const res = subFusto.run(qty, cotta_id, materiale_id as number, qty)
             if (res.changes === 0) {
               throw new Error(
                 'Giacenza fusti insufficiente per la modifica (formato non disponibile o quantita non sufficiente)'
               )
+            }
+          } else {
+            const res = subAltro.run(qty, altro_prodotto_id, qty)
+            if (res.changes === 0) {
+              throw new Error('Giacenza altri prodotti insufficiente per la modifica')
             }
           }
         }
@@ -1843,6 +2148,7 @@ function registerVenditeIpcHandlers(): void {
               esistente.cotta_id,
               esistente.tipo_prodotto,
               esistente.materiale_id,
+              esistente.altro_prodotto_id,
               esistente.quantita
             )
             db.prepare(`DELETE FROM vendita_dettaglio WHERE id = ?`).run(esistente.id)
@@ -1850,24 +2156,28 @@ function registerVenditeIpcHandlers(): void {
         }
 
         const upRiga = db.prepare(
-          `UPDATE vendita_dettaglio SET quantita = ? WHERE id = ? AND vendita_id = ?`
+          `UPDATE vendita_dettaglio SET quantita = ?, omaggio = ? WHERE id = ? AND vendita_id = ?`
         )
         const insRiga = db.prepare(
-          `INSERT INTO vendita_dettaglio (vendita_id, cotta_id, tipo_prodotto, materiale_id, quantita)
-           VALUES (?, ?, ?, ?, ?)`
+          `INSERT INTO vendita_dettaglio
+             (vendita_id, cotta_id, tipo_prodotto, materiale_id, altro_prodotto_id, quantita, omaggio)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
         )
 
         for (const r of dati.righe) {
-          cottaIdsCoinvolte.add(r.cotta_id)
+          if (r.cotta_id != null) {
+            cottaIdsCoinvolte.add(r.cotta_id)
+          }
           if (r.id != null) {
             const esistente = esistentiById.get(r.id)
             if (!esistente) {
               throw new Error(`Riga ${r.id} non appartiene a questa vendita`)
             }
             if (
-              esistente.cotta_id !== r.cotta_id ||
+              (esistente.cotta_id ?? null) !== (r.cotta_id ?? null) ||
               esistente.tipo_prodotto !== r.tipo_prodotto ||
-              (esistente.materiale_id ?? null) !== (r.materiale_id ?? null)
+              (esistente.materiale_id ?? null) !== (r.materiale_id ?? null) ||
+              (esistente.altro_prodotto_id ?? null) !== (r.altro_prodotto_id ?? null)
             ) {
               throw new Error(
                 `Il prodotto di una riga esistente non puo' essere modificato; eliminala e aggiungila di nuovo`
@@ -1875,21 +2185,27 @@ function registerVenditeIpcHandlers(): void {
             }
             const delta = r.quantita - esistente.quantita
             if (delta > 0) {
-              subFromGiacenza(r.cotta_id, r.tipo_prodotto, r.materiale_id, delta)
+              subFromGiacenza(r.cotta_id, r.tipo_prodotto, r.materiale_id, r.altro_prodotto_id ?? null, delta)
             } else if (delta < 0) {
-              addToGiacenza(r.cotta_id, r.tipo_prodotto, r.materiale_id, -delta)
+              addToGiacenza(r.cotta_id, r.tipo_prodotto, r.materiale_id, r.altro_prodotto_id ?? null, -delta)
             }
-            if (delta !== 0) {
-              upRiga.run(r.quantita, r.id, id)
-            }
+            upRiga.run(r.quantita, r.omaggio ? 1 : 0, r.id, id)
           } else {
-            subFromGiacenza(r.cotta_id, r.tipo_prodotto, r.materiale_id, r.quantita)
-            insRiga.run(
-              id,
+            subFromGiacenza(
               r.cotta_id,
               r.tipo_prodotto,
-              r.tipo_prodotto === 'fusto' ? r.materiale_id : null,
+              r.materiale_id,
+              r.altro_prodotto_id ?? null,
               r.quantita
+            )
+            insRiga.run(
+              id,
+              r.tipo_prodotto === 'altro' ? null : r.cotta_id,
+              r.tipo_prodotto,
+              r.tipo_prodotto === 'fusto' ? r.materiale_id : null,
+              r.tipo_prodotto === 'altro' ? (r.altro_prodotto_id ?? null) : null,
+              r.quantita,
+              r.omaggio ? 1 : 0
             )
           }
         }
@@ -1924,19 +2240,22 @@ function registerVenditeIpcHandlers(): void {
       const esegui = db.transaction(() => {
         type RigaEsistente = {
           id: number
-          cotta_id: number
-          tipo_prodotto: 'bottiglia' | 'fusto'
+          cotta_id: number | null
+          tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
           materiale_id: number | null
+          altro_prodotto_id: number | null
           quantita: number
         }
         const righeEsistenti = db
           .prepare(
-            `SELECT id, cotta_id, tipo_prodotto, materiale_id, quantita
+            `SELECT id, cotta_id, tipo_prodotto, materiale_id, altro_prodotto_id, quantita
              FROM vendita_dettaglio WHERE vendita_id = ?`
           )
           .all(id) as RigaEsistente[]
 
-        const cottaIds = new Set<number>(righeEsistenti.map((r) => r.cotta_id))
+        const cottaIds = new Set<number>(
+          righeEsistenti.map((r) => r.cotta_id).filter((x): x is number => x != null)
+        )
 
         const selFusto = db.prepare(
           `SELECT id FROM giacenza_prodotto_finito_fusti
@@ -1951,11 +2270,18 @@ function registerVenditeIpcHandlers(): void {
           `INSERT INTO giacenza_prodotto_finito_fusti (cotta_id, materiale_id, quantita_disponibile)
            VALUES (?, ?, ?)`
         )
+        const addAltro = db.prepare(
+          `INSERT INTO giacenza_altri_prodotti (altro_prodotto_id, quantita_disponibile, ultimo_aggiornamento)
+           VALUES (?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(altro_prodotto_id) DO UPDATE SET
+             quantita_disponibile = quantita_disponibile + excluded.quantita_disponibile,
+             ultimo_aggiornamento = CURRENT_TIMESTAMP`
+        )
 
         for (const r of righeEsistenti) {
           if (r.tipo_prodotto === 'bottiglia') {
-            rimettiBottiglieInLotto(r.cotta_id, r.quantita)
-          } else {
+            rimettiBottiglieInLotto(r.cotta_id as number, r.quantita)
+          } else if (r.tipo_prodotto === 'fusto') {
             const riga = selFusto.get(r.cotta_id, r.materiale_id) as
               | { id: number }
               | undefined
@@ -1964,6 +2290,8 @@ function registerVenditeIpcHandlers(): void {
             } else {
               insFusto.run(r.cotta_id, r.materiale_id, r.quantita)
             }
+          } else {
+            addAltro.run(r.altro_prodotto_id, r.quantita)
           }
         }
 

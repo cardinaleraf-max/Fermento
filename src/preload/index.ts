@@ -32,6 +32,11 @@ type ConfAggiornaSogliaPayload = {
   soglia_riordino: number
 }
 
+type ConfAggiornaMaterialePayload = {
+  nome: string
+  soglia_riordino: number
+}
+
 type ConfCreaMaterialePayload = {
   nome: string
   categoria: string
@@ -67,9 +72,11 @@ type ClientePayload = {
 }
 
 type VenditaRigaRegistro = {
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id?: number | null
+  omaggio?: boolean
   quantita: number
 }
 
@@ -84,10 +91,22 @@ type VenditeRegistraPayload = {
 
 type VenditeModificaRiga = {
   id: number | null
-  cotta_id: number
-  tipo_prodotto: 'bottiglia' | 'fusto'
+  cotta_id: number | null
+  tipo_prodotto: 'bottiglia' | 'fusto' | 'altro'
   materiale_id: number | null
+  altro_prodotto_id?: number | null
+  omaggio?: boolean
   quantita: number
+}
+
+type CreaAltroProdottoPayload = {
+  nome: string
+  quantita_iniziale: number
+}
+
+type AggiornaGiacenzaAltroProdottoPayload = {
+  altro_prodotto_id: number
+  quantita_disponibile: number
 }
 
 type PfTogliBottigliePayload = {
@@ -186,7 +205,8 @@ const api = {
     fornitori: () => ipcRenderer.invoke('mp:fornitori'),
     modificaLotto: (id: number, dati: ModificaLottoPayload) =>
       ipcRenderer.invoke('mp:modifica-lotto', id, dati),
-    eliminaLotto: (id: number) => ipcRenderer.invoke('mp:elimina-lotto', id)
+    eliminaLotto: (id: number) => ipcRenderer.invoke('mp:elimina-lotto', id),
+    eliminaMateria: (id: number) => ipcRenderer.invoke('mp:elimina-materia', id)
   },
   conf: {
     lista: () => ipcRenderer.invoke('conf:lista'),
@@ -194,6 +214,9 @@ const api = {
     carico: (dati: ConfCaricoPayload) => ipcRenderer.invoke('conf:carico', dati),
     movimenti: (materiale_id: number) => ipcRenderer.invoke('conf:movimenti', materiale_id),
     aggiornaSoglia: (dati: ConfAggiornaSogliaPayload) => ipcRenderer.invoke('conf:aggiorna-soglia', dati),
+    aggiornaMateriale: (id: number, dati: ConfAggiornaMaterialePayload) =>
+      ipcRenderer.invoke('conf:aggiorna-materiale', id, dati),
+    eliminaMateriale: (id: number) => ipcRenderer.invoke('conf:elimina-materiale', id),
     modificaMovimento: (id: number, dati: ModificaMovimentoConfPayload) =>
       ipcRenderer.invoke('conf:modifica-movimento', id, dati),
     eliminaMovimento: (id: number) => ipcRenderer.invoke('conf:elimina-movimento', id)
@@ -223,7 +246,12 @@ const api = {
     suggerisciLottoBottiglie: (birra_id: number) =>
       ipcRenderer.invoke('pf:suggerisci-lotto-bottiglie', birra_id),
     suggerisciLottoFusti: (birra_id: number) =>
-      ipcRenderer.invoke('pf:suggerisci-lotto-fusti', birra_id)
+      ipcRenderer.invoke('pf:suggerisci-lotto-fusti', birra_id),
+    altriProdotti: () => ipcRenderer.invoke('pf:altri-prodotti'),
+    creaAltroProdotto: (dati: CreaAltroProdottoPayload) =>
+      ipcRenderer.invoke('pf:crea-altro-prodotto', dati),
+    aggiornaGiacenzaAltroProdotto: (dati: AggiornaGiacenzaAltroProdottoPayload) =>
+      ipcRenderer.invoke('pf:aggiorna-giacenza-altro-prodotto', dati)
   },
   clienti: {
     lista: () => ipcRenderer.invoke('clienti:lista'),

@@ -49,6 +49,12 @@ type GiacenzaFusti = {
   data_scadenza: string
 }
 
+type AltroProdotto = {
+  id: number
+  nome: string
+  quantita_disponibile: number
+}
+
 type BirraAttivaOption = {
   id: number
   nome: string
@@ -77,6 +83,24 @@ const defaultCaricoInizialeForm = (): CaricoInizialeForm => ({
   data_scadenza: '',
   note: '',
   fusti: {}
+})
+
+type NuovoAltroProdottoForm = {
+  nome: string
+  quantita_iniziale: string
+}
+
+type AggiornaAltroProdottoForm = {
+  quantita_disponibile: string
+}
+
+const defaultNuovoAltroProdottoForm = (): NuovoAltroProdottoForm => ({
+  nome: '',
+  quantita_iniziale: ''
+})
+
+const defaultAggiornaAltroProdottoForm = (): AggiornaAltroProdottoForm => ({
+  quantita_disponibile: ''
 })
 
 type StatoScadenza = 'scaduta' | 'in_scadenza' | 'ok'
@@ -129,6 +153,7 @@ function formatoFusto(f: GiacenzaFusti): string {
 export default function ProdottoFinito(): React.JSX.Element {
   const [giacenze, setGiacenze] = useState<GiacenzaBottiglie[]>([])
   const [fusti, setFusti] = useState<GiacenzaFusti[]>([])
+  const [altriProdotti, setAltriProdotti] = useState<AltroProdotto[]>([])
   const [loading, setLoading] = useState(true)
   const [errore, setErrore] = useState('')
   const [dialogCaricoInizialeOpen, setDialogCaricoInizialeOpen] = useState(false)
@@ -146,17 +171,31 @@ export default function ProdottoFinito(): React.JSX.Element {
   )
   const [erroreTogliBottiglie, setErroreTogliBottiglie] = useState('')
   const [submittingTogliBottiglie, setSubmittingTogliBottiglie] = useState(false)
+  const [dialogNuovoAltroProdottoOpen, setDialogNuovoAltroProdottoOpen] = useState(false)
+  const [nuovoAltroProdottoForm, setNuovoAltroProdottoForm] = useState<NuovoAltroProdottoForm>(
+    defaultNuovoAltroProdottoForm()
+  )
+  const [erroreNuovoAltroProdotto, setErroreNuovoAltroProdotto] = useState('')
+  const [submittingNuovoAltroProdotto, setSubmittingNuovoAltroProdotto] = useState(false)
+  const [altroProdottoSelezionato, setAltroProdottoSelezionato] = useState<AltroProdotto | null>(null)
+  const [aggiornaAltroProdottoForm, setAggiornaAltroProdottoForm] = useState<AggiornaAltroProdottoForm>(
+    defaultAggiornaAltroProdottoForm()
+  )
+  const [erroreAggiornaAltroProdotto, setErroreAggiornaAltroProdotto] = useState('')
+  const [submittingAggiornaAltroProdotto, setSubmittingAggiornaAltroProdotto] = useState(false)
 
   async function carica(): Promise<void> {
     setLoading(true)
     setErrore('')
     try {
-      const [bottiglie, righeFusti] = await Promise.all([
+      const [bottiglie, righeFusti, altri] = await Promise.all([
         window.api.pf.giacenze(),
-        window.api.pf.giacenzeFusti()
+        window.api.pf.giacenzeFusti(),
+        window.api.pf.altriProdotti()
       ])
       setGiacenze(bottiglie)
       setFusti(righeFusti)
+      setAltriProdotti(altri)
     } catch (err) {
       setErrore(err instanceof Error ? err.message : String(err))
     } finally {
@@ -291,6 +330,85 @@ export default function ProdottoFinito(): React.JSX.Element {
     }
   }
 
+  function apriDialogNuovoAltroProdotto(): void {
+    setNuovoAltroProdottoForm(defaultNuovoAltroProdottoForm())
+    setErroreNuovoAltroProdotto('')
+    setDialogNuovoAltroProdottoOpen(true)
+  }
+
+  async function confermaNuovoAltroProdotto(): Promise<void> {
+    setErroreNuovoAltroProdotto('')
+    const nome = nuovoAltroProdottoForm.nome.trim()
+    if (!nome) {
+      setErroreNuovoAltroProdotto('Nome prodotto obbligatorio')
+      return
+    }
+    const quantita = Number(nuovoAltroProdottoForm.quantita_iniziale)
+    if (!Number.isFinite(quantita) || quantita < 0) {
+      setErroreNuovoAltroProdotto('Quantita iniziale non valida')
+      return
+    }
+
+    setSubmittingNuovoAltroProdotto(true)
+    try {
+      const res = await window.api.pf.creaAltroProdotto({
+        nome,
+        quantita_iniziale: Math.floor(quantita)
+      })
+      if (!res.ok) {
+        setErroreNuovoAltroProdotto(res.errore)
+        return
+      }
+      setDialogNuovoAltroProdottoOpen(false)
+      await carica()
+    } catch (err) {
+      setErroreNuovoAltroProdotto(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSubmittingNuovoAltroProdotto(false)
+    }
+  }
+
+  function apriDialogAggiornaAltroProdotto(prodotto: AltroProdotto): void {
+    setAltroProdottoSelezionato(prodotto)
+    setAggiornaAltroProdottoForm({
+      quantita_disponibile: String(prodotto.quantita_disponibile)
+    })
+    setErroreAggiornaAltroProdotto('')
+  }
+
+  function chiudiDialogAggiornaAltroProdotto(): void {
+    setAltroProdottoSelezionato(null)
+    setAggiornaAltroProdottoForm(defaultAggiornaAltroProdottoForm())
+    setErroreAggiornaAltroProdotto('')
+  }
+
+  async function confermaAggiornaAltroProdotto(): Promise<void> {
+    if (!altroProdottoSelezionato) return
+    setErroreAggiornaAltroProdotto('')
+    const quantita = Number(aggiornaAltroProdottoForm.quantita_disponibile)
+    if (!Number.isFinite(quantita) || quantita < 0) {
+      setErroreAggiornaAltroProdotto('Quantita non valida')
+      return
+    }
+    setSubmittingAggiornaAltroProdotto(true)
+    try {
+      const res = await window.api.pf.aggiornaGiacenzaAltroProdotto({
+        altro_prodotto_id: altroProdottoSelezionato.id,
+        quantita_disponibile: Math.floor(quantita)
+      })
+      if (!res.ok) {
+        setErroreAggiornaAltroProdotto(res.errore)
+        return
+      }
+      chiudiDialogAggiornaAltroProdotto()
+      await carica()
+    } catch (err) {
+      setErroreAggiornaAltroProdotto(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSubmittingAggiornaAltroProdotto(false)
+    }
+  }
+
   const { totaleBottiglie, totaleFusti, lottiInScadenza } = useMemo(() => {
     const totB = giacenze.reduce((a, c) => a + (c.bottiglie_disponibili ?? 0), 0)
     const tf = fusti.reduce((a, f) => a + f.quantita_disponibile, 0)
@@ -319,9 +437,14 @@ export default function ProdottoFinito(): React.JSX.Element {
           <h2 className="text-xl font-semibold text-foreground">Prodotto finito</h2>
           <p className="text-sm text-muted-foreground">Giacenze bottiglie e fusti confezionati</p>
         </div>
-        <Button onClick={() => void apriDialogCaricoIniziale()}>
-          <Plus className="mr-2 h-4 w-4" /> Carico iniziale
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={apriDialogNuovoAltroProdotto}>
+            <Plus className="mr-2 h-4 w-4" /> Altro prodotto
+          </Button>
+          <Button onClick={() => void apriDialogCaricoIniziale()}>
+            <Plus className="mr-2 h-4 w-4" /> Carico iniziale
+          </Button>
+        </div>
       </div>
 
       {errore && (
@@ -424,6 +547,55 @@ export default function ProdottoFinito(): React.JSX.Element {
                       >
                         <Beer className="mr-1.5 h-3.5 w-3.5" />
                         Togli bottiglie
+                      </Button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h3 className="mb-3 text-lg font-medium text-foreground">Altri prodotti</h3>
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead className="bg-secondary/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 font-medium">Prodotto</th>
+                <th className="px-4 py-3 text-right font-medium">Quantita disponibile</th>
+                <th className="px-4 py-3 text-right font-medium">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                    Caricamento…
+                  </td>
+                </tr>
+              ) : altriProdotti.length === 0 ? (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
+                    Nessun altro prodotto registrato.
+                  </td>
+                </tr>
+              ) : (
+                altriProdotti.map((prodotto) => (
+                  <tr key={prodotto.id} className="border-t border-border/50 text-foreground/80">
+                    <td className="px-4 py-2.5 font-medium text-foreground">{prodotto.nome}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums font-medium text-foreground">
+                      {prodotto.quantita_disponibile}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => apriDialogAggiornaAltroProdotto(prodotto)}
+                      >
+                        Aggiorna giacenza
                       </Button>
                     </td>
                   </tr>
@@ -566,6 +738,136 @@ export default function ProdottoFinito(): React.JSX.Element {
               disabled={submittingCaricoIniziale}
             >
               {submittingCaricoIniziale ? 'Salvataggio...' : 'Registra carico'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogNuovoAltroProdottoOpen} onOpenChange={setDialogNuovoAltroProdottoOpen}>
+        <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Nuovo altro prodotto</DialogTitle>
+            <DialogDescription>
+              Registra un prodotto extra (box, bicchieri, gadget, ecc.) disponibile per la vendita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="ap_nome">Nome prodotto *</Label>
+              <Input
+                id="ap_nome"
+                type="text"
+                placeholder="Es. Box formaggi"
+                value={nuovoAltroProdottoForm.nome}
+                onChange={(event) =>
+                  setNuovoAltroProdottoForm((prev) => ({ ...prev, nome: event.target.value }))
+                }
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="ap_quantita">Quantita iniziale *</Label>
+              <Input
+                id="ap_quantita"
+                type="number"
+                min={0}
+                placeholder="0"
+                value={nuovoAltroProdottoForm.quantita_iniziale}
+                onChange={(event) =>
+                  setNuovoAltroProdottoForm((prev) => ({
+                    ...prev,
+                    quantita_iniziale: event.target.value
+                  }))
+                }
+              />
+            </div>
+
+            {erroreNuovoAltroProdotto && (
+              <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                {erroreNuovoAltroProdotto}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogNuovoAltroProdottoOpen(false)}
+              disabled={submittingNuovoAltroProdotto}
+            >
+              Annulla
+            </Button>
+            <Button
+              onClick={() => void confermaNuovoAltroProdotto()}
+              disabled={submittingNuovoAltroProdotto}
+            >
+              {submittingNuovoAltroProdotto ? 'Salvataggio...' : 'Crea prodotto'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={altroProdottoSelezionato !== null}
+        onOpenChange={(open) => {
+          if (!open) chiudiDialogAggiornaAltroProdotto()
+        }}
+      >
+        <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Aggiorna giacenza</DialogTitle>
+            <DialogDescription>
+              Imposta la quantita disponibile per il prodotto selezionato.
+            </DialogDescription>
+          </DialogHeader>
+
+          {altroProdottoSelezionato && (
+            <div className="space-y-4">
+              <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm">
+                <div className="font-medium text-foreground">{altroProdottoSelezionato.nome}</div>
+                <div className="mt-1 text-muted-foreground">
+                  Disponibili attuali:{' '}
+                  <span className="font-medium text-foreground">
+                    {altroProdottoSelezionato.quantita_disponibile}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="ap_quantita_disp">Quantita disponibile *</Label>
+                <Input
+                  id="ap_quantita_disp"
+                  type="number"
+                  min={0}
+                  value={aggiornaAltroProdottoForm.quantita_disponibile}
+                  onChange={(event) =>
+                    setAggiornaAltroProdottoForm({ quantita_disponibile: event.target.value })
+                  }
+                />
+              </div>
+
+              {erroreAggiornaAltroProdotto && (
+                <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                  {erroreAggiornaAltroProdotto}
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={chiudiDialogAggiornaAltroProdotto}
+              disabled={submittingAggiornaAltroProdotto}
+            >
+              Annulla
+            </Button>
+            <Button
+              onClick={() => void confermaAggiornaAltroProdotto()}
+              disabled={submittingAggiornaAltroProdotto}
+            >
+              {submittingAggiornaAltroProdotto ? 'Salvataggio...' : 'Salva'}
             </Button>
           </DialogFooter>
         </DialogContent>

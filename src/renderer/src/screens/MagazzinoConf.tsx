@@ -53,6 +53,11 @@ type NuovoMaterialeForm = {
   soglia_riordino: string
 }
 
+type ModificaMaterialeForm = {
+  nome: string
+  soglia_riordino: string
+}
+
 type BirraOption = Awaited<ReturnType<typeof window.api.impostazioni.birre>>[number]
 
 const defaultCaricoForm: CaricoForm = {
@@ -66,6 +71,11 @@ const defaultNuovoMaterialeForm: NuovoMaterialeForm = {
   birra_id: '',
   capacita_cl: '',
   capacita_litri: '',
+  soglia_riordino: ''
+}
+
+const defaultModificaMaterialeForm: ModificaMaterialeForm = {
+  nome: '',
   soglia_riordino: ''
 }
 
@@ -94,9 +104,14 @@ export default function MagazzinoConf(): React.JSX.Element {
   const [erroreModal, setErroreModal] = useState('')
   const [dialogCaricoOpen, setDialogCaricoOpen] = useState(false)
   const [dialogSogliaOpen, setDialogSogliaOpen] = useState(false)
+  const [dialogModificaMaterialeOpen, setDialogModificaMaterialeOpen] = useState(false)
+  const [dialogEliminaMaterialeOpen, setDialogEliminaMaterialeOpen] = useState(false)
   const [dialogNuovoMaterialeOpen, setDialogNuovoMaterialeOpen] = useState(false)
   const [caricoForm, setCaricoForm] = useState<CaricoForm>(defaultCaricoForm)
   const [nuovoMaterialeForm, setNuovoMaterialeForm] = useState<NuovoMaterialeForm>(defaultNuovoMaterialeForm)
+  const [modificaMaterialeForm, setModificaMaterialeForm] = useState<ModificaMaterialeForm>(
+    defaultModificaMaterialeForm
+  )
   const [sogliaInput, setSogliaInput] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [birre, setBirre] = useState<BirraOption[]>([])
@@ -187,6 +202,22 @@ export default function MagazzinoConf(): React.JSX.Element {
     setErroreModal('')
     setNuovoMaterialeForm(defaultNuovoMaterialeForm)
     setDialogNuovoMaterialeOpen(true)
+  }
+
+  const openModificaMaterialeDialog = (): void => {
+    if (!materialeSelezionato) return
+    setErroreModal('')
+    setModificaMaterialeForm({
+      nome: materialeSelezionato.nome,
+      soglia_riordino: materialeSelezionato.soglia_riordino?.toString() ?? '0'
+    })
+    setDialogModificaMaterialeOpen(true)
+  }
+
+  const openEliminaMaterialeDialog = (): void => {
+    if (!materialeSelezionatoId) return
+    setErroreModal('')
+    setDialogEliminaMaterialeOpen(true)
   }
 
   const handleCarico = async (): Promise<void> => {
@@ -373,6 +404,58 @@ export default function MagazzinoConf(): React.JSX.Element {
     }
   }
 
+  const handleModificaMateriale = async (): Promise<void> => {
+    if (!materialeSelezionatoId) return
+    if (!modificaMaterialeForm.nome.trim()) {
+      setErroreModal('Inserisci il nome del materiale')
+      return
+    }
+    const soglia = Number(modificaMaterialeForm.soglia_riordino)
+    if (!Number.isFinite(soglia) || soglia < 0) {
+      setErroreModal('Inserisci una soglia riordino valida')
+      return
+    }
+    setIsSubmitting(true)
+    setErroreModal('')
+    try {
+      const res = await window.api.conf.aggiornaMateriale(materialeSelezionatoId, {
+        nome: modificaMaterialeForm.nome.trim(),
+        soglia_riordino: soglia
+      })
+      if (!res.ok) {
+        setErroreModal(res.errore)
+        return
+      }
+      setDialogModificaMaterialeOpen(false)
+      await loadMateriali()
+      await loadMovimenti(materialeSelezionatoId)
+    } catch {
+      setErroreModal("Errore durante l'aggiornamento del materiale")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleEliminaMateriale = async (): Promise<void> => {
+    if (!materialeSelezionatoId) return
+    setIsSubmitting(true)
+    setErroreModal('')
+    try {
+      const res = await window.api.conf.eliminaMateriale(materialeSelezionatoId)
+      if (!res.ok) {
+        setErroreModal(res.errore)
+        return
+      }
+      setDialogEliminaMaterialeOpen(false)
+      setDialogModificaMaterialeOpen(false)
+      await loadMateriali()
+    } catch {
+      setErroreModal("Errore durante l'eliminazione del materiale")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
   return (
     <div className="grid min-h-[calc(100vh-9rem)] grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
       <section className="rounded-lg border border-border bg-card">
@@ -466,6 +549,10 @@ export default function MagazzinoConf(): React.JSX.Element {
                 <Button variant="outline" size="sm" onClick={openSogliaDialog}>
                   <Pencil className="mr-1 h-3.5 w-3.5" />
                   Modifica soglia
+                </Button>
+                <Button variant="outline" size="sm" onClick={openModificaMaterialeDialog}>
+                  <Pencil className="mr-1 h-3.5 w-3.5" />
+                  Modifica materiale
                 </Button>
               </div>
             </div>
@@ -607,6 +694,97 @@ export default function MagazzinoConf(): React.JSX.Element {
             </Button>
             <Button onClick={handleAggiornaSoglia} disabled={isSubmitting}>
               Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogModificaMaterialeOpen} onOpenChange={setDialogModificaMaterialeOpen}>
+        <DialogContent className="max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Modifica materiale</DialogTitle>
+            <DialogDescription>Aggiorna nome e soglia del materiale selezionato.</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="conf_mod_nome">Nome</Label>
+              <Input
+                id="conf_mod_nome"
+                value={modificaMaterialeForm.nome}
+                onChange={(event) =>
+                  setModificaMaterialeForm((prev) => ({ ...prev, nome: event.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="conf_mod_soglia">Soglia riordino</Label>
+              <Input
+                id="conf_mod_soglia"
+                type="number"
+                value={modificaMaterialeForm.soglia_riordino}
+                onChange={(event) =>
+                  setModificaMaterialeForm((prev) => ({ ...prev, soglia_riordino: event.target.value }))
+                }
+              />
+            </div>
+          </div>
+          {erroreModal && <ModalError message={erroreModal} />}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="mr-auto text-red-400 hover:text-red-300"
+              onClick={openEliminaMaterialeDialog}
+              disabled={isSubmitting}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              Elimina
+            </Button>
+            <Button variant="outline" onClick={() => setDialogModificaMaterialeOpen(false)}>
+              Annulla
+            </Button>
+            <Button onClick={handleModificaMateriale} disabled={isSubmitting}>
+              Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={dialogEliminaMaterialeOpen}
+        onOpenChange={(open) => {
+          setDialogEliminaMaterialeOpen(open)
+        }}
+      >
+        <DialogContent className="max-w-sm" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Elimina materiale</DialogTitle>
+            <DialogDescription>
+              Confermi l&apos;eliminazione del materiale selezionato? L&apos;operazione e consentita solo se il materiale
+              non e mai stato usato nei movimenti o nel confezionamento.
+            </DialogDescription>
+          </DialogHeader>
+          {materialeSelezionato && (
+            <div className="rounded-md border border-border bg-secondary/30 p-3 text-sm">
+              <div>
+                <span className="font-medium text-foreground/80">Nome:</span> {materialeSelezionato.nome}
+              </div>
+              <div>
+                <span className="font-medium text-foreground/80">Categoria:</span>{' '}
+                {materialeSelezionato.categoria}
+              </div>
+            </div>
+          )}
+          {erroreModal && <ModalError message={erroreModal} />}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogEliminaMaterialeOpen(false)}>
+              Annulla
+            </Button>
+            <Button
+              onClick={handleEliminaMateriale}
+              disabled={isSubmitting}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Elimina
             </Button>
           </DialogFooter>
         </DialogContent>
