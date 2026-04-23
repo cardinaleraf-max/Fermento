@@ -1247,11 +1247,42 @@ function registerProdottoFinitoIpcHandlers(): void {
            WHERE c.birra_id = ?
              AND c.stato = 'confezionata'
              AND COALESCE(gpc.bottiglie_sfuse, 0) > 0
-           ORDER BY COALESCE(gpc.bottiglie_sfuse, 0) DESC, conf.data_scadenza ASC`
+           ORDER BY conf.data_scadenza ASC, c.id ASC`
         )
         .all(birra_id)
     } catch (error) {
       console.error('[IPC pf:suggerisci-lotto-bottiglie] errore:', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('pf:suggerisci-lotto-fusti')
+  ipcMain.handle('pf:suggerisci-lotto-fusti', (_event, birra_id: number) => {
+    try {
+      if (!birra_id || !Number.isFinite(birra_id)) {
+        return []
+      }
+
+      return db
+        .prepare(
+          `SELECT
+             gpf.cotta_id,
+             gpf.materiale_id,
+             c.numero_lotto,
+             mc.nome as formato_nome,
+             conf.data_scadenza,
+             gpf.quantita_disponibile
+           FROM giacenza_prodotto_finito_fusti gpf
+           JOIN cotte c ON c.id = gpf.cotta_id
+           JOIN confezionamento conf ON conf.cotta_id = gpf.cotta_id
+           JOIN materiali_confezionamento mc ON mc.id = gpf.materiale_id
+           WHERE c.birra_id = ?
+             AND gpf.quantita_disponibile > 0
+           ORDER BY conf.data_scadenza ASC, c.id ASC, gpf.materiale_id ASC`
+        )
+        .all(birra_id)
+    } catch (error) {
+      console.error('[IPC pf:suggerisci-lotto-fusti] errore:', error)
       throw error
     }
   })

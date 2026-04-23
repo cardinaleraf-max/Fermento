@@ -68,11 +68,23 @@ type LottoBottigliaSuggerito = {
   bottiglie_disponibili: number
 }
 
+type LottoFustoSuggerito = {
+  cotta_id: number
+  materiale_id: number
+  numero_lotto: string
+  formato_nome: string
+  data_scadenza: string
+  quantita_disponibile: number
+}
+
 type RigaFustoForm = {
   rowId: string
   tipo: 'fusto'
+  birra_id: string
   key: string
   quantita: string
+  suggerimenti: LottoFustoSuggerito[]
+  caricamentoSuggerimenti: boolean
 }
 
 type RigaBottigliaForm = {
@@ -86,6 +98,13 @@ type RigaBottigliaForm = {
 }
 
 type RigaForm = RigaFustoForm | RigaBottigliaForm
+
+type RigaFustoEditForm = {
+  rowId: string
+  tipo: 'fusto'
+  key: string
+  quantita: string
+}
 
 type RigaEsistenteForm = {
   id: number
@@ -118,10 +137,6 @@ function labelProdottoDaGiacenza(r: GiacenzaRiga): string {
   if (r.tipo === 'bottiglia') {
     return `${r.birra_nome} — ${r.numero_lotto} — bottiglie — disponibili ${r.quantita_disponibile}`
   }
-  return `${r.birra_nome} — ${r.numero_lotto} — fusto (${r.formato_nome ?? '?'}) — disponibili ${r.quantita_disponibile}`
-}
-
-function labelFustoDaGiacenza(r: GiacenzaRiga): string {
   return `${r.birra_nome} — ${r.numero_lotto} — fusto (${r.formato_nome ?? '?'}) — disponibili ${r.quantita_disponibile}`
 }
 
@@ -162,7 +177,15 @@ function newRowId(): string {
 }
 
 function newRigaForm(): RigaForm {
-  return { rowId: newRowId(), tipo: 'fusto', key: '', quantita: '' }
+  return {
+    rowId: newRowId(),
+    tipo: 'fusto',
+    birra_id: '',
+    key: '',
+    quantita: '',
+    suggerimenti: [],
+    caricamentoSuggerimenti: false
+  }
 }
 
 function newRigaBottigliaForm(): RigaBottigliaForm {
@@ -217,7 +240,7 @@ export default function Vendite(): React.JSX.Element {
   const [editOmaggio, setEditOmaggio] = useState(false)
   const [editOccasione, setEditOccasione] = useState('')
   const [editRigheEsistenti, setEditRigheEsistenti] = useState<RigaEsistenteForm[]>([])
-  const [editRigheNuove, setEditRigheNuove] = useState<RigaFustoForm[]>([])
+  const [editRigheNuove, setEditRigheNuove] = useState<RigaFustoEditForm[]>([])
   const [erroreEdit, setErroreEdit] = useState('')
   const [submittingEdit, setSubmittingEdit] = useState(false)
 
@@ -315,7 +338,9 @@ export default function Vendite(): React.JSX.Element {
 
   const aggiornaRigaFusto = (
     rowId: string,
-    patch: Partial<Pick<RigaFustoForm, 'key' | 'quantita'>>
+    patch: Partial<
+      Pick<RigaFustoForm, 'birra_id' | 'key' | 'quantita' | 'suggerimenti' | 'caricamentoSuggerimenti'>
+    >
   ): void => {
     setRighe((p) =>
       p.map((r) => (r.rowId === rowId && r.tipo === 'fusto' ? { ...r, ...patch } : r))
@@ -346,6 +371,28 @@ export default function Vendite(): React.JSX.Element {
       })
     } catch {
       aggiornaRigaBottiglia(rowId, { caricamentoSuggerimenti: false, suggerimenti: [] })
+    }
+  }
+
+  const cambiaBirraRigaFusto = async (rowId: string, birra_id: string): Promise<void> => {
+    aggiornaRigaFusto(rowId, {
+      birra_id,
+      key: '',
+      quantita: '',
+      suggerimenti: [],
+      caricamentoSuggerimenti: Boolean(birra_id)
+    })
+    if (!birra_id) return
+    try {
+      const sugg = await window.api.pf.suggerisciLottoFusti(Number(birra_id))
+      const primo = sugg[0]
+      aggiornaRigaFusto(rowId, {
+        suggerimenti: sugg,
+        key: primo ? prodottoKey('fusto', primo.cotta_id, primo.materiale_id) : '',
+        caricamentoSuggerimenti: false
+      })
+    } catch {
+      aggiornaRigaFusto(rowId, { caricamentoSuggerimenti: false, suggerimenti: [] })
     }
   }
 
@@ -556,7 +603,7 @@ export default function Vendite(): React.JSX.Element {
 
   const aggiornaRigaNuova = (
     rowId: string,
-    patch: Partial<Pick<RigaFustoForm, 'key' | 'quantita'>>
+    patch: Partial<Pick<RigaFustoEditForm, 'key' | 'quantita'>>
   ): void => {
     setEditRigheNuove((p) => p.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)))
   }
@@ -1292,60 +1339,132 @@ export default function Vendite(): React.JSX.Element {
               <div className="space-y-2">
                 {righe.map((r) => {
                   if (r.tipo === 'fusto') {
-                    const maxQ =
-                      r.key && byKey.has(r.key) ? byKey.get(r.key)!.quantita_disponibile ?? 0 : 0
+                    const fustoSelezionato = r.suggerimenti.find(
+                      (s) => prodottoKey('fusto', s.cotta_id, s.materiale_id) === r.key
+                    )
+                    const maxQ = fustoSelezionato?.quantita_disponibile ?? 0
                     return (
                       <div
                         key={r.rowId}
-                        className="flex flex-col gap-2 sm:flex-row sm:items-end"
+                        className="flex flex-col gap-2 rounded-md border border-sky-500/20 bg-sky-500/5 p-3"
                       >
-                        <div className="min-w-0 flex-1">
-                          <select
-                            className="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
-                            value={r.key}
-                            onChange={(e) => aggiornaRigaFusto(r.rowId, { key: e.target.value })}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium uppercase tracking-wide text-sky-400">
+                            <Beer className="mr-1 inline h-3.5 w-3.5" />
+                            Fusti
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 shrink-0 p-0"
+                            onClick={() => rimuoviRiga(r.rowId)}
+                            disabled={righe.length <= 1}
                           >
-                            <option value="">Seleziona fusto…</option>
-                            {giacenze
-                              .filter((g) => g.tipo === 'fusto')
-                              .map((g) => (
-                                <option
-                                  key={prodottoKeyDaGiacenza(g)}
-                                  value={prodottoKeyDaGiacenza(g)}
-                                >
-                                  {labelFustoDaGiacenza(g)}
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs">Birra *</Label>
+                            <select
+                              className="h-9 w-full rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                              value={r.birra_id}
+                              onChange={(e) => void cambiaBirraRigaFusto(r.rowId, e.target.value)}
+                            >
+                              <option value="">Seleziona birra…</option>
+                              {birreAttive.map((b) => (
+                                <option key={b.id} value={b.id}>
+                                  {b.nome}
+                                  {b.stile ? ` (${b.stile})` : ''}
                                 </option>
                               ))}
-                          </select>
+                            </select>
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs">Fusti *</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={maxQ || undefined}
+                              placeholder="Numero fusti"
+                              className="h-9"
+                              value={r.quantita}
+                              disabled={!r.key}
+                              onChange={(e) =>
+                                aggiornaRigaFusto(r.rowId, { quantita: e.target.value })
+                              }
+                            />
+                            {r.key && (
+                              <span className="text-xs text-muted-foreground">max {maxQ}</span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex w-full items-center gap-2 sm:w-36">
-                          <Input
-                            type="number"
-                            min={0}
-                            max={r.key ? maxQ : undefined}
-                            placeholder="Qta"
-                            className="h-9"
-                            value={r.quantita}
-                            onChange={(e) =>
-                              aggiornaRigaFusto(r.rowId, { quantita: e.target.value })
-                            }
-                          />
-                          {r.key && (
-                            <span className="whitespace-nowrap text-xs text-muted-foreground">
-                              max {maxQ}
-                            </span>
-                          )}
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-9 w-9 shrink-0 p-0"
-                          onClick={() => rimuoviRiga(r.rowId)}
-                          disabled={righe.length <= 1}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        {r.birra_id && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Lotto/Formato di provenienza *</Label>
+                            {r.caricamentoSuggerimenti ? (
+                              <p className="text-xs text-muted-foreground">Caricamento lotti…</p>
+                            ) : r.suggerimenti.length === 0 ? (
+                              <p className="text-xs text-red-400">
+                                Nessun lotto con fusti disponibili per questa birra.
+                              </p>
+                            ) : (
+                              <div className="space-y-1">
+                                {r.suggerimenti.map((s, idx) => {
+                                  const key = prodottoKey('fusto', s.cotta_id, s.materiale_id)
+                                  const checked = key === r.key
+                                  return (
+                                    <label
+                                      key={key}
+                                      className={`flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-xs ${
+                                        checked
+                                          ? 'border-sky-500/50 bg-sky-500/10'
+                                          : 'border-border bg-background/40'
+                                      }`}
+                                    >
+                                      <input
+                                        type="radio"
+                                        name={`fusto-${r.rowId}`}
+                                        checked={checked}
+                                        onChange={() =>
+                                          aggiornaRigaFusto(r.rowId, {
+                                            key,
+                                            quantita: ''
+                                          })
+                                        }
+                                      />
+                                      <div className="flex flex-1 flex-wrap items-center gap-2">
+                                        <span className="font-medium text-foreground">
+                                          {s.numero_lotto}
+                                        </span>
+                                        <span className="text-muted-foreground">
+                                          {s.formato_nome}
+                                        </span>
+                                        {idx === 0 && (
+                                          <Badge className="bg-sky-500/15 text-sky-300">
+                                            Consigliato
+                                          </Badge>
+                                        )}
+                                        <span className="text-muted-foreground">
+                                          scad. {formatDataIt(s.data_scadenza)}
+                                        </span>
+                                        <span className="ml-auto text-muted-foreground">
+                                          <span className="font-medium text-foreground">
+                                            {s.quantita_disponibile}
+                                          </span>{' '}
+                                          fusti
+                                        </span>
+                                      </div>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )
                   }

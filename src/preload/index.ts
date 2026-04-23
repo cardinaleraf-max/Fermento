@@ -221,7 +221,9 @@ const api = {
     togliBottiglie: (dati: PfTogliBottigliePayload) =>
       ipcRenderer.invoke('pf:togli-bottiglie', dati),
     suggerisciLottoBottiglie: (birra_id: number) =>
-      ipcRenderer.invoke('pf:suggerisci-lotto-bottiglie', birra_id)
+      ipcRenderer.invoke('pf:suggerisci-lotto-bottiglie', birra_id),
+    suggerisciLottoFusti: (birra_id: number) =>
+      ipcRenderer.invoke('pf:suggerisci-lotto-fusti', birra_id)
   },
   clienti: {
     lista: () => ipcRenderer.invoke('clienti:lista'),

@@ -201,6 +201,15 @@ type LottoBottigliaSuggerito = {
   bottiglie_disponibili: number
 }
 
+type LottoFustoSuggerito = {
+  cotta_id: number
+  materiale_id: number
+  numero_lotto: string
+  formato_nome: string
+  data_scadenza: string
+  quantita_disponibile: number
+}
+
 type PfTogliBottigliePayload = {
   cotta_id: number
   quantita: number
@@ -664,6 +673,7 @@ interface FermentoAPI {
     caricoIniziale: (dati: CaricoInizialePayload) => Promise<CaricoInizialeResult>
     togliBottiglie: (dati: PfTogliBottigliePayload) => Promise<PfTogliBottiglieResult>
     suggerisciLottoBottiglie: (birra_id: number) => Promise<LottoBottigliaSuggerito[]>
+    suggerisciLottoFusti: (birra_id: number) => Promise<LottoFustoSuggerito[]>
   }
   clienti: {
     lista: () => Promise<ClienteConStatistiche[]>
