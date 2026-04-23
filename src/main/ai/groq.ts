@@ -23,6 +23,7 @@ import type {
 
 const DEFAULT_GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
 const DEFAULT_TIMEOUT_MS = 600_000
+const MAX_RATE_LIMIT_RETRIES = 2
 
 // --- Tipi del formato OpenAI-compatible (quello parlato da Groq) ----------
 
@@ -89,6 +90,45 @@ async function fetchWithTimeout(
 function normalizeBaseUrl(url: string): string {
   const trimmed = (url || '').trim().replace(/\/+$/, '')
   return trimmed || DEFAULT_GROQ_BASE_URL
+}
+
+function parseRetryAfterMs(retryAfter: string | null): number | null {
+  if (!retryAfter) return null
+  const raw = retryAfter.trim()
+  if (!raw) return null
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1000)
+  const asDate = Date.parse(raw)
+  if (Number.isFinite(asDate)) {
+    const delta = asDate - Date.now()
+    return delta > 0 ? delta : 0
+  }
+  return null
+}
+
+function parseTryAgainMessageMs(text: string): number | null {
+  const m = text.match(/try again in\s+([\d.]+)\s*s/i)
+  if (!m) return null
+  const seconds = Number(m[1])
+  if (!Number.isFinite(seconds) || seconds < 0) return null
+  return Math.ceil(seconds * 1000)
+}
+
+async function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return
+  if (signal?.aborted) throw signal.reason ?? new Error('canceled')
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      reject(signal?.reason ?? new Error('canceled'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
 }
 
 // --- Traduzioni di formato ---------------------------------------------------
@@ -246,28 +286,38 @@ export async function chatGroq(
     stream: false,
     response_format: body.format === 'json' ? { type: 'json_object' } : undefined
   }
-
-  const res = await fetchWithTimeout(
-    `${normalizeBaseUrl(baseUrl)}/chat/completions`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...authHeader(apiKey)
+  const url = `${normalizeBaseUrl(baseUrl)}/chat/completions`
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetchWithTimeout(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeader(apiKey)
+        },
+        body: JSON.stringify(openAiBody)
       },
-      body: JSON.stringify(openAiBody)
-    },
-    timeoutMs,
-    signal
-  )
+      timeoutMs,
+      signal
+    )
 
-  if (!res.ok) {
+    if (res.ok) {
+      const data = (await res.json()) as OpenAiChatResponse
+      return fromOpenAiResponse(body, data)
+    }
+
     const text = await res.text().catch(() => '')
+    if (res.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
+      const retryAfterMs =
+        parseRetryAfterMs(res.headers.get('retry-after')) ??
+        parseTryAgainMessageMs(text) ??
+        4000
+      await sleepWithAbort(Math.min(Math.max(retryAfterMs, 250), 20_000), signal)
+      continue
+    }
     throw new Error(`Groq /chat/completions status ${res.status}: ${text.slice(0, 300)}`)
   }
-
-  const data = (await res.json()) as OpenAiChatResponse
-  return fromOpenAiResponse(body, data)
 }
 
 export { DEFAULT_GROQ_BASE_URL }

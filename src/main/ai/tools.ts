@@ -88,6 +88,20 @@ function asDateOrNull(v: unknown): string | null {
   return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null
 }
 
+/**
+ * Groq a volte emette numeri come stringhe ("90") nei tool calls.
+ * Accettiamo sia integer sia stringhe numeriche per evitare 400 lato provider.
+ */
+function integerLikeParam(description: string): Record<string, unknown> {
+  return {
+    anyOf: [
+      { type: 'integer' },
+      { type: 'string', pattern: '^-?\\d+$' }
+    ],
+    description
+  }
+}
+
 function getConfigInt(db: BetterSqlite3.Database, chiave: string, fallback: number): number {
   try {
     const row = db
@@ -194,8 +208,7 @@ const tools: ToolDefinition[] = [
       type: 'object',
       properties: {
         giorni: {
-          type: 'integer',
-          description: 'Finestra in giorni a partire da oggi. Se omesso usa la configurazione.'
+          ...integerLikeParam('Finestra in giorni a partire da oggi. Se omesso usa la configurazione.')
         }
       }
     },
@@ -414,8 +427,7 @@ const tools: ToolDefinition[] = [
       type: 'object',
       properties: {
         giorni: {
-          type: 'integer',
-          description: 'Soglia in giorni. Se omesso usa la configurazione.'
+          ...integerLikeParam('Soglia in giorni. Se omesso usa la configurazione.')
         }
       }
     },
@@ -451,8 +463,8 @@ const tools: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        giorni: { type: 'integer', description: 'Periodo in giorni indietro. Default 90.' },
-        limite: { type: 'integer', description: 'Numero max clienti. Default 10.' },
+        giorni: { ...integerLikeParam('Periodo in giorni indietro. Default 90.') },
+        limite: { ...integerLikeParam('Numero max clienti. Default 10.') },
         da: { type: 'string', description: 'Data inizio YYYY-MM-DD (alternativa a giorni).' },
         a: { type: 'string', description: 'Data fine YYYY-MM-DD (alternativa a giorni).' }
       }
@@ -499,7 +511,7 @@ const tools: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        giorni: { type: 'integer', description: 'Giorni indietro da oggi. Default 90.' },
+        giorni: { ...integerLikeParam('Giorni indietro da oggi. Default 90.') },
         da: { type: 'string', description: 'Data inizio YYYY-MM-DD (opzionale).' },
         a: { type: 'string', description: 'Data fine YYYY-MM-DD (opzionale).' }
       }
@@ -544,7 +556,7 @@ const tools: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        mesi: { type: 'integer', description: 'Numero mesi indietro. Default 6.' }
+        mesi: { ...integerLikeParam('Numero mesi indietro. Default 6.') }
       }
     },
     handler: (db, args) => {
@@ -600,7 +612,7 @@ const tools: ToolDefinition[] = [
     parameters: {
       type: 'object',
       properties: {
-        limite: { type: 'integer', description: 'Numero max avvisi. Default 50.' }
+        limite: { ...integerLikeParam('Numero max avvisi. Default 50.') }
       }
     },
     handler: (db, args) => {
@@ -659,8 +671,7 @@ const tools: ToolDefinition[] = [
           description: "Testo libero della domanda dell'utente (es. \"come carico una materia prima\")."
         },
         max_risultati: {
-          type: 'integer',
-          description: 'Numero massimo di voci da restituire (default 3).'
+          ...integerLikeParam('Numero massimo di voci da restituire (default 3).')
         }
       },
       required: ['query']
