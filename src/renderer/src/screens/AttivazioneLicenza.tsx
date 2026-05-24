@@ -74,16 +74,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
           </p>
         </div>
 
-        <div className="relative z-10 space-y-2.5">
-          {['Magazzino materie prime', 'Gestione cotte e produzione', 'Clienti e vendite', 'Report e analisi'].map(
-            (feature) => (
-              <div key={feature} className="flex items-center gap-3">
-                <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: 'rgba(232,160,32,0.5)' }} />
-                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)' }}>{feature}</span>
-              </div>
-            )
-          )}
-        </div>
+        <div />
       </div>
 
       {/* Lato destro */}
@@ -105,7 +96,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
 
           <h2 className="text-xl font-semibold text-foreground mb-1">Attiva la tua licenza</h2>
           <p className="text-sm text-muted-foreground mb-8">
-            Inserisci la chiave fornita al momento dell&apos;acquisto.
+            Inserisci la chiave di licenza che hai ricevuto. La trovi nel messaggio che ti &egrave; stato inviato insieme al link di download di Fermento.
           </p>
 
           <div className="space-y-4">
@@ -133,7 +124,37 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
               />
             </div>
 
-            {errore && <p className="text-sm text-destructive">{errore}</p>}
+            {errore && (
+              <div
+                style={{
+                  padding: '10px 14px',
+                  background: 'rgba(220, 38, 38, 0.12)',
+                  border: '1px solid rgba(220, 38, 38, 0.35)',
+                  borderRadius: '6px',
+                  fontSize: '0.8rem',
+                  color: '#f87171',
+                  lineHeight: 1.4
+                }}
+              >
+                {errore === 'Licenza scaduta'
+                  ? 'La licenza non è più valida. Contatta il supporto per rinnovarla.'
+                  : errore === 'Firma non valida'
+                    ? 'La chiave inserita non è valida. Controlla di averla copiata per intero.'
+                    : errore}
+              </div>
+            )}
+
+            <p style={{ fontSize: '0.72rem', color: 'rgba(150,150,160,0.85)', lineHeight: 1.5 }}>
+              Non hai una chiave o l&apos;hai persa? Scrivi su WhatsApp al{' '}
+              <a
+                href="https://wa.me/393920287899"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: 'rgba(200,200,210,0.9)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+              >
+                +39 392 028 7899
+              </a>
+            </p>
 
             <Button
               className="w-full h-10"
@@ -142,6 +163,10 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
             >
               {isLoading ? '...' : 'Attiva'}
             </Button>
+
+            <p style={{ fontSize: '11px', color: '#666', textAlign: 'center', marginTop: '4px' }}>
+              Fermento &mdash; Gestionale per birrifici artigianali
+            </p>
           </div>
         </div>
       </div>
