@@ -45,15 +45,14 @@ function seedInitialData(database: BetterSqlite3.Database): void {
   )
   const configurazioni: [string, string, string, string, string][] = [
     ['nome_birrificio', '', 'string', 'Nome birrificio', 'generale'],
+    ['nome_titolare', '', 'string', 'Nome titolare/responsabile', 'generale'],
+    ['onboarding_completato', '0', 'bool', 'Onboarding iniziale completato', 'sistema'],
     ['cotta_litri', '250', 'int', 'Dimensione cotta standard (L)', 'produzione'],
     ['bottiglie_per_cartone', '6', 'int', 'Bottiglie per cartone', 'produzione'],
     ['shelf_life_mesi', '13', 'int', 'Shelf life prodotto (mesi)', 'produzione'],
     ['anticipo_avviso_scadenza_giorni', '60', 'int', 'Anticipo avviso scadenze (giorni)', 'avvisi'],
     ['cliente_inattivo_giorni', '20', 'int', 'Soglia cliente inattivo (giorni)', 'avvisi'],
     ['finestra_analisi_vendite_giorni', '90', 'int', 'Finestra analisi vendite (giorni)', 'vendite'],
-    ['soglia_bottiglie', '500', 'int', 'Soglia riordino bottiglie', 'magazzino'],
-    ['soglia_etichette', '500', 'int', 'Soglia riordino etichette', 'magazzino'],
-    ['soglia_fusti', '5', 'int', 'Soglia riordino fusti', 'magazzino'],
     ['backup_percorso', '', 'string', 'Cartella di destinazione backup', 'backup'],
     ['backup_numero_da_mantenere', '30', 'int', 'Numero backup da mantenere', 'backup']
   ]

@@ -3515,9 +3515,8 @@ app.whenReady().then(() => {
 
     db.prepare(
       `INSERT INTO utente (id, nome, password_hash, password_modificata_il, ultimo_accesso)
-       VALUES (1, 'Luca', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+       VALUES (1, 'Amministratore', ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        ON CONFLICT(id) DO UPDATE SET
-         nome = excluded.nome,
          password_hash = excluded.password_hash,
          password_modificata_il = CURRENT_TIMESTAMP,
          ultimo_accesso = CURRENT_TIMESTAMP`

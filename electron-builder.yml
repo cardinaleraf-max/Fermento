@@ -1,4 +1,4 @@
-appId: com.lookdown.fermento
+appId: com.fermento.app
 npmRebuild: false
 productName: Fermento
 publish:
