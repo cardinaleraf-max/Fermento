@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-type TabId = 'parametri' | 'assistente' | 'birre' | 'sicurezza' | 'backup'
+type TabId = 'identita' | 'parametri' | 'assistente' | 'birre' | 'sicurezza' | 'backup'
 
 type ConfigRiga = Awaited<ReturnType<typeof window.api.impostazioni.lista>>[number]
 type AiHealth = Awaited<ReturnType<typeof window.api.ai.health>>
@@ -26,6 +26,7 @@ type MpRiga = Awaited<ReturnType<typeof window.api.mp.lista>>[number]
 type IngredienteBozza = { materia_prima_id: number; quantita: number; note: string }
 
 const tabs: { id: TabId; label: string; icon?: typeof Sparkles }[] = [
+  { id: 'identita', label: 'Identita birrificio' },
   { id: 'parametri', label: 'Parametri' },
   { id: 'assistente', label: 'Assistente AI', icon: Sparkles },
   { id: 'birre', label: 'Birre e ricette' },
@@ -52,7 +53,7 @@ function groupByCategoria(
 }
 
 export default function Impostazioni(): React.JSX.Element {
-  const [tab, setTab] = useState<TabId>('parametri')
+  const [tab, setTab] = useState<TabId>('identita')
   const [config, setConfig] = useState<ConfigRiga[]>([])
   const [valori, setValori] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
@@ -88,6 +89,17 @@ export default function Impostazioni(): React.JSX.Element {
   const [aiHealth, setAiHealth] = useState<AiHealth | null>(null)
   const [aiHealthLoad, setAiHealthLoad] = useState(false)
 
+  const [licenzaStato, setLicenzaStato] = useState<{
+    valida: boolean
+    intestatario?: string
+    scadenza?: string | null
+    errore?: string
+  } | null>(null)
+  const [cambioLicenzaAperto, setCambioLicenzaAperto] = useState(false)
+  const [nuovaChiaveLicenza, setNuovaChiaveLicenza] = useState('')
+  const [errCambioLicenza, setErrCambioLicenza] = useState('')
+  const [savingLicenza, setSavingLicenza] = useState(false)
+
   const caricaStoricoBackup = useCallback(async () => {
     setErrBackup(null)
     try {
@@ -108,6 +120,15 @@ export default function Impostazioni(): React.JSX.Element {
       setValori(v)
     } catch (e) {
       setErrParam(e instanceof Error ? e.message : 'Errore caricamento')
+    }
+  }, [])
+
+  const caricaLicenza = useCallback(async () => {
+    try {
+      const stato = await window.api.licenza.stato()
+      setLicenzaStato(stato)
+    } catch {
+      setLicenzaStato({ valida: false, errore: 'Errore caricamento' })
     }
   }, [])
 
@@ -132,6 +153,12 @@ export default function Impostazioni(): React.JSX.Element {
   useEffect(() => {
     void caricaConfig()
   }, [caricaConfig])
+
+  useEffect(() => {
+    if (tab === 'identita') {
+      void caricaLicenza()
+    }
+  }, [tab, caricaLicenza])
 
   useEffect(() => {
     if (tab === 'birre') {
@@ -368,6 +395,27 @@ export default function Impostazioni(): React.JSX.Element {
     }
   }
 
+  const handleCambiaLicenza = async (): Promise<void> => {
+    if (!nuovaChiaveLicenza.trim()) {
+      setErrCambioLicenza('Inserisci la chiave licenza')
+      return
+    }
+    setErrCambioLicenza('')
+    setSavingLicenza(true)
+    try {
+      const risultato = await window.api.licenza.attiva(nuovaChiaveLicenza.trim())
+      if (!risultato.ok) {
+        setErrCambioLicenza(risultato.errore)
+        return
+      }
+      setCambioLicenzaAperto(false)
+      setNuovaChiaveLicenza('')
+      void caricaLicenza()
+    } finally {
+      setSavingLicenza(false)
+    }
+  }
+
   const onSubmitCambioPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrPw(null)
@@ -419,6 +467,148 @@ export default function Impostazioni(): React.JSX.Element {
           )
         })}
       </div>
+
+      {tab === 'identita' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle style={{ fontSize: '1rem', fontWeight: 600 }}>Identita birrificio</CardTitle>
+              <CardDescription>Informazioni base del tuo birrificio</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {config
+                .filter(c => c.chiave === 'nome_birrificio' || c.chiave === 'nome_titolare')
+                .map(c => (
+                  <div key={c.chiave} className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">{c.etichetta}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={valori[c.chiave] ?? c.valore}
+                        onChange={e => setValori(prev => ({ ...prev, [c.chiave]: e.target.value }))}
+                        className="h-8 w-64 text-sm"
+                        placeholder={c.chiave === 'nome_birrificio' ? 'Nome birrificio' : 'Nome titolare'}
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={savingKey === c.chiave}
+                        onClick={async () => {
+                          const valore = valori[c.chiave]
+                          if (valore === undefined) return
+                          setSavingKey(c.chiave)
+                          try {
+                            await window.api.impostazioni.aggiorna(c.chiave, valore)
+                            setConfig(prev =>
+                              prev.map(x => (x.chiave === c.chiave ? { ...x, valore } : x))
+                            )
+                          } catch {
+                            setErrParam('Errore salvataggio')
+                          } finally {
+                            setSavingKey(null)
+                          }
+                        }}
+                      >
+                        {savingKey === c.chiave ? '...' : 'Salva'}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle style={{ fontSize: '1rem', fontWeight: 600 }}>Licenza</CardTitle>
+              <CardDescription>Informazioni sulla tua licenza Fermento</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {licenzaStato ? (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-32">Intestata a</span>
+                    <span className="text-sm font-medium">{licenzaStato.intestatario ?? '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-32">Scadenza</span>
+                    <span className="text-sm font-medium">
+                      {licenzaStato.scadenza === null || licenzaStato.scadenza === undefined
+                        ? 'Mai'
+                        : licenzaStato.scadenza}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground w-32">Stato</span>
+                    <Badge variant={licenzaStato.valida ? 'default' : 'destructive'}>
+                      {licenzaStato.valida ? 'Attiva' : 'Non valida'}
+                    </Badge>
+                  </div>
+                  {licenzaStato.errore && (
+                    <p className="text-sm text-destructive">{licenzaStato.errore}</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Caricamento...</p>
+              )}
+              <div className="pt-2">
+                <Button variant="outline" size="sm" onClick={() => setCambioLicenzaAperto(true)}>
+                  Cambia chiave licenza
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Dialog open={cambioLicenzaAperto} onOpenChange={setCambioLicenzaAperto}>
+            <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+              <DialogHeader>
+                <DialogTitle>Cambia chiave licenza</DialogTitle>
+                <DialogDescription>
+                  Inserisci la nuova chiave di licenza fornita al momento dell'acquisto.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <Label htmlFor="nuova-chiave">Chiave licenza</Label>
+                <textarea
+                  id="nuova-chiave"
+                  value={nuovaChiaveLicenza}
+                  onChange={(e) => setNuovaChiaveLicenza(e.target.value)}
+                  rows={4}
+                  placeholder="FRMTO-XXXXX-XXXXX-..."
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    fontFamily: 'monospace',
+                    fontSize: '0.8rem',
+                    background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px',
+                    resize: 'none',
+                    outline: 'none'
+                  }}
+                />
+                {errCambioLicenza && <p className="text-sm text-destructive">{errCambioLicenza}</p>}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setCambioLicenzaAperto(false)
+                    setNuovaChiaveLicenza('')
+                    setErrCambioLicenza('')
+                  }}
+                >
+                  Annulla
+                </Button>
+                <Button onClick={() => { void handleCambiaLicenza() }} disabled={savingLicenza}>
+                  {savingLicenza ? '...' : 'Attiva'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+      )}
 
       {tab === 'parametri' && (
         <div className="space-y-4">
