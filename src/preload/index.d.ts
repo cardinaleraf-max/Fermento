@@ -765,6 +765,10 @@ interface FermentoAPI {
     cambiaPassword: (dati: CambiaPasswordInput) => Promise<CambiaPasswordResult>
     valoreDi: (chiave: string) => Promise<string>
   }
+  licenza: {
+    stato: () => Promise<{ valida: boolean; intestatario?: string; scadenza?: string | null; errore?: string }>
+    attiva: (stringa: string) => Promise<{ ok: true; intestatario: string } | { ok: false; errore: string }>
+  }
   backup: {
     esegui: (tipo: 'manuale' | 'automatico') => Promise<BackupEseguiResult>
     selezionaCartella: () => Promise<BackupSelezionaCartellaResult>

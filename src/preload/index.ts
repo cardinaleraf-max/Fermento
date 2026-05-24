@@ -299,6 +299,10 @@ const api = {
     cambiaPassword: (dati: CambiaPasswordPayload) => ipcRenderer.invoke('impostazioni:cambia-password', dati),
     valoreDi: (chiave: string) => ipcRenderer.invoke('impostazioni:valore-di', chiave)
   },
+  licenza: {
+    stato: () => ipcRenderer.invoke('licenza:stato'),
+    attiva: (stringa: string) => ipcRenderer.invoke('licenza:attiva', stringa)
+  },
   backup: {
     esegui: (tipo: 'manuale' | 'automatico') => ipcRenderer.invoke('backup:esegui', { tipo }),
     selezionaCartella: () => ipcRenderer.invoke('backup:seleziona-cartella'),

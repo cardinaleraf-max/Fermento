@@ -30,7 +30,15 @@ const createTableStatements = [
   `CREATE TABLE IF NOT EXISTS giacenza_altri_prodotti (id INTEGER PRIMARY KEY, altro_prodotto_id INTEGER UNIQUE, quantita_disponibile INTEGER NOT NULL DEFAULT 0, ultimo_aggiornamento TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (altro_prodotto_id) REFERENCES altri_prodotti(id));`,
   `CREATE TABLE IF NOT EXISTS vendite (id INTEGER PRIMARY KEY, cliente_id INTEGER, data DATE, note TEXT, creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (cliente_id) REFERENCES clienti(id));`,
   `CREATE TABLE IF NOT EXISTS vendita_dettaglio (id INTEGER PRIMARY KEY, vendita_id INTEGER, cotta_id INTEGER, tipo_prodotto TEXT, materiale_id INTEGER, quantita INTEGER, FOREIGN KEY (vendita_id) REFERENCES vendite(id), FOREIGN KEY (cotta_id) REFERENCES cotte(id));`,
-  `CREATE TABLE IF NOT EXISTS avvisi (id INTEGER PRIMARY KEY, tipo TEXT, riferimento_tabella TEXT, riferimento_id INTEGER, messaggio TEXT, data_generazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP, letto INTEGER DEFAULT 0, risolto INTEGER DEFAULT 0, priorita TEXT);`
+  `CREATE TABLE IF NOT EXISTS avvisi (id INTEGER PRIMARY KEY, tipo TEXT, riferimento_tabella TEXT, riferimento_id INTEGER, messaggio TEXT, data_generazione TIMESTAMP DEFAULT CURRENT_TIMESTAMP, letto INTEGER DEFAULT 0, risolto INTEGER DEFAULT 0, priorita TEXT);`,
+  `CREATE TABLE IF NOT EXISTS licenza (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    stringa TEXT NOT NULL,
+    intestatario TEXT NOT NULL,
+    scadenza DATE,
+    emessa_il TIMESTAMP NOT NULL,
+    attivata_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );`
 ]
 
 const createIndexStatements = [
@@ -136,6 +144,20 @@ function migrazioneRetrocompatibilita(database: BetterSqlite3.Database): void {
       .run()
   })
   tx()
+
+  // Inserisci licenza fondatore se non esiste ancora
+  const licenzaEsistente = database
+    .prepare(`SELECT id FROM licenza WHERE id = 1`)
+    .get() as { id: number } | undefined
+
+  if (!licenzaEsistente) {
+    database
+      .prepare(
+        `INSERT INTO licenza (id, stringa, intestatario, scadenza, emessa_il)
+         VALUES (1, 'FONDATORE-LUCA-LOOKDOWN', 'Birrificio Lookdown', NULL, '2026-04-01T00:00:00Z')`
+      )
+      .run()
+  }
 }
 
 function runAdditiveMigrations(database: BetterSqlite3.Database): void {

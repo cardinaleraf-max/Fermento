@@ -20,7 +20,9 @@
     "build:win": "npm run build && electron-builder --win --x64 --publish never",
     "release:win": "npm run build && electron-builder --win --x64 --publish always",
     "build:mac": "npm run build && electron-builder --mac --x64",
-    "build:linux": "electron-vite build && electron-builder --linux"
+    "build:linux": "electron-vite build && electron-builder --linux",
+    "genera-chiavi": "tsx scripts/genera-coppia-chiavi.ts",
+    "genera-licenza": "tsx scripts/genera-licenza.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -59,6 +61,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^3.4.19",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3",
     "vite": "^7.2.6"
   }

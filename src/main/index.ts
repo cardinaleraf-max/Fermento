@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs'
 import icon from '../../resources/icon.png?asset'
 import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenDatabaseConnection } from './database'
 import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
+import { licenzaSalvataValida, salvaLicenza } from './licenza'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -2859,6 +2860,33 @@ function registerReportIpcHandlers(): void {
   console.log('[startup] IPC handlers registrati: report:*')
 }
 
+function registerLicenzaIpcHandlers(): void {
+  ipcMain.removeHandler('licenza:stato')
+  ipcMain.handle('licenza:stato', () => {
+    try {
+      return licenzaSalvataValida(db)
+    } catch (error) {
+      console.error('[IPC licenza:stato] errore:', error)
+      return { valida: false, errore: 'Errore verifica licenza' }
+    }
+  })
+
+  ipcMain.removeHandler('licenza:attiva')
+  ipcMain.handle('licenza:attiva', (_event, stringa: string) => {
+    try {
+      salvaLicenza(db, stringa)
+      const stato = licenzaSalvataValida(db)
+      return { ok: true as const, intestatario: stato.intestatario ?? '' }
+    } catch (error) {
+      console.error('[IPC licenza:attiva] errore:', error)
+      const msg = error instanceof Error ? error.message : 'Errore attivazione licenza'
+      return { ok: false as const, errore: msg }
+    }
+  })
+
+  console.log('[startup] IPC handlers registrati: licenza:*')
+}
+
 type ImpostazioniConfigAggiorna = { chiave: string; valore: string }
 type ImpostazioniBirraPayload = { nome: string; stile: string; descrizione: string; attiva: number }
 type ImpostazioniCreaBirraPayload = { nome: string; stile: string; descrizione: string }
@@ -3488,6 +3516,7 @@ app.whenReady().then(() => {
   registerDashboardIpcHandlers()
   registerAvvisiIpcHandlers()
   registerReportIpcHandlers()
+  registerLicenzaIpcHandlers()
   registerImpostazioniIpcHandlers()
   registerBackupIpcHandlers()
 
