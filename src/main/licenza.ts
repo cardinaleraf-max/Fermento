@@ -2,7 +2,15 @@ import { createVerify } from 'node:crypto'
 import type BetterSqlite3 from 'better-sqlite3'
 
 // Placeholder: sostituire con il contenuto di public.pem dopo aver eseguito npm run genera-chiavi
-export const CHIAVE_PUBBLICA_PEM = ``
+export const CHIAVE_PUBBLICA_PEM = `-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAslMzyjVod9lxuAYee3tw
+LHW6j/fdNsj8CPGQgTghx30CyAObv1eYKc8MXO4P66Lqt08jsd40k9T7mafCGAd2
+vjS8ExjG5CUj4xgVw5Q2sOkp/0diefWH3wRCmgbneCMEyjgtDJcGa7VjhjmgghXW
+PsKpFiayhAYYpogC7a76uCzLnz//kMdrV+0AW/7DaITZ3BKc2Sz+rkLD5kqHTPRE
+L26dfM2sXPhYApBaI0oQnNflTplNnPNCSmSu/27szsuLlIyrytGOzgHwjR+Up7ej
+PrPfsFSsNdauM6QBcGZRyXuixZ9RjKWKNVi3yfofKQZpc2khpFTlyvxw829H65sM
+QwIDAQAB
+-----END PUBLIC KEY-----`
 
 type LicenzaPayload = {
   intestatario: string
