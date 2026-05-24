@@ -155,6 +155,15 @@ type ModificaConfezionamentoPayload = {
   data_confezionamento: string
 }
 
+type OnboardingCompletaPayload = {
+  nome_birrificio: string
+  nome_titolare: string
+  cotta_litri: number
+  shelf_life_mesi: number
+  formato_bottiglia_cl: number | null
+  bottiglie_per_cartone: number
+}
+
 if (process.env.ELECTRON_RUN_AS_NODE) {
   console.warn(
     `[startup] ATTENZIONE: ELECTRON_RUN_AS_NODE="${process.env.ELECTRON_RUN_AS_NODE}". ` +
@@ -2860,6 +2869,48 @@ function registerReportIpcHandlers(): void {
   console.log('[startup] IPC handlers registrati: report:*')
 }
 
+function registerOnboardingIpcHandlers(): void {
+  ipcMain.removeHandler('onboarding:completa')
+  ipcMain.handle('onboarding:completa', (_event, dati: OnboardingCompletaPayload) => {
+    try {
+      const tx = db.transaction(() => {
+        const aggiorna = db.prepare(
+          `UPDATE configurazioni SET valore = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = ?`
+        )
+        aggiorna.run(dati.nome_birrificio, 'nome_birrificio')
+        aggiorna.run(dati.nome_titolare, 'nome_titolare')
+        aggiorna.run(String(dati.cotta_litri), 'cotta_litri')
+        aggiorna.run(String(dati.shelf_life_mesi), 'shelf_life_mesi')
+        aggiorna.run(String(dati.bottiglie_per_cartone), 'bottiglie_per_cartone')
+        aggiorna.run('1', 'onboarding_completato')
+
+        if (dati.formato_bottiglia_cl !== null) {
+          const nomeBottiglia = `Bottiglia ${dati.formato_bottiglia_cl}cl`
+          const insBottiglia = db
+            .prepare(
+              `INSERT INTO materiali_confezionamento (nome, categoria, birra_id, capacita_cl, soglia_riordino, attivo)
+               VALUES (?, 'bottiglia', NULL, ?, 100, 1)`
+            )
+            .run(nomeBottiglia, dati.formato_bottiglia_cl)
+          const materialeId = Number(insBottiglia.lastInsertRowid)
+          db.prepare(
+            `INSERT INTO giacenza_confezionamento (materiale_id, quantita, ultimo_aggiornamento)
+             VALUES (?, 0, CURRENT_TIMESTAMP)
+             ON CONFLICT(materiale_id) DO NOTHING`
+          ).run(materialeId)
+        }
+      })
+      tx()
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC onboarding:completa] errore:', error)
+      throw error
+    }
+  })
+
+  console.log('[startup] IPC handlers registrati: onboarding:*')
+}
+
 function registerLicenzaIpcHandlers(): void {
   ipcMain.removeHandler('licenza:stato')
   ipcMain.handle('licenza:stato', () => {
@@ -3516,6 +3567,7 @@ app.whenReady().then(() => {
   registerDashboardIpcHandlers()
   registerAvvisiIpcHandlers()
   registerReportIpcHandlers()
+  registerOnboardingIpcHandlers()
   registerLicenzaIpcHandlers()
   registerImpostazioniIpcHandlers()
   registerBackupIpcHandlers()

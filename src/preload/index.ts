@@ -299,6 +299,16 @@ const api = {
     cambiaPassword: (dati: CambiaPasswordPayload) => ipcRenderer.invoke('impostazioni:cambia-password', dati),
     valoreDi: (chiave: string) => ipcRenderer.invoke('impostazioni:valore-di', chiave)
   },
+  onboarding: {
+    completa: (payload: {
+      nome_birrificio: string
+      nome_titolare: string
+      cotta_litri: number
+      shelf_life_mesi: number
+      formato_bottiglia_cl: number | null
+      bottiglie_per_cartone: number
+    }) => ipcRenderer.invoke('onboarding:completa', payload)
+  },
   licenza: {
     stato: () => ipcRenderer.invoke('licenza:stato'),
     attiva: (stringa: string) => ipcRenderer.invoke('licenza:attiva', stringa)

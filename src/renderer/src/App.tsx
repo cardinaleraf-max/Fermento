@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Layout, type Sezione } from './components/Layout'
 import Dashboard from './screens/Dashboard'
 import Login from './screens/Login'
+import AttivazioneLicenza from './screens/AttivazioneLicenza'
+import Onboarding from './screens/Onboarding'
 import MagazzinoConf from './screens/MagazzinoConf'
 import MagazzinoMP from './screens/MagazzinoMP'
 import Placeholder from './screens/Placeholder'
@@ -15,9 +17,72 @@ import Impostazioni from './screens/Impostazioni'
 import { ProposteNavigazione } from './components/ProposteNavigazione'
 
 function App(): React.JSX.Element {
-  const [stato, setStato] = useState<'loading' | 'login' | 'app'>('loading')
-  const [primoAvvio, setPrimoAvvio] = useState(false)
+  const [stato, setStato] = useState<'loading' | 'licenza' | 'password' | 'login' | 'onboarding' | 'app'>('loading')
   const [sezioneCorrente, setSezioneCorrente] = useState<Sezione>('dashboard')
+
+  useEffect(() => {
+    const bootstrap = async (): Promise<void> => {
+      try {
+        // 1. Verifica licenza
+        const licenza = await window.api.licenza.stato()
+        if (!licenza.valida) {
+          setStato('licenza')
+          return
+        }
+
+        // 2. Verifica login
+        const login = await window.api.login.verifica('')
+        if (login.ok) {
+          setStato('app')
+          return
+        }
+
+        if (login.errore === 'primo_avvio') {
+          setStato('password')
+          return
+        }
+
+        setStato('login')
+      } catch {
+        setStato('login')
+      }
+    }
+
+    void bootstrap()
+  }, [])
+
+  const handleLoginSuccess = async (): Promise<void> => {
+    try {
+      const onboarding = await window.api.impostazioni.valoreDi('onboarding_completato')
+      if (onboarding === '0') {
+        setStato('onboarding')
+      } else {
+        setStato('app')
+      }
+    } catch {
+      setStato('app')
+    }
+  }
+
+  if (stato === 'loading') {
+    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Caricamento...</div>
+  }
+
+  if (stato === 'licenza') {
+    return <AttivazioneLicenza onLicenzaAttivata={() => setStato('password')} />
+  }
+
+  if (stato === 'password') {
+    return <Login primoAvvio={true} onLoginSuccess={() => { void handleLoginSuccess() }} />
+  }
+
+  if (stato === 'login') {
+    return <Login primoAvvio={false} onLoginSuccess={() => { void handleLoginSuccess() }} />
+  }
+
+  if (stato === 'onboarding') {
+    return <Onboarding onOnboardingCompletato={() => setStato('app')} />
+  }
 
   const sezioneTitoli: Record<Exclude<Sezione, 'dashboard'>, string> = {
     'magazzino-mp': 'Magazzino materie prime',
@@ -29,34 +94,6 @@ function App(): React.JSX.Element {
     report: 'Report',
     avvisi: 'Avvisi',
     impostazioni: 'Impostazioni'
-  }
-
-  useEffect(() => {
-    const bootstrap = async (): Promise<void> => {
-      try {
-        const risultato = await window.api.login.verifica('')
-        if (risultato.ok) {
-          setStato('app')
-          return
-        }
-
-        setPrimoAvvio(risultato.errore === 'primo_avvio')
-        setStato('login')
-      } catch {
-        setPrimoAvvio(false)
-        setStato('login')
-      }
-    }
-
-    void bootstrap()
-  }, [])
-
-  if (stato === 'loading') {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Caricamento...</div>
-  }
-
-  if (stato === 'login') {
-    return <Login primoAvvio={primoAvvio} onLoginSuccess={() => setStato('app')} />
   }
 
   return (

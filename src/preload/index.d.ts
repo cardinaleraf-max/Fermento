@@ -765,6 +765,16 @@ interface FermentoAPI {
     cambiaPassword: (dati: CambiaPasswordInput) => Promise<CambiaPasswordResult>
     valoreDi: (chiave: string) => Promise<string>
   }
+  onboarding: {
+    completa: (payload: {
+      nome_birrificio: string
+      nome_titolare: string
+      cotta_litri: number
+      shelf_life_mesi: number
+      formato_bottiglia_cl: number | null
+      bottiglie_per_cartone: number
+    }) => Promise<{ ok: true }>
+  }
   licenza: {
     stato: () => Promise<{ valida: boolean; intestatario?: string; scadenza?: string | null; errore?: string }>
     attiva: (stringa: string) => Promise<{ ok: true; intestatario: string } | { ok: false; errore: string }>
