@@ -108,7 +108,34 @@ export function initDatabase(): BetterSqlite3.Database {
   bootstrap()
   ensureBackupConfigRow(db)
   runAdditiveMigrations(db)
+  migrazioneRetrocompatibilita(db)
   return db
+}
+
+function migrazioneRetrocompatibilita(database: BetterSqlite3.Database): void {
+  // Controlla se esiste un utente con password_hash già impostato
+  const utente = database
+    .prepare(`SELECT password_hash FROM utente WHERE id = 1`)
+    .get() as { password_hash: string | null } | undefined
+
+  if (!utente?.password_hash) {
+    // DB nuovo, nessuna password: l'onboarding gestirà tutto
+    return
+  }
+
+  // DB esistente (Luca o altri clienti con DB già configurato)
+  const tx = database.transaction(() => {
+    // Setta nome_birrificio solo se ancora vuoto
+    database
+      .prepare(`UPDATE configurazioni SET valore = 'Birrificio Lookdown', aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'nome_birrificio' AND valore = ''`)
+      .run()
+
+    // Segna l'onboarding come completato
+    database
+      .prepare(`UPDATE configurazioni SET valore = '1', aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'onboarding_completato'`)
+      .run()
+  })
+  tx()
 }
 
 function runAdditiveMigrations(database: BetterSqlite3.Database): void {
