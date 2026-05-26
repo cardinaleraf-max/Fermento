@@ -3147,7 +3147,7 @@ function registerImpostazioniIpcHandlers(): void {
              mp.unita_misura
            FROM ricetta_ingredienti ri
            JOIN materie_prime mp ON mp.id = ri.materia_prima_id
-           WHERE ri.ricetta_id = (SELECT id FROM ricette WHERE birra_id = ? AND attiva = 1)
+           WHERE ri.ricetta_id = (SELECT id FROM ricette WHERE birra_id = ? AND attiva = 1 AND archiviata = 0)
            ORDER BY mp.nome`
         )
         .all(birraId) as Array<{
@@ -3294,6 +3294,84 @@ function registerImpostazioniIpcHandlers(): void {
       return { ok: true as const }
     } catch (error) {
       console.error('[IPC birre:riattiva] errore:', error)
+      return { ok: false as const, errore: error instanceof Error ? error.message : 'Errore' }
+    }
+  })
+
+  ipcMain.removeHandler('impostazioni:versioni-ricette')
+  ipcMain.handle(
+    'impostazioni:versioni-ricette',
+    (_e, birraId: number, includiArchiviate?: boolean) => {
+      try {
+        return db
+          .prepare(
+            `SELECT id, versione, attiva, archiviata, data_creazione
+             FROM ricette
+             WHERE birra_id = ?
+               AND (archiviata = 0 OR ? = 1)
+             ORDER BY versione DESC`
+          )
+          .all(birraId, includiArchiviate ? 1 : 0) as Array<{
+          id: number
+          versione: number
+          attiva: number
+          archiviata: number
+          data_creazione: string
+        }>
+      } catch (error) {
+        console.error('[IPC impostazioni:versioni-ricette] errore:', error)
+        throw error
+      }
+    }
+  )
+
+  ipcMain.removeHandler('ricette:archivia')
+  ipcMain.handle('ricette:archivia', (_e, ricettaId: number) => {
+    try {
+      const ricetta = db
+        .prepare(`SELECT id, birra_id, attiva FROM ricette WHERE id = ?`)
+        .get(ricettaId) as { id: number; birra_id: number; attiva: number } | undefined
+      if (!ricetta) {
+        return { ok: false as const, errore: 'Ricetta non trovata' }
+      }
+      const { c: altreNonArchiviate } = db
+        .prepare(
+          `SELECT COUNT(*) as c FROM ricette WHERE birra_id = ? AND archiviata = 0 AND id != ?`
+        )
+        .get(ricetta.birra_id, ricettaId) as { c: number }
+      if (altreNonArchiviate === 0) {
+        return {
+          ok: false as const,
+          errore:
+            "Non puoi archiviare l'unica ricetta disponibile della birra. Crea prima una nuova versione."
+        }
+      }
+      db.transaction(() => {
+        db.prepare(`UPDATE ricette SET archiviata = 1, attiva = 0 WHERE id = ?`).run(ricettaId)
+        if (ricetta.attiva === 1) {
+          db.prepare(
+            `UPDATE ricette SET attiva = 1 WHERE id = (
+               SELECT id FROM ricette
+               WHERE birra_id = ? AND archiviata = 0 AND id != ?
+               ORDER BY versione DESC LIMIT 1
+             )`
+          ).run(ricetta.birra_id, ricettaId)
+        }
+      })()
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC ricette:archivia] errore:', error)
+      return { ok: false as const, errore: error instanceof Error ? error.message : 'Errore' }
+    }
+  })
+
+  ipcMain.removeHandler('ricette:disarchivia')
+  ipcMain.handle('ricette:disarchivia', (_e, ricettaId: number) => {
+    try {
+      db.prepare(`UPDATE ricette SET archiviata = 0 WHERE id = ?`).run(ricettaId)
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC ricette:disarchivia] errore:', error)
       return { ok: false as const, errore: error instanceof Error ? error.message : 'Errore' }
     }
   })
