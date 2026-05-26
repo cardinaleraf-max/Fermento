@@ -442,7 +442,7 @@ export default function MagazzinoMP(): React.JSX.Element {
                   <th className="px-4 py-2 font-medium">Categoria</th>
                   <th className="px-4 py-2 font-medium">Unita</th>
                   <th className="px-4 py-2 font-medium">Giacenza totale</th>
-                  <th className="px-4 py-2 font-medium">Soglia riordino</th>
+                  <th className="px-4 py-2 font-medium">Soglia di riordino</th>
                   <th className="px-4 py-2 font-medium">Stato</th>
                 </tr>
               </thead>
