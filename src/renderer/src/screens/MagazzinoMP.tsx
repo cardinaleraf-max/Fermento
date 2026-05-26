@@ -506,11 +506,20 @@ export default function MagazzinoMP(): React.JSX.Element {
 
             <div className="grid gap-2 rounded-md border border-border bg-secondary/30 p-3 text-sm">
               <div>
-                <span className="font-medium text-foreground/80">Soglia riordino fissa:</span>{' '}
-                {materiaSelezionata.soglia_riordino_fissa ?? '-'}
+                <span className="font-medium text-foreground/80">Soglia di riordino fissa:</span>{' '}
+                {materiaSelezionata.soglia_riordino_fissa !== null
+                  ? `${materiaSelezionata.soglia_riordino_fissa} ${materiaSelezionata.unita_misura}`
+                  : '-'}
               </div>
               <div>
-                <span className="font-medium text-foreground/80">Note:</span> {materiaSelezionata.note || '-'}
+                <span className="font-medium text-foreground/80">Soglia di riordino dinamica:</span>{' '}
+                {materiaSelezionata.soglia_riordino_dinamica_cotte !== null
+                  ? `${materiaSelezionata.soglia_riordino_dinamica_cotte} cotte`
+                  : '-'}
+              </div>
+              <div>
+                <span className="font-medium text-foreground/80">Note:</span>{' '}
+                {materiaSelezionata.note || '-'}
               </div>
             </div>
 
@@ -923,23 +932,43 @@ function MateriaPrimaFormFields({
           <option value="g">g</option>
         </select>
       </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor="mp_soglia_fissa">Soglia riordino fissa</Label>
-        <Input
-          id="mp_soglia_fissa"
-          type="number"
-          value={form.soglia_riordino_fissa}
-          onChange={(event) => onChange((prev) => ({ ...prev, soglia_riordino_fissa: event.target.value }))}
-        />
-      </div>
-      <div className="grid gap-1.5">
-        <Label htmlFor="mp_soglia_dinamica">Soglia riordino dinamica cotte</Label>
-        <Input
-          id="mp_soglia_dinamica"
-          type="number"
-          value={form.soglia_riordino_dinamica_cotte}
-          onChange={(event) => onChange((prev) => ({ ...prev, soglia_riordino_dinamica_cotte: event.target.value }))}
-        />
+      <div className="rounded-md border border-border bg-secondary/30 p-3 grid gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground/80">Soglie di riordino</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Imposta almeno una soglia per ricevere avvisi quando la materia prima sta finendo.
+          </p>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="mp_soglia_fissa">Soglia di riordino fissa</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="mp_soglia_fissa"
+              type="number"
+              value={form.soglia_riordino_fissa}
+              onChange={(event) => onChange((prev) => ({ ...prev, soglia_riordino_fissa: event.target.value }))}
+              className="flex-1"
+            />
+            <span className="shrink-0 text-sm text-muted-foreground">{form.unita_misura}</span>
+          </div>
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="mp_soglia_dinamica">Soglia di riordino dinamica (cotte residue)</Label>
+          <Input
+            id="mp_soglia_dinamica"
+            type="number"
+            step="1"
+            min="0"
+            value={form.soglia_riordino_dinamica_cotte}
+            onChange={(event) =>
+              onChange((prev) => ({ ...prev, soglia_riordino_dinamica_cotte: event.target.value }))
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            Avvisa quando con la giacenza si può produrre questo numero di cotte o meno.
+            Esempio: &ldquo;1&rdquo; = avviso quando basta per una sola cotta in più.
+          </p>
+        </div>
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="mp_fornitore_pref">Fornitore preferito</Label>
