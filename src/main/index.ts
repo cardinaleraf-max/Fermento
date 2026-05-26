@@ -2515,23 +2515,101 @@ function registerAvvisiIpcHandlers(): void {
   console.log('[startup] IPC handlers registrati: avvisi:*')
 }
 
+type MpSogliaRow = {
+  id: number
+  nome: string
+  unita_misura: string
+  soglia_riordino_fissa: number | null
+  soglia_riordino_dinamica_cotte: number | null
+  giacenza: number
+}
+
+type BestRicettaRow = {
+  materia_prima_id: number
+  quantita: number
+  birra_nome: string
+}
+
 /** Inserimenti (chiamata dentro transazione) */
 function generaAvvisiPieno(nAnticipo: number, nCliente: number): void {
   db.prepare(`UPDATE avvisi SET risolto = 1`).run()
 
-  db.prepare(
+  const mpRows = db
+    .prepare(
+      `SELECT mp.id, mp.nome, mp.unita_misura,
+              mp.soglia_riordino_fissa, mp.soglia_riordino_dinamica_cotte,
+              COALESCE(l.t, 0) AS giacenza
+       FROM materie_prime mp
+       LEFT JOIN (
+         SELECT materia_prima_id, SUM(quantita_residua) t
+         FROM lotti_materie_prime WHERE quantita_residua > 0
+         GROUP BY materia_prima_id
+       ) l ON l.materia_prima_id = mp.id
+       WHERE mp.soglia_riordino_fissa IS NOT NULL
+          OR mp.soglia_riordino_dinamica_cotte IS NOT NULL`
+    )
+    .all() as MpSogliaRow[]
+
+  const bestRicette = db
+    .prepare(
+      `SELECT ri.materia_prima_id, ri.quantita, b.nome AS birra_nome
+       FROM ricetta_ingredienti ri
+       JOIN ricette r ON r.id = ri.ricetta_id AND r.attiva = 1
+       JOIN birre b ON b.id = r.birra_id
+       WHERE ri.quantita = (
+         SELECT MAX(ri2.quantita) FROM ricetta_ingredienti ri2
+         JOIN ricette r2 ON r2.id = ri2.ricetta_id AND r2.attiva = 1
+         WHERE ri2.materia_prima_id = ri.materia_prima_id
+       )`
+    )
+    .all() as BestRicettaRow[]
+
+  const bestRicettaByMp = new Map<number, BestRicettaRow>(
+    bestRicette.map((r) => [r.materia_prima_id, r])
+  )
+
+  const insertAvvioMP = db.prepare(
     `INSERT INTO avvisi (tipo, riferimento_tabella, riferimento_id, messaggio, data_generazione, letto, risolto, priorita)
-     SELECT 'scorta_bassa', 'materie_prime', mp.id,
-       'Materia ' || mp.nome || ' sotto soglia', CURRENT_TIMESTAMP, 0, 0, 'alta'
-     FROM materie_prime mp
-     LEFT JOIN (
-       SELECT materia_prima_id, SUM(quantita_residua) t
-       FROM lotti_materie_prime WHERE quantita_residua > 0
-       GROUP BY materia_prima_id
-     ) l ON l.materia_prima_id = mp.id
-     WHERE mp.soglia_riordino_fissa IS NOT NULL
-       AND COALESCE(l.t, 0) <= mp.soglia_riordino_fissa`
-  ).run()
+     VALUES ('scorta_bassa', 'materie_prime', ?, ?, CURRENT_TIMESTAMP, 0, 0, 'alta')`
+  )
+
+  for (const mp of mpRows) {
+    const sf = mp.soglia_riordino_fissa
+    const sc = mp.soglia_riordino_dinamica_cotte
+
+    const fissaScatta = sf !== null && mp.giacenza <= sf
+
+    let cotteResidue: number | null = null
+    let birraNome: string | null = null
+    if (sc !== null) {
+      const best = bestRicettaByMp.get(mp.id)
+      if (best !== undefined && best.quantita > 0) {
+        const cr = Math.floor(mp.giacenza / best.quantita)
+        if (cr <= sc) {
+          cotteResidue = cr
+          birraNome = best.birra_nome
+        }
+      }
+    }
+    const dinamicaScatta = cotteResidue !== null
+
+    if (!fissaScatta && !dinamicaScatta) continue
+
+    let messaggio: string
+    if (fissaScatta && dinamicaScatta) {
+      // sf e sc sono non-null quando i rispettivi flag sono true
+      messaggio =
+        `${mp.nome}: ${mp.giacenza} ${mp.unita_misura} disponibili ` +
+        `(soglia di riordino fissa ${sf!} ${mp.unita_misura}) · ` +
+        `giacenza per solo ${cotteResidue!} cotta/e (${birraNome!}, soglia di riordino ${sc!} cotte)`
+    } else if (fissaScatta) {
+      messaggio = `${mp.nome}: ${mp.giacenza} ${mp.unita_misura} disponibili, soglia di riordino ${sf!} ${mp.unita_misura}`
+    } else {
+      messaggio = `${mp.nome}: giacenza per solo ${cotteResidue!} cotta/e (${birraNome!}), soglia di riordino ${sc!} cotte`
+    }
+
+    insertAvvioMP.run(mp.id, messaggio)
+  }
 
   db.prepare(
     `INSERT INTO avvisi (tipo, riferimento_tabella, riferimento_id, messaggio, data_generazione, letto, risolto, priorita)
