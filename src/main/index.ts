@@ -746,7 +746,7 @@ function registerProduzioneIpcHandlers(): void {
         .prepare(
           `SELECT b.*, r.id as ricetta_id, r.versione, r.cotta_litri_riferimento
            FROM birre b
-           JOIN ricette r ON r.birra_id = b.id AND r.attiva = 1
+           JOIN ricette r ON r.birra_id = b.id AND r.attiva = 1 AND r.archiviata = 0
            WHERE b.attiva = 1`
         )
         .all()
@@ -3251,6 +3251,49 @@ function registerImpostazioniIpcHandlers(): void {
       return { ok: true as const }
     } catch (error) {
       console.error('[IPC impostazioni:cambia-password] errore:', error)
+      return { ok: false as const, errore: error instanceof Error ? error.message : 'Errore' }
+    }
+  })
+
+  ipcMain.removeHandler('birre:disattiva')
+  ipcMain.handle('birre:disattiva', (_e, id: number) => {
+    try {
+      db.transaction(() => {
+        db.prepare(
+          `UPDATE birre SET attiva = 0, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
+        ).run(id)
+        db.prepare(`UPDATE ricette SET attiva = 0 WHERE birra_id = ?`).run(id)
+      })()
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC birre:disattiva] errore:', error)
+      return { ok: false as const, errore: error instanceof Error ? error.message : 'Errore' }
+    }
+  })
+
+  ipcMain.removeHandler('birre:riattiva')
+  ipcMain.handle('birre:riattiva', (_e, id: number) => {
+    try {
+      const ricetta = db
+        .prepare(
+          `SELECT id FROM ricette WHERE birra_id = ? AND archiviata = 0 ORDER BY versione DESC LIMIT 1`
+        )
+        .get(id) as { id: number } | undefined
+      if (!ricetta) {
+        return {
+          ok: false as const,
+          errore: 'Nessuna ricetta disponibile. Crea prima una ricetta per questa birra.'
+        }
+      }
+      db.transaction(() => {
+        db.prepare(
+          `UPDATE birre SET attiva = 1, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
+        ).run(id)
+        db.prepare(`UPDATE ricette SET attiva = 1 WHERE id = ?`).run(ricetta.id)
+      })()
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC birre:riattiva] errore:', error)
       return { ok: false as const, errore: error instanceof Error ? error.message : 'Errore' }
     }
   })
