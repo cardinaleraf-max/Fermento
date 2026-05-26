@@ -2560,7 +2560,8 @@ function generaAvvisiPieno(nAnticipo: number, nCliente: number): void {
          SELECT MAX(ri2.quantita) FROM ricetta_ingredienti ri2
          JOIN ricette r2 ON r2.id = ri2.ricetta_id AND r2.attiva = 1
          WHERE ri2.materia_prima_id = ri.materia_prima_id
-       )`
+       )
+       ORDER BY b.nome ASC`
     )
     .all() as BestRicettaRow[]
 
@@ -2568,7 +2569,7 @@ function generaAvvisiPieno(nAnticipo: number, nCliente: number): void {
     bestRicette.map((r) => [r.materia_prima_id, r])
   )
 
-  const insertAvvioMP = db.prepare(
+  const insertAvvisoMP = db.prepare(
     `INSERT INTO avvisi (tipo, riferimento_tabella, riferimento_id, messaggio, data_generazione, letto, risolto, priorita)
      VALUES ('scorta_bassa', 'materie_prime', ?, ?, CURRENT_TIMESTAMP, 0, 0, 'alta')`
   )
@@ -2608,7 +2609,7 @@ function generaAvvisiPieno(nAnticipo: number, nCliente: number): void {
       messaggio = `${mp.nome}: giacenza per solo ${cotteResidue!} cotta/e (${birraNome!}), soglia di riordino ${sc!} cotte`
     }
 
-    insertAvvioMP.run(mp.id, messaggio)
+    insertAvvisoMP.run(mp.id, messaggio)
   }
 
   db.prepare(
