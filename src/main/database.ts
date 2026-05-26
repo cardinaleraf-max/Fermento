@@ -226,4 +226,10 @@ function runAdditiveMigrations(database: BetterSqlite3.Database): void {
   } catch {
     // migration best-effort: ignora se non applicabile
   }
+
+  try {
+    database.exec(`ALTER TABLE ricette ADD COLUMN archiviata INTEGER NOT NULL DEFAULT 0`)
+  } catch {
+    // colonna già esistente
+  }
 }
