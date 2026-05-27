@@ -22,6 +22,7 @@ type Cotta = {
   data_confezionamento: string | null
   litri_teorici: number
   stato: string
+  note: string | null
   birra_nome: string
   birra_stile: string | null
   bottiglie_prodotte: number | null
@@ -69,6 +70,18 @@ type MaterialeConfezionamento = {
   nome: string
   categoria: string
   capacita_litri: number | null
+}
+
+type RicettaBirra = {
+  id: number
+  versione: number
+  attiva: number
+  cotta_litri_riferimento: number
+}
+
+type AggiungiCottaForm = {
+  ricetta_id: string
+  litri_aggiuntivi: string
 }
 
 type NuovaCottaForm = {
@@ -180,9 +193,26 @@ export default function Produzione(): React.JSX.Element {
   const [erroreModificaConf, setErroreModificaConf] = useState('')
   const [submittingModificaConf, setSubmittingModificaConf] = useState(false)
 
+  const [dialogAggiungiCottaOpen, setDialogAggiungiCottaOpen] = useState(false)
+  const [cottaPerAggiunta, setCottaPerAggiunta] = useState<Cotta | null>(null)
+  const [ricetteBirra, setRicetteBirra] = useState<RicettaBirra[]>([])
+  const [aggiungiCottaForm, setAggiungiCottaForm] = useState<AggiungiCottaForm>({
+    ricetta_id: '',
+    litri_aggiuntivi: ''
+  })
+  const [ingredientiAggiungiCotta, setIngredientiAggiungiCotta] = useState<IngredienteRicetta[]>([])
+  const [erroreAggiungiCotta, setErroreAggiungiCotta] = useState('')
+  const [avvisiAggiungiCotta, setAvvisiAggiungiCotta] = useState<string[]>([])
+  const [submittingAggiungiCotta, setSubmittingAggiungiCotta] = useState(false)
+
   const birraSelezionata = useMemo(
     () => birreAttive.find((birra) => String(birra.id) === nuovaCottaForm.birra_id) ?? null,
     [birreAttive, nuovaCottaForm.birra_id]
+  )
+
+  const ricettaAggiungiSelezionata = useMemo(
+    () => ricetteBirra.find((r) => String(r.id) === aggiungiCottaForm.ricetta_id) ?? null,
+    [ricetteBirra, aggiungiCottaForm.ricetta_id]
   )
 
   async function caricaCotte(): Promise<void> {
@@ -272,6 +302,17 @@ export default function Produzione(): React.JSX.Element {
     void caricaIngredientiRicetta(birraSelezionata.ricetta_id)
   }, [birraSelezionata])
 
+  useEffect(() => {
+    if (!ricettaAggiungiSelezionata) {
+      setIngredientiAggiungiCotta([])
+      return
+    }
+    void window.api.prod
+      .ingredientiRicetta(ricettaAggiungiSelezionata.id)
+      .then((ing) => setIngredientiAggiungiCotta(ing))
+      .catch(() => setIngredientiAggiungiCotta([]))
+  }, [ricettaAggiungiSelezionata])
+
   function apriDialogNuovaCotta(): void {
     setNuovaCottaForm(defaultNuovaCottaForm())
     setIngredientiRicetta([])
@@ -279,6 +320,66 @@ export default function Produzione(): React.JSX.Element {
     setAvvisiNuovaCotta([])
     void caricaBirreAttive()
     setDialogNuovaCottaOpen(true)
+  }
+
+  async function apriDialogAggiungiCotta(cotta: Cotta, e: React.MouseEvent): Promise<void> {
+    e.stopPropagation()
+    setCottaPerAggiunta(cotta)
+    setAggiungiCottaForm({
+      ricetta_id: String(cotta.ricetta_id),
+      litri_aggiuntivi: String(cotta.litri_teorici)
+    })
+    setErroreAggiungiCotta('')
+    setAvvisiAggiungiCotta([])
+    try {
+      const ricette = await window.api.prod.ricetteBirra(cotta.birra_id)
+      setRicetteBirra(ricette)
+    } catch {
+      setRicetteBirra([])
+    }
+    setDialogAggiungiCottaOpen(true)
+  }
+
+  async function confermaAggiungiCotta(): Promise<void> {
+    if (!cottaPerAggiunta) return
+    setErroreAggiungiCotta('')
+    setAvvisiAggiungiCotta([])
+
+    const litri = Number(aggiungiCottaForm.litri_aggiuntivi)
+    if (!Number.isFinite(litri) || litri <= 0) {
+      setErroreAggiungiCotta('Litri aggiuntivi devono essere > 0')
+      return
+    }
+    const ricettaId = Number(aggiungiCottaForm.ricetta_id)
+    if (!ricettaId) {
+      setErroreAggiungiCotta('Seleziona una ricetta')
+      return
+    }
+
+    setSubmittingAggiungiCotta(true)
+    try {
+      const result = await window.api.prod.aggiungiCottaALotto({
+        cotta_id: cottaPerAggiunta.id,
+        ricetta_id: ricettaId,
+        litri_aggiuntivi: litri
+      })
+      if (!result.ok) {
+        setErroreAggiungiCotta(result.errore ?? 'Errore sconosciuto')
+        return
+      }
+      if (result.avvisi && result.avvisi.length > 0) {
+        setAvvisiAggiungiCotta(result.avvisi)
+      }
+      setDialogAggiungiCottaOpen(false)
+      await caricaCotte()
+      if (cottaSelezionataId === cottaPerAggiunta.id) {
+        await caricaDettaglio(cottaPerAggiunta.id)
+      }
+    } catch (err) {
+      setErroreAggiungiCotta(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSubmittingAggiungiCotta(false)
+    }
   }
 
   async function avviaCotta(): Promise<void> {
@@ -498,6 +599,22 @@ export default function Produzione(): React.JSX.Element {
                     Data inizio: {formatData(dettaglio.data_inizio)} · Litri teorici:{' '}
                     {dettaglio.litri_teorici}
                   </div>
+                  {dettaglio.note && (
+                    <div className="mt-2 space-y-0.5">
+                      {dettaglio.note.split('\n').map((riga, idx) => (
+                        <div
+                          key={idx}
+                          className={
+                            riga.startsWith('Aggiunta produzione')
+                              ? 'text-xs text-amber-400'
+                              : 'text-xs text-muted-foreground'
+                          }
+                        >
+                          {riga}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <Badge className={statoBadgeClass(dettaglio.stato)}>
                   {statoLabel(dettaglio.stato)}
@@ -817,18 +934,19 @@ export default function Produzione(): React.JSX.Element {
                 <th className="px-6 py-3 font-medium">Stato</th>
                 <th className="px-6 py-3 font-medium text-right">Bottiglie</th>
                 <th className="px-6 py-3 font-medium">Scadenza</th>
+                <th className="px-6 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-6 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-6 py-6 text-center text-muted-foreground">
                     Caricamento cotte...
                   </td>
                 </tr>
               ) : cotte.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-6 py-10 text-center text-muted-foreground">
                     <FlaskConical className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
                     Nessuna cotta registrata.
                   </td>
@@ -852,6 +970,18 @@ export default function Produzione(): React.JSX.Element {
                       {cotta.bottiglie_prodotte ?? '-'}
                     </td>
                     <td className="px-6 py-3">{formatData(cotta.data_scadenza)}</td>
+                    <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                      {cotta.stato === 'in_corso' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={(e) => void apriDialogAggiungiCotta(cotta, e)}
+                        >
+                          + Cotta
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -986,6 +1116,151 @@ export default function Produzione(): React.JSX.Element {
             </Button>
             <Button onClick={avviaCotta} disabled={submittingNuovaCotta}>
               {submittingNuovaCotta ? 'Avvio...' : 'Avvia cotta'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={dialogAggiungiCottaOpen} onOpenChange={setDialogAggiungiCottaOpen}>
+        <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>
+              Aggiungi cotta al lotto {cottaPerAggiunta?.numero_lotto ?? ''}
+            </DialogTitle>
+            <DialogDescription>
+              Scarica materie prime aggiuntive e aumenta i litri totali della cotta. Usa questa
+              azione quando hai fatto più di un mash nello stesso fermentatore. Il numero lotto e
+              il prodotto finito rimangono unici.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {cottaPerAggiunta && (
+              <div className="rounded-lg border border-border bg-secondary/20 px-4 py-3 text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{cottaPerAggiunta.birra_nome}</span>
+                {' · '}Litri attuali:{' '}
+                <span className="font-medium text-foreground">{cottaPerAggiunta.litri_teorici} L</span>
+              </div>
+            )}
+
+            <div className="space-y-1.5">
+              <Label htmlFor="agg_ricetta">Ricetta</Label>
+              <select
+                id="agg_ricetta"
+                className="flex h-10 w-full rounded-md border border-input px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                value={aggiungiCottaForm.ricetta_id}
+                onChange={(event) =>
+                  setAggiungiCottaForm((prev) => ({ ...prev, ricetta_id: event.target.value }))
+                }
+              >
+                <option value="">Seleziona ricetta...</option>
+                {ricetteBirra.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    v{r.versione} — {r.cotta_litri_riferimento} L
+                    {r.attiva === 1 ? ' (attiva)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="agg_litri">Litri aggiuntivi *</Label>
+              <Input
+                id="agg_litri"
+                type="number"
+                min={0.1}
+                step={0.1}
+                value={aggiungiCottaForm.litri_aggiuntivi}
+                onChange={(event) =>
+                  setAggiungiCottaForm((prev) => ({ ...prev, litri_aggiuntivi: event.target.value }))
+                }
+              />
+            </div>
+
+            {ricettaAggiungiSelezionata &&
+              ingredientiAggiungiCotta.length > 0 &&
+              Number(aggiungiCottaForm.litri_aggiuntivi) > 0 && (
+                <div className="rounded-lg border border-border bg-secondary/20">
+                  <div className="border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Ingredienti richiesti (scala proporzionale)
+                  </div>
+                  <table className="w-full text-sm">
+                    <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-2 font-medium">Ingrediente</th>
+                        <th className="px-4 py-2 font-medium text-right">Richiesta</th>
+                        <th className="px-4 py-2 font-medium text-right">Giacenza</th>
+                        <th className="px-4 py-2 font-medium">Disponibile</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {ingredientiAggiungiCotta.map((ing) => {
+                        const fattore =
+                          Number(aggiungiCottaForm.litri_aggiuntivi) /
+                          ricettaAggiungiSelezionata.cotta_litri_riferimento
+                        const richiesta = ing.quantita * fattore
+                        const ok = ing.giacenza_totale >= richiesta
+                        return (
+                          <tr key={ing.id} className="border-t border-border/50 text-foreground/80">
+                            <td className="px-4 py-2">{ing.mp_nome}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">
+                              {richiesta.toFixed(2)} {ing.unita_misura}
+                            </td>
+                            <td className="px-4 py-2 text-right tabular-nums">
+                              {ing.giacenza_totale} {ing.unita_misura}
+                            </td>
+                            <td className="px-4 py-2">
+                              <Badge
+                                className={
+                                  ok
+                                    ? 'bg-green-500/15 text-green-400 border-green-500/25'
+                                    : 'bg-red-500/15 text-red-400 border-red-500/25'
+                                }
+                              >
+                                {ok ? 'OK' : 'Insufficiente'}
+                              </Badge>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+            {avvisiAggiungiCotta.length > 0 && (
+              <div className="rounded-md border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-400">
+                <div className="mb-1 flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-4 w-4" /> Avvisi materie prime
+                </div>
+                <ul className="list-disc pl-5">
+                  {avvisiAggiungiCotta.map((avviso, idx) => (
+                    <li key={idx}>{avviso}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {erroreAggiungiCotta && (
+              <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                {erroreAggiungiCotta}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDialogAggiungiCottaOpen(false)}
+              disabled={submittingAggiungiCotta}
+            >
+              Annulla
+            </Button>
+            <Button
+              onClick={() => void confermaAggiungiCotta()}
+              disabled={submittingAggiungiCotta}
+            >
+              {submittingAggiungiCotta ? 'Elaborazione...' : 'Conferma'}
             </Button>
           </DialogFooter>
         </DialogContent>
