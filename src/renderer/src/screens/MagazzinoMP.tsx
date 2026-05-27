@@ -559,8 +559,14 @@ export default function MagazzinoMP(): React.JSX.Element {
                         <td className="px-3 py-2">{lotto.fornitore_nome || '-'}</td>
                         <td className="px-3 py-2">{lotto.data_carico}</td>
                         <td className="px-3 py-2">{lotto.data_scadenza}</td>
-                        <td className="px-3 py-2">{lotto.quantita_iniziale}</td>
-                        <td className="px-3 py-2">{lotto.quantita_residua}</td>
+                        <td className="px-3 py-2">
+                          {lotto.quantita_iniziale}{' '}
+                          <span className="text-muted-foreground text-xs">{materiaSelezionata?.unita_misura}</span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {lotto.quantita_residua}{' '}
+                          <span className="text-muted-foreground text-xs">{materiaSelezionata?.unita_misura}</span>
+                        </td>
                         <td className="px-3 py-2">
                           <div className="flex justify-end gap-1">
                             <Button
@@ -600,13 +606,15 @@ export default function MagazzinoMP(): React.JSX.Element {
       </section>
 
       <Dialog open={dialogNuovaOpen} onOpenChange={setDialogNuovaOpen}>
-        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="flex flex-col max-h-[90vh]" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Nuova materia prima</DialogTitle>
             <DialogDescription>Inserisci i dati principali della materia prima.</DialogDescription>
           </DialogHeader>
-          <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
-          {erroreModal && <ModalError message={erroreModal} />}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
+            {erroreModal && <ModalError message={erroreModal} />}
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogNuovaOpen(false)}>
               Annulla
@@ -619,13 +627,15 @@ export default function MagazzinoMP(): React.JSX.Element {
       </Dialog>
 
       <Dialog open={dialogModificaOpen} onOpenChange={setDialogModificaOpen}>
-        <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="flex flex-col max-h-[90vh]" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Modifica materia prima</DialogTitle>
             <DialogDescription>Aggiorna i dati della materia prima selezionata.</DialogDescription>
           </DialogHeader>
-          <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
-          {erroreModal && <ModalError message={erroreModal} />}
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
+            {erroreModal && <ModalError message={erroreModal} />}
+          </div>
           <DialogFooter>
             <Button
               variant="outline"
@@ -724,18 +734,28 @@ export default function MagazzinoMP(): React.JSX.Element {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="mod_lotto_residua">Quantita residua</Label>
-              <Input
-                id="mod_lotto_residua"
-                type="number"
-                step="any"
-                value={modificaLottoForm.quantita_residua}
-                onChange={(event) =>
-                  setModificaLottoForm((prev) => ({ ...prev, quantita_residua: event.target.value }))
-                }
-              />
+              <div className="relative">
+                <Input
+                  id="mod_lotto_residua"
+                  type="number"
+                  step="any"
+                  className="pr-12"
+                  value={modificaLottoForm.quantita_residua}
+                  onChange={(event) =>
+                    setModificaLottoForm((prev) => ({
+                      ...prev,
+                      quantita_residua: event.target.value
+                    }))
+                  }
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                  {materiaSelezionata?.unita_misura ?? ''}
+                </span>
+              </div>
               {lottoSelezionato && (
                 <p className="text-xs text-muted-foreground">
-                  Quantita iniziale (storica): {lottoSelezionato.quantita_iniziale}
+                  Quantita iniziale (storica): {lottoSelezionato.quantita_iniziale}{' '}
+                  {materiaSelezionata?.unita_misura}
                 </p>
               )}
             </div>
@@ -790,7 +810,8 @@ export default function MagazzinoMP(): React.JSX.Element {
               </div>
               <div>
                 <span className="font-medium text-foreground/80">Quantita:</span>{' '}
-                {lottoSelezionato.quantita_residua} / {lottoSelezionato.quantita_iniziale}
+                {lottoSelezionato.quantita_residua} {materiaSelezionata?.unita_misura} /{' '}
+                {lottoSelezionato.quantita_iniziale} {materiaSelezionata?.unita_misura}
               </div>
             </div>
           )}
@@ -861,12 +882,20 @@ export default function MagazzinoMP(): React.JSX.Element {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="quantita">Quantita</Label>
-              <Input
-                id="quantita"
-                type="number"
-                value={caricoForm.quantita}
-                onChange={(event) => setCaricoForm((prev) => ({ ...prev, quantita: event.target.value }))}
-              />
+              <div className="relative">
+                <Input
+                  id="quantita"
+                  type="number"
+                  className="pr-12"
+                  value={caricoForm.quantita}
+                  onChange={(event) =>
+                    setCaricoForm((prev) => ({ ...prev, quantita: event.target.value }))
+                  }
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                  {materiaSelezionata?.unita_misura ?? ''}
+                </span>
+              </div>
             </div>
           </div>
           {erroreModal && <ModalError message={erroreModal} />}
