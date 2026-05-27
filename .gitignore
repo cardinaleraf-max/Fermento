@@ -6,3 +6,5 @@ release
 .eslintcache
 *.log*
 .fermento-licensing/
+docs/superpowers/
+out_test/

@@ -316,7 +316,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
   const statoHeader = useMemo(() => {
     if (healthLoading) return { testo: 'Verifica…', colore: 'text-white/40' }
     if (!health) return { testo: 'Stato sconosciuto', colore: 'text-white/40' }
-    if (!health.abilitato) return { testo: 'Disabilitato', colore: 'text-white/40' }
+    if (!health.abilitato) return { testo: 'Configura…', colore: 'text-amber-400/70' }
     const nomeProvider = health.provider === 'groq' ? 'Groq' : 'Ollama'
     if (!health.raggiungibile)
       return { testo: `${nomeProvider} non raggiungibile`, colore: 'text-red-400/80' }
@@ -396,6 +396,18 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
           )}
         </div>
       </div>
+
+      {health && !health.abilitato && (
+        <div className="flex items-start gap-1.5 border-b border-amber-500/20 bg-amber-500/[0.08] px-3 py-2 text-[11px] text-amber-100/85">
+          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+          <div>
+            <div className="font-medium">Assistente non configurato</div>
+            <div className="mt-0.5 text-amber-100/70">
+              Vai in Impostazioni \u2192 Assistente AI e inserisci la tua API key Groq per attivare Bira.
+            </div>
+          </div>
+        </div>
+      )}
 
       {health && !health.raggiungibile && health.abilitato && (
         <div className="flex items-start gap-1.5 border-b border-amber-500/20 bg-amber-500/[0.08] px-3 py-2 text-[11px] text-amber-100/85">
@@ -496,7 +508,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
               type="button"
               size="sm"
               onClick={() => inviaMessaggio()}
-              disabled={!input.trim() || (health ? !health.raggiungibile : false)}
+              disabled={!input.trim() || (health ? !health.abilitato || !health.raggiungibile : false)}
               className="shrink-0"
             >
               <Send className="h-3.5 w-3.5" />

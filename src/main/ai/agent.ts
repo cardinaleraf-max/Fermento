@@ -90,7 +90,6 @@ type AgentConfig = {
 }
 
 function leggiConfig(get: ConfigGetter): AgentConfig {
-  const abilitato = (get('ai_abilitato') || '1') !== '0'
   const provider = normalizzaProvider(get('ai_provider'))
   const remoto = provider !== 'ollama'
 
@@ -107,6 +106,9 @@ function leggiConfig(get: ConfigGetter): AgentConfig {
     baseUrl = (get('ai_url') || '').trim() || urlDefaultPerProvider('ollama')
     modello = (get('ai_modello') || '').trim() || DEFAULT_MODEL_OLLAMA
   }
+
+  // ai_abilitato non viene più letto: derivato dallo stato del provider
+  const abilitato = provider === 'groq' ? apiKey.length > 0 : true
 
   const tempRaw = (get('ai_temperatura') || '').trim()
   const tempNum = tempRaw === '' ? DEFAULT_TEMPERATURE : Number(tempRaw)
@@ -362,6 +364,7 @@ export function ensureAiConfigRows(db: BetterSqlite3.Database): void {
   const ins = db.prepare(
     `INSERT OR IGNORE INTO configurazioni (chiave, valore, tipo, etichetta, categoria) VALUES (?, ?, ?, ?, ?)`
   )
+  // LEGACY: non più letto a runtime, derivato dallo stato provider
   ins.run('ai_abilitato', '1', 'bool', 'Assistente AI abilitato (0/1)', 'assistente_ai')
   ins.run(
     'ai_provider',
@@ -435,6 +438,17 @@ export function registerAiIpcHandlers(getDb: () => BetterSqlite3.Database): void
   ipcMain.removeHandler('ai:health')
   ipcMain.handle('ai:health', async () => {
     const cfg = leggiConfig((c) => leggiConfigurazione(getDb(), c))
+    if (!cfg.abilitato) {
+      return {
+        abilitato: false,
+        provider: cfg.provider,
+        url: cfg.baseUrl,
+        modello: cfg.modello,
+        remoto: cfg.remoto,
+        raggiungibile: false,
+        errore: 'Configura API key Groq in Impostazioni → Assistente AI'
+      }
+    }
     const client = costruisciClient(cfg)
     const ping = await client.ping()
     return {

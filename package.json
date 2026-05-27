@@ -1,6 +1,6 @@
 {
   "name": "fermento",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "productName": "Fermento",
   "description": "Fermento — gestionale per birrifici",
   "main": "./out/main/index.js",
@@ -17,8 +17,8 @@
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win --x64 --publish never",
-    "release:win": "npm run build && electron-builder --win --x64 --publish always",
+    "build:win": "npm run build && node scripts/prepare-win-binary.mjs && electron-builder --win --x64 --publish never",
+    "release:win": "npm run build && node scripts/prepare-win-binary.mjs && electron-builder --win --x64 --publish always",
     "build:mac": "npm run build && electron-builder --mac --x64",
     "build:linux": "electron-vite build && electron-builder --linux",
     "genera-chiavi": "tsx scripts/genera-coppia-chiavi.ts",
@@ -28,7 +28,7 @@
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "^12.10.0",
     "electron-updater": "^6.3.9"
   },
   "devDependencies": {
