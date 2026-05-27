@@ -71,6 +71,9 @@ export default function Impostazioni(): React.JSX.Element {
   const [bozzaIng, setBozzaIng] = useState<IngredienteBozza[]>([])
   const [materie, setMaterie] = useState<MpRiga[]>([])
   const [savingRicetta, setSavingRicetta] = useState(false)
+  const [confermaDis, setConfermaDis] = useState<BirraRiga | null>(null)
+  const [mostraInattive, setMostraInattive] = useState(false)
+  const [errRiattiva, setErrRiattiva] = useState<{ id: number; msg: string } | null>(null)
 
   const [pwAtt, setPwAtt] = useState('')
   const [pwNu, setPwNu] = useState('')
@@ -231,6 +234,9 @@ export default function Impostazioni(): React.JSX.Element {
     }
   }, [selezionata, ricaricaRicetta])
 
+  const birreAttive = useMemo(() => birre.filter((b) => b.attiva === 1), [birre])
+  const birreInattive = useMemo(() => birre.filter((b) => b.attiva === 0), [birre])
+
   const groupedParametri = useMemo(
     () => groupByCategoria(config, { escludiCategorie: [CAT_ASSISTENTE] }),
     [config]
@@ -239,7 +245,7 @@ export default function Impostazioni(): React.JSX.Element {
   const righeAssistente = useMemo(
     () =>
       config
-        .filter((c) => c.categoria === CAT_ASSISTENTE)
+        .filter((c) => c.categoria === CAT_ASSISTENTE && c.chiave !== 'ai_abilitato')
         .sort((a, b) => (a.etichetta || a.chiave).localeCompare(b.etichetta || b.chiave, 'it')),
     [config]
   )
@@ -270,7 +276,7 @@ export default function Impostazioni(): React.JSX.Element {
         nome: formBirra.nome,
         stile: formBirra.stile,
         descrizione: formBirra.descrizione,
-        attiva: formBirra.attiva ? 1 : 0
+        attiva: selezionata.attiva
       })
       await caricaBirre()
       const up = await window.api.impostazioni.birre()
@@ -280,6 +286,31 @@ export default function Impostazioni(): React.JSX.Element {
       setErrBirre(e instanceof Error ? e.message : 'Salvataggio birra fallito')
     } finally {
       setSavingBirra(false)
+    }
+  }
+
+  const handleDisattiva = async (id: number) => {
+    setErrBirre(null)
+    try {
+      const r = await window.api.birre.disattiva(id)
+      if (!r.ok) { setErrBirre(r.errore); return }
+      if (selezionata?.id === id) setSelezionata(null)
+      await caricaBirre()
+    } catch (e) {
+      setErrBirre(e instanceof Error ? e.message : 'Errore disattivazione')
+    } finally {
+      setConfermaDis(null)
+    }
+  }
+
+  const handleRiattiva = async (id: number) => {
+    setErrRiattiva(null)
+    try {
+      const r = await window.api.birre.riattiva(id)
+      if (!r.ok) { setErrRiattiva({ id, msg: r.errore }); return }
+      await caricaBirre()
+    } catch (e) {
+      setErrRiattiva({ id, msg: e instanceof Error ? e.message : 'Errore riattivazione' })
     }
   }
 
@@ -679,8 +710,7 @@ export default function Impostazioni(): React.JSX.Element {
             <CardHeader>
               <CardTitle className="text-base">Assistente Bira</CardTitle>
               <CardDescription>
-                Modello in locale (Ollama) o in cloud (Groq). I parametri sotto riguardano provider, chiavi e limiti. Per
-                la chat usa il launcher in basso a sinistra nella barra laterale.
+                L&apos;assistente Bira si attiva automaticamente quando configuri un provider valido. Per usarlo in cloud inserisci la tua API key Groq. Per usarlo in locale assicurati che Ollama sia avviato sul tuo computer.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -799,25 +829,89 @@ export default function Impostazioni(): React.JSX.Element {
                 <CardTitle className="text-base">Elenco birre</CardTitle>
                 <CardDescription>Seleziona una voce</CardDescription>
               </CardHeader>
-              <CardContent className="max-h-72 space-y-1 overflow-y-auto pr-1">
-                {birre.map((b) => (
-                  <button
-                    key={b.id}
-                    type="button"
-                    onClick={() => setSelezionata(b)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-2 rounded border px-3 py-2 text-left text-sm',
-                      selezionata?.id === b.id
-                        ? 'border-primary bg-secondary'
-                        : 'border-transparent hover:border-border hover:bg-secondary/50'
+              <CardContent className="space-y-2 p-3">
+                <div className="max-h-60 space-y-1 overflow-y-auto pr-1">
+                  {birreAttive.map((b) => (
+                    <div
+                      key={b.id}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded border px-3 py-2 text-sm',
+                        selezionata?.id === b.id
+                          ? 'border-primary bg-secondary'
+                          : 'border-transparent hover:border-border hover:bg-secondary/50'
+                      )}
+                    >
+                      <button
+                        type="button"
+                        className="flex-1 text-left font-medium text-foreground"
+                        onClick={() => setSelezionata(b)}
+                      >
+                        {b.nome}
+                      </button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="shrink-0 text-xs"
+                        onClick={() => setConfermaDis(b)}
+                      >
+                        Disattiva
+                      </Button>
+                    </div>
+                  ))}
+                  {birreAttive.length === 0 && (
+                    <p className="py-2 text-xs text-muted-foreground">Nessuna birra attiva</p>
+                  )}
+                </div>
+                {birreInattive.length > 0 && (
+                  <div className="border-t border-border pt-2">
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setMostraInattive((p) => !p)}
+                    >
+                      <span>{mostraInattive ? '▾' : '▸'} Birre disattivate</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {birreInattive.length}
+                      </Badge>
+                    </button>
+                    {mostraInattive && (
+                      <div className="mt-1 space-y-1">
+                        {birreInattive.map((b) => (
+                          <div key={b.id} className="space-y-1">
+                            <div
+                              className={cn(
+                                'flex w-full items-center gap-2 rounded border border-border/50 px-3 py-2 text-sm opacity-75',
+                                selezionata?.id === b.id && 'opacity-100 border-primary bg-secondary'
+                              )}
+                            >
+                              <button
+                                type="button"
+                                className="flex-1 text-left text-foreground/80"
+                                onClick={() => setSelezionata(b)}
+                              >
+                                {b.nome}
+                              </button>
+                              <Badge variant="secondary" className="shrink-0 text-xs">
+                                disattivata
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0 text-xs"
+                                onClick={() => { setErrRiattiva(null); void handleRiattiva(b.id) }}
+                              >
+                                Riattiva
+                              </Button>
+                            </div>
+                            {errRiattiva?.id === b.id && (
+                              <p className="px-3 text-xs text-destructive">{errRiattiva.msg}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  >
-                    <span className="font-medium text-foreground">{b.nome}</span>
-                    <Badge className="shrink-0" variant="outline" title={b.attiva === 1 ? 'Attiva' : 'Non attiva'}>
-                      {b.attiva === 1 ? 'attiva' : 'non attiva'}
-                    </Badge>
-                  </button>
-                ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -851,14 +945,6 @@ export default function Impostazioni(): React.JSX.Element {
                       onChange={(e) => setFormBirra((f) => ({ ...f, descrizione: e.target.value }))}
                     />
                   </div>
-                  <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={formBirra.attiva}
-                      onChange={(e) => setFormBirra((f) => ({ ...f, attiva: e.target.checked }))}
-                    />
-                    <span className="text-foreground/80">Birra attiva in produzione</span>
-                  </label>
                   <div>
                     <Button type="button" disabled={savingBirra} onClick={() => void salvaBirra()}>
                       {savingBirra ? 'Salva…' : 'Salva birra'}
@@ -905,6 +991,30 @@ export default function Impostazioni(): React.JSX.Element {
               </div>
             )}
           </div>
+
+          <Dialog open={!!confermaDis} onOpenChange={(open) => { if (!open) setConfermaDis(null) }}>
+            <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+              <DialogHeader>
+                <DialogTitle>Disattivare birra?</DialogTitle>
+                <DialogDescription>
+                  Disattivare la birra <strong>{confermaDis?.nome}</strong>? Non potrai più creare
+                  nuove cotte di questa birra, ma lo storico resterà visibile. Puoi riattivarla in
+                  qualunque momento.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfermaDis(null)}>
+                  Annulla
+                </Button>
+                <Button
+                  className="bg-red-600 text-white hover:bg-red-700"
+                  onClick={() => { if (confermaDis) void handleDisattiva(confermaDis.id) }}
+                >
+                  Disattiva
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={nuovaAperta} onOpenChange={setNuovaAperta}>
             <DialogContent>
