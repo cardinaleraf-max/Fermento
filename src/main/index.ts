@@ -62,6 +62,12 @@ type AvviaCottaPayload = {
   litri_teorici: number
 }
 
+type AggiungiCottaALottoPayload = {
+  cotta_id: number
+  ricetta_id: number
+  litri_aggiuntivi: number
+}
+
 type ConfezionaPayload = {
   cotta_id: number
   bottiglie_prodotte: number
@@ -1218,6 +1224,110 @@ function registerProduzioneIpcHandlers(): void {
         .all(birra_id)
     } catch (error) {
       console.error('[IPC prod:ricette-birra] errore:', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('prod:aggiungi-cotta-a-lotto')
+  ipcMain.handle('prod:aggiungi-cotta-a-lotto', (_event, dati: AggiungiCottaALottoPayload) => {
+    try {
+      if (!Number.isFinite(dati.litri_aggiuntivi) || dati.litri_aggiuntivi <= 0) {
+        return { ok: false as const, errore: 'litri_aggiuntivi deve essere > 0' }
+      }
+
+      const cotta = db
+        .prepare(`SELECT id, birra_id, stato FROM cotte WHERE id = ?`)
+        .get(dati.cotta_id) as { id: number; birra_id: number; stato: string } | undefined
+      if (!cotta) {
+        return { ok: false as const, errore: 'Cotta non trovata' }
+      }
+      if (cotta.stato !== 'in_corso') {
+        return {
+          ok: false as const,
+          errore: 'La cotta non è più in corso (potrebbe essere stata confezionata)'
+        }
+      }
+
+      const ricetta = db
+        .prepare(`SELECT id, birra_id, cotta_litri_riferimento FROM ricette WHERE id = ?`)
+        .get(dati.ricetta_id) as
+        | { id: number; birra_id: number; cotta_litri_riferimento: number }
+        | undefined
+      if (!ricetta) {
+        return { ok: false as const, errore: 'Ricetta non trovata' }
+      }
+      if (ricetta.birra_id !== cotta.birra_id) {
+        return {
+          ok: false as const,
+          errore: 'La ricetta non appartiene alla stessa birra della cotta'
+        }
+      }
+      if (!ricetta.cotta_litri_riferimento || ricetta.cotta_litri_riferimento <= 0) {
+        return { ok: false as const, errore: 'Ricetta con litri di riferimento non validi' }
+      }
+
+      const avvisi: string[] = []
+      const fattore = dati.litri_aggiuntivi / ricetta.cotta_litri_riferimento
+
+      const ingredienti = db
+        .prepare(`SELECT id, materia_prima_id, quantita FROM ricetta_ingredienti WHERE ricetta_id = ?`)
+        .all(dati.ricetta_id) as Array<{ id: number; materia_prima_id: number; quantita: number }>
+
+      const getMpNome = db.prepare(`SELECT nome FROM materie_prime WHERE id = ?`)
+      const getLottiDisponibili = db.prepare(
+        `SELECT id, quantita_residua FROM lotti_materie_prime
+         WHERE materia_prima_id = ? AND quantita_residua > 0
+         ORDER BY data_scadenza ASC, id ASC`
+      )
+      const scaricaLotto = db.prepare(
+        `UPDATE lotti_materie_prime SET quantita_residua = ? WHERE id = ?`
+      )
+      const insertCottaMp = db.prepare(
+        `INSERT INTO cotta_materie_prime (cotta_id, lotto_materia_prima_id, materia_prima_id, quantita_usata)
+         VALUES (?, ?, ?, ?)`
+      )
+
+      const dataOggi = new Date().toISOString().split('T')[0]
+      const notaAggiunta = `Aggiunta produzione del ${dataOggi} — ${dati.litri_aggiuntivi} L`
+
+      const transaction = db.transaction(() => {
+        for (const ingrediente of ingredienti) {
+          const quantitaRichiesta = ingrediente.quantita * fattore
+          let rimanente = quantitaRichiesta
+          const lotti = getLottiDisponibili.all(ingrediente.materia_prima_id) as Array<{
+            id: number
+            quantita_residua: number
+          }>
+
+          for (const lotto of lotti) {
+            if (rimanente <= 0) break
+            const usato = Math.min(lotto.quantita_residua, rimanente)
+            scaricaLotto.run(lotto.quantita_residua - usato, lotto.id)
+            insertCottaMp.run(dati.cotta_id, lotto.id, ingrediente.materia_prima_id, usato)
+            rimanente -= usato
+          }
+
+          if (rimanente > 0) {
+            const mp = getMpNome.get(ingrediente.materia_prima_id) as { nome: string } | undefined
+            avvisi.push(
+              `Giacenza insufficiente per ${mp?.nome ?? 'MP #' + ingrediente.materia_prima_id}: mancano ${rimanente.toFixed(2)}`
+            )
+          }
+        }
+
+        db.prepare(
+          `UPDATE cotte
+           SET litri_teorici = litri_teorici + ?,
+               note = CASE WHEN note IS NULL OR note = '' THEN ? ELSE note || char(10) || ? END,
+               aggiornato_il = CURRENT_TIMESTAMP
+           WHERE id = ?`
+        ).run(dati.litri_aggiuntivi, notaAggiunta, notaAggiunta, dati.cotta_id)
+      })
+
+      transaction()
+      return { ok: true as const, avvisi }
+    } catch (error) {
+      console.error('[IPC prod:aggiungi-cotta-a-lotto] errore:', error)
       throw error
     }
   })
