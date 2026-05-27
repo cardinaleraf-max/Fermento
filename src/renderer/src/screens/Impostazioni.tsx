@@ -1219,22 +1219,27 @@ export default function Impostazioni(): React.JSX.Element {
                         <option value={0}>Scegli…</option>
                         {materie.map((m) => (
                           <option key={m.id} value={m.id}>
-                            {m.nome}
+                            {m.nome} — {m.categoria} ({m.unita_misura})
                           </option>
                         ))}
                       </select>
                     </div>
                     <div className="sm:col-span-3">
                       <Label>Quantità</Label>
-                      <Input
-                        type="number"
-                        className="mt-1"
-                        value={b.quantita || ''}
-                        onChange={(e) => {
-                          const n = parseFloat(e.target.value) || 0
-                          setBozzaIng((p) => p.map((r, j) => (j === idx ? { ...r, quantita: n } : r)))
-                        }}
-                      />
+                      <div className="relative mt-1">
+                        <Input
+                          type="number"
+                          className="pr-12"
+                          value={b.quantita || ''}
+                          onChange={(e) => {
+                            const n = parseFloat(e.target.value) || 0
+                            setBozzaIng((p) => p.map((r, j) => (j === idx ? { ...r, quantita: n } : r)))
+                          }}
+                        />
+                        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
+                          {materie.find((m) => m.id === b.materia_prima_id)?.unita_misura ?? ''}
+                        </span>
+                      </div>
                     </div>
                     <div className="sm:col-span-3">
                       <Label>Nota</Label>
