@@ -1205,6 +1205,23 @@ function registerProduzioneIpcHandlers(): void {
     }
   })
 
+  ipcMain.removeHandler('prod:ricette-birra')
+  ipcMain.handle('prod:ricette-birra', (_event, birra_id: number) => {
+    try {
+      return db
+        .prepare(
+          `SELECT id, versione, attiva, cotta_litri_riferimento
+           FROM ricette
+           WHERE birra_id = ? AND archiviata = 0
+           ORDER BY attiva DESC, versione DESC`
+        )
+        .all(birra_id)
+    } catch (error) {
+      console.error('[IPC prod:ricette-birra] errore:', error)
+      throw error
+    }
+  })
+
   console.log('[startup] IPC handlers registrati: prod:*')
 }
 
