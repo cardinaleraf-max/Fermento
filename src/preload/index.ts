@@ -295,6 +295,8 @@ const api = {
       ipcRenderer.invoke('impostazioni:aggiorna-birra', id, dati),
     creaBirra: (dati: ImpostazioniCreaBirraPayload) => ipcRenderer.invoke('impostazioni:crea-birra', dati),
     ricetta: (birraId: number) => ipcRenderer.invoke('impostazioni:ricetta', birraId),
+    versioni_ricette: (birraId: number, includi_archiviate?: boolean) =>
+      ipcRenderer.invoke('impostazioni:versioni-ricette', birraId, includi_archiviate),
     salvaRicetta: (dati: SalvaRicettaPayload) => ipcRenderer.invoke('impostazioni:salva-ricetta', dati),
     cambiaPassword: (dati: CambiaPasswordPayload) => ipcRenderer.invoke('impostazioni:cambia-password', dati),
     valoreDi: (chiave: string) => ipcRenderer.invoke('impostazioni:valore-di', chiave)
@@ -320,6 +322,14 @@ const api = {
     configuraPercorso: (percorso: string) => ipcRenderer.invoke('backup:configura-percorso', { percorso }),
     lista: () => ipcRenderer.invoke('backup:lista'),
     ripristina: (percorsoFile: string) => ipcRenderer.invoke('backup:ripristina', { percorso_file: percorsoFile })
+  },
+  birre: {
+    disattiva: (id: number) => ipcRenderer.invoke('birre:disattiva', id),
+    riattiva: (id: number) => ipcRenderer.invoke('birre:riattiva', id)
+  },
+  ricette: {
+    archivia: (ricetta_id: number) => ipcRenderer.invoke('ricette:archivia', ricetta_id),
+    disarchivia: (ricetta_id: number) => ipcRenderer.invoke('ricette:disarchivia', ricetta_id)
   },
   ai: {
     health: () => ipcRenderer.invoke('ai:health'),

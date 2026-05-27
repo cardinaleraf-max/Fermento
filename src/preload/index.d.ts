@@ -544,6 +544,14 @@ type SalvaRicettaInput = {
 }
 type CambiaPasswordInput = { password_attuale: string; password_nuova: string }
 
+type VersioneRicettaRiga = {
+  id: number
+  versione: number
+  attiva: number
+  archiviata: number
+  data_creazione: string
+}
+
 type RicettaIngredienteRiga = {
   id: number
   ricetta_id: number
@@ -662,6 +670,14 @@ type AiAvvisiIntelligentiResult =
   | { ok: false; errore: string }
 
 interface FermentoAPI {
+  birre: {
+    disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
+    riattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
+  }
+  ricette: {
+    archivia: (ricetta_id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
+    disarchivia: (ricetta_id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
+  }
   login: {
     verifica: (password: string) => Promise<LoginResponse>
     impostaPassword: (password: string) => Promise<{ ok: true }>
@@ -761,6 +777,7 @@ interface FermentoAPI {
     aggiornaBirra: (id: number, dati: ImpostazioniBirraForm) => Promise<{ ok: true }>
     creaBirra: (dati: ImpostazioniCreaBirra) => Promise<{ ok: true; id: number }>
     ricetta: (birraId: number) => Promise<RicettaIngredienteRiga[]>
+    versioni_ricette: (birraId: number, includi_archiviate?: boolean) => Promise<VersioneRicettaRiga[]>
     salvaRicetta: (dati: SalvaRicettaInput) => Promise<{ ok: true }>
     cambiaPassword: (dati: CambiaPasswordInput) => Promise<CambiaPasswordResult>
     valoreDi: (chiave: string) => Promise<string>
