@@ -22,6 +22,7 @@ type AiHealth = Awaited<ReturnType<typeof window.api.ai.health>>
 type BirraRiga = Awaited<ReturnType<typeof window.api.impostazioni.birre>>[number]
 type RicettaRiga = Awaited<ReturnType<typeof window.api.impostazioni.ricetta>>[number]
 type MpRiga = Awaited<ReturnType<typeof window.api.mp.lista>>[number]
+type VersioneRicetta = Awaited<ReturnType<typeof window.api.impostazioni.versioni_ricette>>[number]
 
 type IngredienteBozza = { materia_prima_id: number; quantita: number; note: string }
 
@@ -74,6 +75,11 @@ export default function Impostazioni(): React.JSX.Element {
   const [confermaDis, setConfermaDis] = useState<BirraRiga | null>(null)
   const [mostraInattive, setMostraInattive] = useState(false)
   const [errRiattiva, setErrRiattiva] = useState<{ id: number; msg: string } | null>(null)
+
+  const [versioni, setVersioni] = useState<VersioneRicetta[]>([])
+  const [mostraArchiviate, setMostraArchiviate] = useState(false)
+  const [confermaArchivia, setConfermaArchivia] = useState<VersioneRicetta | null>(null)
+  const [errVersioni, setErrVersioni] = useState<string | null>(null)
 
   const [pwAtt, setPwAtt] = useState('')
   const [pwNu, setPwNu] = useState('')
@@ -209,6 +215,14 @@ export default function Impostazioni(): React.JSX.Element {
     void caricaAiHealth()
   }, [tab, caricaAiHealth])
 
+  const caricaVersioni = useCallback(async (birraId: number) => {
+    try {
+      setVersioni(await window.api.impostazioni.versioni_ricette(birraId, true))
+    } catch {
+      setVersioni([])
+    }
+  }, [])
+
   const ricaricaRicetta = useCallback(
     async (birraId: number) => {
       try {
@@ -229,10 +243,12 @@ export default function Impostazioni(): React.JSX.Element {
         attiva: selezionata.attiva === 1
       })
       void ricaricaRicetta(selezionata.id)
+      void caricaVersioni(selezionata.id)
     } else {
       setRicetta([])
+      setVersioni([])
     }
-  }, [selezionata, ricaricaRicetta])
+  }, [selezionata, ricaricaRicetta, caricaVersioni])
 
   const birreAttive = useMemo(() => birre.filter((b) => b.attiva === 1), [birre])
   const birreInattive = useMemo(() => birre.filter((b) => b.attiva === 0), [birre])
@@ -338,6 +354,33 @@ export default function Impostazioni(): React.JSX.Element {
     setRicettaAperta(true)
   }
 
+  const handleArchiviaRicetta = async (v: VersioneRicetta) => {
+    if (!selezionata) return
+    setErrVersioni(null)
+    try {
+      const r = await window.api.ricette.archivia(v.id)
+      if (!r.ok) { setErrVersioni(r.errore); setConfermaArchivia(null); return }
+      setConfermaArchivia(null)
+      await ricaricaRicetta(selezionata.id)
+      await caricaVersioni(selezionata.id)
+    } catch (e) {
+      setErrVersioni(e instanceof Error ? e.message : 'Errore archiviazione')
+      setConfermaArchivia(null)
+    }
+  }
+
+  const handleRipristinaRicetta = async (v: VersioneRicetta) => {
+    if (!selezionata) return
+    setErrVersioni(null)
+    try {
+      const r = await window.api.ricette.disarchivia(v.id)
+      if (!r.ok) { setErrVersioni(r.errore); return }
+      await caricaVersioni(selezionata.id)
+    } catch (e) {
+      setErrVersioni(e instanceof Error ? e.message : 'Errore ripristino')
+    }
+  }
+
   const salvaRicettaFn = async () => {
     if (!selezionata) return
     setSavingRicetta(true)
@@ -353,6 +396,7 @@ export default function Impostazioni(): React.JSX.Element {
       await window.api.impostazioni.salvaRicetta({ birra_id: selezionata.id, ingredienti })
       setRicettaAperta(false)
       await ricaricaRicetta(selezionata.id)
+      await caricaVersioni(selezionata.id)
     } catch (e) {
       setErrBirre(e instanceof Error ? e.message : 'Salvataggio ricetta fallito')
     } finally {
@@ -951,7 +995,75 @@ export default function Impostazioni(): React.JSX.Element {
                     </Button>
                   </div>
                   <div>
-                    <h4 className="mb-1 text-sm font-medium text-foreground">Ricetta attiva (ingredienti)</h4>
+                    <h4 className="mb-2 text-sm font-medium text-foreground">Versioni ricetta</h4>
+                    {errVersioni && (
+                      <p className="mb-2 text-xs text-destructive" role="alert">{errVersioni}</p>
+                    )}
+                    <div className="mb-2 space-y-1">
+                      {versioni.filter((v) => v.archiviata === 0).map((v) => (
+                        <div
+                          key={v.id}
+                          className="flex items-center gap-2 rounded border px-3 py-1.5 text-sm"
+                        >
+                          <span className="flex-1 font-medium text-foreground">v{v.versione}</span>
+                          {v.attiva === 1 && (
+                            <Badge variant="default" className="shrink-0 text-xs">
+                              ATTIVA
+                            </Badge>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 text-xs"
+                            onClick={() => setConfermaArchivia(v)}
+                            disabled={versioni.filter((x) => x.archiviata === 0).length <= 1}
+                          >
+                            Archivia
+                          </Button>
+                        </div>
+                      ))}
+                      {versioni.filter((v) => v.archiviata === 0).length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nessuna versione disponibile</p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      className="mb-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setMostraArchiviate((p) => !p)}
+                    >
+                      {mostraArchiviate ? '▾ Nascondi' : '▸ Mostra'} versioni archiviate (
+                      {versioni.filter((v) => v.archiviata === 1).length})
+                    </button>
+                    {mostraArchiviate && (
+                      <div className="mb-2 space-y-1">
+                        {versioni.filter((v) => v.archiviata === 1).length === 0 ? (
+                          <p className="text-xs text-muted-foreground py-1">Nessuna versione archiviata</p>
+                        ) : (
+                          versioni.filter((v) => v.archiviata === 1).map((v) => (
+                            <div
+                              key={v.id}
+                              className="flex items-center gap-2 rounded border border-border/50 px-3 py-1.5 text-sm opacity-60"
+                            >
+                              <span className="flex-1 text-muted-foreground">v{v.versione}</span>
+                              <Badge variant="secondary" className="shrink-0 text-xs">
+                                archiviata
+                              </Badge>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0 text-xs"
+                                onClick={() => void handleRipristinaRicetta(v)}
+                              >
+                                Ripristina
+                              </Button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                    <h4 className="mb-1 text-sm font-medium text-foreground">
+                      Ingredienti ricetta attiva
+                    </h4>
                     <div className="mb-2 overflow-x-auto rounded border border-border">
                       <table className="w-full min-w-[300px] text-sm">
                         <thead className="bg-secondary/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -1054,6 +1166,32 @@ export default function Impostazioni(): React.JSX.Element {
                 </Button>
                 <Button type="button" disabled={!nuovaForm.nome.trim()} onClick={() => void creaBirra()}>
                   Crea
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog
+            open={!!confermaArchivia}
+            onOpenChange={(open) => { if (!open) setConfermaArchivia(null) }}
+          >
+            <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+              <DialogHeader>
+                <DialogTitle>Archiviare versione ricetta?</DialogTitle>
+                <DialogDescription>
+                  Archiviare questa versione di ricetta? Sparirà dalla gestione ricette ma le cotte
+                  storiche continueranno a riferirsi a questa versione. Puoi ripristinarla in
+                  qualunque momento dal toggle &quot;Mostra archiviate&quot;.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setConfermaArchivia(null)}>
+                  Annulla
+                </Button>
+                <Button
+                  onClick={() => { if (confermaArchivia) void handleArchiviaRicetta(confermaArchivia) }}
+                >
+                  Archivia
                 </Button>
               </DialogFooter>
             </DialogContent>
