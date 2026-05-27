@@ -178,6 +178,19 @@ type AvviaCottaResult =
   | { ok: true; cotta_id: number; avvisi: string[] }
   | { ok: false; errore: string }
 
+type AggiungiCottaALottoPayload = {
+  cotta_id: number
+  ricetta_id: number
+  litri_aggiuntivi: number
+}
+
+type RicettaBirra = {
+  id: number
+  versione: number
+  attiva: number
+  cotta_litri_riferimento: number
+}
+
 type ConfezionaPayload = {
   cotta_id: number
   bottiglie_prodotte: number
@@ -723,6 +736,10 @@ interface FermentoAPI {
       cotta_id: number,
       dati: ModificaConfezionamentoPayload
     ) => Promise<ModificaConfezionamentoResult>
+    ricetteBirra: (birra_id: number) => Promise<RicettaBirra[]>
+    aggiungiCottaALotto: (
+      payload: AggiungiCottaALottoPayload
+    ) => Promise<{ ok: boolean; avvisi?: string[]; errore?: string }>
   }
   pf: {
     giacenze: () => Promise<GiacenzaProdottoFinitoCartoni[]>

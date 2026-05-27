@@ -54,6 +54,12 @@ type AvviaCottaPayload = {
   litri_teorici: number
 }
 
+type AggiungiCottaALottoPayload = {
+  cotta_id: number
+  ricetta_id: number
+  litri_aggiuntivi: number
+}
+
 type ConfezionaPayload = {
   cotta_id: number
   bottiglie_prodotte: number
@@ -233,7 +239,11 @@ const api = {
     confezionamentoFusti: (cotta_id: number) =>
       ipcRenderer.invoke('prod:confezionamento-fusti', cotta_id),
     modificaConfezionamento: (cotta_id: number, dati: ModificaConfezionamentoPayload) =>
-      ipcRenderer.invoke('prod:modifica-confezionamento', cotta_id, dati)
+      ipcRenderer.invoke('prod:modifica-confezionamento', cotta_id, dati),
+    ricetteBirra: (birra_id: number) =>
+      ipcRenderer.invoke('prod:ricette-birra', birra_id),
+    aggiungiCottaALotto: (dati: AggiungiCottaALottoPayload) =>
+      ipcRenderer.invoke('prod:aggiungi-cotta-a-lotto', dati)
   },
   pf: {
     giacenze: () => ipcRenderer.invoke('pf:giacenze'),
