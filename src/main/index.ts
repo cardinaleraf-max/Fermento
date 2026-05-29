@@ -13,6 +13,11 @@ if (__DEMO_MODE__) {
   app.setPath('userData', path.join(app.getPath('appData'), 'Fermento Demo'))
 }
 
+// Timeout sessione demo: vincolo della modalità demo, non parametro operativo del
+// gestionale, quindi costante nel codice (non in configurazioni, non modificabile da UI).
+const DEMO_DURATA_MINUTI = 30
+const DEMO_AVVISO_ANTICIPO_MINUTI = 5
+
 type MateriaPrimaPayload = {
   nome: string
   categoria: string
@@ -3911,6 +3916,44 @@ function createWindow(): void {
   }
 }
 
+function avviaTimeoutDemo(mainWindow: BrowserWindow): void {
+  const msAvviso = (DEMO_DURATA_MINUTI - DEMO_AVVISO_ANTICIPO_MINUTI) * 60 * 1000
+  const msChiusura = DEMO_DURATA_MINUTI * 60 * 1000
+
+  setTimeout(() => {
+    try {
+      if (mainWindow.isDestroyed()) return
+      dialog.showMessageBox(mainWindow, {
+        type: 'info',
+        title: 'Versione demo',
+        message: `La sessione demo terminerà tra ${DEMO_AVVISO_ANTICIPO_MINUTI} minuti.`,
+        detail: "Riavvia l'app per una nuova sessione demo con dati freschi.",
+        buttons: ['OK']
+      })
+    } catch (e) {
+      console.error('[demo] avviso pre-scadenza fallito:', e)
+    }
+  }, msAvviso)
+
+  setTimeout(async () => {
+    try {
+      if (!mainWindow.isDestroyed()) {
+        await dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          title: 'Sessione demo terminata',
+          message: 'La sessione demo è terminata.',
+          detail: 'Riavvia Fermento Demo per ricominciare.',
+          buttons: ['Chiudi']
+        })
+      }
+    } catch (e) {
+      console.error('[demo] dialog chiusura fallito:', e)
+    } finally {
+      app.quit()
+    }
+  }, msChiusura)
+}
+
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -3985,6 +4028,11 @@ app.whenReady().then(() => {
   })
 
   createWindow()
+
+  if (__DEMO_MODE__) {
+    const win = BrowserWindow.getAllWindows()[0]
+    if (win) avviaTimeoutDemo(win)
+  }
 
   configuraAutoUpdater()
 
