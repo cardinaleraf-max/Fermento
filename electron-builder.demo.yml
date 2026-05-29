@@ -9,6 +9,11 @@ asarUnpack:
   - resources/**
   - node_modules/better-sqlite3/**
   - node_modules/bindings/**
+extraResources:
+  - from: resources/demo
+    to: demo
+    filter:
+      - "**/*"
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -17,6 +22,7 @@ files:
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!release/**'
+  - '!resources/demo/**'
 win:
   target:
     - target: nsis

@@ -24,7 +24,8 @@
     "build:mac:demo": "cross-env DEMO_BUILD=1 npm run build && electron-builder --mac --x64 --config electron-builder.demo.yml --publish never",
     "build:linux": "electron-vite build && electron-builder --linux",
     "genera-chiavi": "tsx scripts/genera-coppia-chiavi.ts",
-    "genera-licenza": "tsx scripts/genera-licenza.ts"
+    "genera-licenza": "tsx scripts/genera-licenza.ts",
+    "genera:seed-demo": "electron scripts/genera-seed-demo.mjs"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
