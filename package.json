@@ -18,8 +18,10 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && node scripts/prepare-win-binary.mjs && electron-builder --win --x64 --publish never",
+    "build:win:demo": "cross-env DEMO_BUILD=1 npm run build && node scripts/prepare-win-binary.mjs && electron-builder --win --x64 --config electron-builder.demo.yml --publish never",
     "release:win": "npm run build && node scripts/prepare-win-binary.mjs && electron-builder --win --x64 --publish always",
     "build:mac": "npm run build && electron-builder --mac --x64",
+    "build:mac:demo": "cross-env DEMO_BUILD=1 npm run build && electron-builder --mac --x64 --config electron-builder.demo.yml --publish never",
     "build:linux": "electron-vite build && electron-builder --linux",
     "genera-chiavi": "tsx scripts/genera-coppia-chiavi.ts",
     "genera-licenza": "tsx scripts/genera-licenza.ts"
@@ -46,6 +48,7 @@
     "autoprefixer": "^10.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "cross-env": "^10.1.0",
     "electron": "^39.2.6",
     "electron-builder": "^26.0.12",
     "electron-vite": "^5.0.0",

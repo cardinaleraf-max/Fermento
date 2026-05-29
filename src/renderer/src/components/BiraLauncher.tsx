@@ -27,7 +27,7 @@ export function BiraLauncher(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [aperto])
 
-  if (aiAbilitata === false) return <></>
+  if (!__DEMO_MODE__ && aiAbilitata === false) return <></>
 
   return (
     <>

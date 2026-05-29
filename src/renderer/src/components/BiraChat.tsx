@@ -345,6 +345,8 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
     }
   }, [health])
 
+  const isDemo = __DEMO_MODE__ || health?.errore === 'demo'
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[#0C0C14]">
       <div
@@ -436,7 +438,21 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-3.5 py-3">
+      {isDemo && (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
+          <div className="rounded-full bg-amber-400/10 p-2.5">
+            <Sparkles className="h-5 w-5 text-amber-400/80" />
+          </div>
+          <div className="max-w-xs space-y-1">
+            <h3 className="text-sm font-semibold text-white/85">Bira</h3>
+            <p className="text-[11px] text-white/50">
+              Funzione non disponibile nella versione demo.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isDemo && <div ref={containerRef} className="flex-1 overflow-y-auto px-3.5 py-3">
         {messaggi.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
             <div className="rounded-full bg-amber-400/10 p-2.5">
@@ -471,51 +487,53 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
-      <div
-        className="p-2.5"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
-      >
-        <div className="flex items-end gap-1.5">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                inviaMessaggio()
-              }
-            }}
-            rows={1}
-            placeholder="Scrivi qui… (Invio per inviare)"
-            className="min-h-[36px] max-h-[120px] flex-1 resize-none rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-2 text-xs text-white/85 placeholder:text-white/30 focus:border-amber-400/30 focus:outline-none"
-            disabled={!!conversazioneAttiva}
-          />
-          {conversazioneAttiva ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={annulla}
-              className="shrink-0 border-red-500/30 text-red-200 hover:bg-red-500/10"
-            >
-              <CircleStop className="h-3.5 w-3.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => inviaMessaggio()}
-              disabled={!input.trim() || (health ? !health.abilitato || !health.raggiungibile : false)}
-              className="shrink-0"
-            >
-              <Send className="h-3.5 w-3.5" />
-            </Button>
-          )}
+      {!isDemo && (
+        <div
+          className="p-2.5"
+          style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          <div className="flex items-end gap-1.5">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  inviaMessaggio()
+                }
+              }}
+              rows={1}
+              placeholder="Scrivi qui… (Invio per inviare)"
+              className="min-h-[36px] max-h-[120px] flex-1 resize-none rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-2 text-xs text-white/85 placeholder:text-white/30 focus:border-amber-400/30 focus:outline-none"
+              disabled={!!conversazioneAttiva}
+            />
+            {conversazioneAttiva ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={annulla}
+                className="shrink-0 border-red-500/30 text-red-200 hover:bg-red-500/10"
+              >
+                <CircleStop className="h-3.5 w-3.5" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => inviaMessaggio()}
+                disabled={!input.trim() || (health ? !health.abilitato || !health.raggiungibile : false)}
+                className="shrink-0"
+              >
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

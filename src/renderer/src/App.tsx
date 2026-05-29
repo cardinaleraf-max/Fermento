@@ -15,6 +15,7 @@ import Avvisi from './screens/Avvisi'
 import Report from './screens/Report'
 import Impostazioni from './screens/Impostazioni'
 import { ProposteNavigazione } from './components/ProposteNavigazione'
+import { DemoBanner } from './components/DemoBanner'
 
 function App(): React.JSX.Element {
   const [stato, setStato] = useState<'loading' | 'licenza' | 'password' | 'login' | 'onboarding' | 'app'>('loading')
@@ -23,6 +24,14 @@ function App(): React.JSX.Element {
   useEffect(() => {
     const bootstrap = async (): Promise<void> => {
       try {
+        if (__DEMO_MODE__) {
+          const login = await window.api.login.verifica('')
+          if (login.ok) { setStato('app'); return }
+          if (login.errore === 'primo_avvio') { setStato('password'); return }
+          setStato('login')
+          return
+        }
+
         // 1. Verifica licenza
         const licenza = await window.api.licenza.stato()
         if (!licenza.valida) {
@@ -52,6 +61,10 @@ function App(): React.JSX.Element {
   }, [])
 
   const handleLoginSuccess = async (): Promise<void> => {
+    if (__DEMO_MODE__) {
+      setStato('app')
+      return
+    }
     try {
       const onboarding = await window.api.impostazioni.valoreDi('onboarding_completato')
       if (onboarding === '0') {
@@ -65,23 +78,48 @@ function App(): React.JSX.Element {
   }
 
   if (stato === 'loading') {
-    return <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Caricamento...</div>
+    return (
+      <>
+        {__DEMO_MODE__ && <DemoBanner />}
+        <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">Caricamento...</div>
+      </>
+    )
   }
 
   if (stato === 'licenza') {
-    return <AttivazioneLicenza onLicenzaAttivata={() => setStato('password')} />
+    return (
+      <>
+        {__DEMO_MODE__ && <DemoBanner />}
+        <AttivazioneLicenza onLicenzaAttivata={() => setStato('password')} />
+      </>
+    )
   }
 
   if (stato === 'password') {
-    return <Login primoAvvio={true} onLoginSuccess={() => { void handleLoginSuccess() }} />
+    return (
+      <>
+        {__DEMO_MODE__ && <DemoBanner />}
+        <Login primoAvvio={true} onLoginSuccess={() => { void handleLoginSuccess() }} />
+      </>
+    )
   }
 
   if (stato === 'login') {
-    return <Login primoAvvio={false} onLoginSuccess={() => { void handleLoginSuccess() }} />
+    return (
+      <>
+        {__DEMO_MODE__ && <DemoBanner />}
+        <Login primoAvvio={false} onLoginSuccess={() => { void handleLoginSuccess() }} />
+      </>
+    )
   }
 
   if (stato === 'onboarding') {
-    return <Onboarding onOnboardingCompletato={() => setStato('app')} />
+    return (
+      <>
+        {__DEMO_MODE__ && <DemoBanner />}
+        <Onboarding onOnboardingCompletato={() => setStato('app')} />
+      </>
+    )
   }
 
   const sezioneTitoli: Record<Exclude<Sezione, 'dashboard'>, string> = {
@@ -97,24 +135,27 @@ function App(): React.JSX.Element {
   }
 
   return (
-    <Layout sezioneCorrente={sezioneCorrente} onSezioneChange={setSezioneCorrente}>
-      <ProposteNavigazione onNaviga={setSezioneCorrente} />
-      {sezioneCorrente === 'dashboard' && <Dashboard onVaiAvvisi={() => setSezioneCorrente('avvisi')} />}
-      {sezioneCorrente === 'magazzino-mp' && <MagazzinoMP />}
-      {sezioneCorrente === 'magazzino-conf' && <MagazzinoConf />}
-      {sezioneCorrente === 'produzione' && <Produzione />}
-      {sezioneCorrente === 'prodotto-finito' && <ProdottoFinito />}
-      {sezioneCorrente === 'clienti' && <Clienti />}
-      {sezioneCorrente === 'vendite' && <Vendite />}
-      {sezioneCorrente === 'avvisi' && <Avvisi />}
-      {sezioneCorrente === 'report' && <Report />}
-      {sezioneCorrente === 'impostazioni' && <Impostazioni />}
-      {!['dashboard', 'magazzino-mp', 'magazzino-conf', 'produzione', 'prodotto-finito', 'clienti', 'vendite', 'avvisi', 'report', 'impostazioni'].includes(
-        sezioneCorrente
-      ) && (
-        <Placeholder titolo={sezioneTitoli[sezioneCorrente as Exclude<Sezione, 'dashboard'>]} />
-      )}
-    </Layout>
+    <>
+      {__DEMO_MODE__ && <DemoBanner />}
+      <Layout sezioneCorrente={sezioneCorrente} onSezioneChange={setSezioneCorrente}>
+        <ProposteNavigazione onNaviga={setSezioneCorrente} />
+        {sezioneCorrente === 'dashboard' && <Dashboard onVaiAvvisi={() => setSezioneCorrente('avvisi')} />}
+        {sezioneCorrente === 'magazzino-mp' && <MagazzinoMP />}
+        {sezioneCorrente === 'magazzino-conf' && <MagazzinoConf />}
+        {sezioneCorrente === 'produzione' && <Produzione />}
+        {sezioneCorrente === 'prodotto-finito' && <ProdottoFinito />}
+        {sezioneCorrente === 'clienti' && <Clienti />}
+        {sezioneCorrente === 'vendite' && <Vendite />}
+        {sezioneCorrente === 'avvisi' && <Avvisi />}
+        {sezioneCorrente === 'report' && <Report />}
+        {sezioneCorrente === 'impostazioni' && <Impostazioni />}
+        {!['dashboard', 'magazzino-mp', 'magazzino-conf', 'produzione', 'prodotto-finito', 'clienti', 'vendite', 'avvisi', 'report', 'impostazioni'].includes(
+          sezioneCorrente
+        ) && (
+          <Placeholder titolo={sezioneTitoli[sezioneCorrente as Exclude<Sezione, 'dashboard'>]} />
+        )}
+      </Layout>
+    </>
   )
 }
 

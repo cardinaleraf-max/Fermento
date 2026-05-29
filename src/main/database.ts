@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import fs from 'fs'
 import path from 'path'
 import type BetterSqlite3 from 'better-sqlite3'
 
@@ -79,6 +80,23 @@ function ensureBackupConfigRow(database: BetterSqlite3.Database): void {
 
 export function getDatabaseFilePath(): string {
   return path.join(app.getPath('userData'), 'fermento.db')
+}
+
+export function resetDatabaseDemo(): void {
+  const dbPath = getDatabaseFilePath()
+  try {
+    if (fs.existsSync(dbPath)) {
+      fs.unlinkSync(dbPath)
+    }
+    const seedPath = app.isPackaged
+      ? path.join(process.resourcesPath, 'demo', 'fermento-demo-seed.db')
+      : path.join(__dirname, '../../resources/demo/fermento-demo-seed.db')
+    if (fs.existsSync(seedPath) && fs.statSync(seedPath).size > 0) {
+      fs.copyFileSync(seedPath, dbPath)
+    }
+  } catch (e) {
+    console.error('[demo] resetDatabaseDemo fallito, initDatabase ricostruirà lo schema:', e)
+  }
 }
 
 /** Chiude la connessione; usata prima del ripristino (sovrascrittura del file db). */

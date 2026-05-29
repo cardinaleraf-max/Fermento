@@ -5,9 +5,13 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import bcrypt from 'bcryptjs'
 import icon from '../../resources/icon.png?asset'
-import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenDatabaseConnection } from './database'
+import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenDatabaseConnection, resetDatabaseDemo } from './database'
 import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 import { licenzaSalvataValida, salvaLicenza } from './licenza'
+
+if (__DEMO_MODE__) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'Fermento Demo'))
+}
 
 type MateriaPrimaPayload = {
   nome: string
@@ -175,6 +179,14 @@ if (process.env.ELECTRON_RUN_AS_NODE) {
     `[startup] ATTENZIONE: ELECTRON_RUN_AS_NODE="${process.env.ELECTRON_RUN_AS_NODE}". ` +
       'Questo puo impedire l\'avvio corretto di Electron.'
   )
+}
+
+function vietatoInDemo(canale: string): boolean {
+  if (__DEMO_MODE__) {
+    console.warn(`[demo] canale bloccato: ${canale}`)
+    return true
+  }
+  return false
 }
 
 function registerMpIpcHandlers(): void {
@@ -3078,6 +3090,9 @@ function registerReportIpcHandlers(): void {
 function registerOnboardingIpcHandlers(): void {
   ipcMain.removeHandler('onboarding:completa')
   ipcMain.handle('onboarding:completa', (_event, dati: OnboardingCompletaPayload) => {
+    if (vietatoInDemo('onboarding:completa')) {
+      return { ok: false as const, errore: 'Non disponibile nella versione demo' }
+    }
     try {
       const tx = db.transaction(() => {
         const aggiorna = db.prepare(
@@ -3182,6 +3197,9 @@ function registerImpostazioniIpcHandlers(): void {
 
   ipcMain.removeHandler('impostazioni:aggiorna')
   ipcMain.handle('impostazioni:aggiorna', (_e, payload: ImpostazioniConfigAggiorna) => {
+    if (vietatoInDemo('impostazioni:aggiorna')) {
+      return { ok: false as const, errore: 'Non disponibile nella versione demo' }
+    }
     try {
       const n = db
         .prepare(`UPDATE configurazioni SET valore = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = ?`)
@@ -3356,6 +3374,9 @@ function registerImpostazioniIpcHandlers(): void {
 
   ipcMain.removeHandler('impostazioni:cambia-password')
   ipcMain.handle('impostazioni:cambia-password', async (_e, payload: CambiaPasswordPayload) => {
+    if (vietatoInDemo('impostazioni:cambia-password')) {
+      return { ok: false as const, errore: 'Non disponibile nella versione demo' }
+    }
     try {
       const utente = db.prepare(`SELECT password_hash FROM utente WHERE id = 1`).get() as
         | { password_hash: string | null }
@@ -3649,6 +3670,9 @@ function ultimoBackupAutomaticoOkOltre24h(): boolean {
 function registerBackupIpcHandlers(): void {
   ipcMain.removeHandler('backup:esegui')
   ipcMain.handle('backup:esegui', (_e, payload: { tipo: BackupTipoEsecuzione }) => {
+    if (vietatoInDemo('backup:esegui')) {
+      return { ok: false as const, errore: 'Non disponibile nella versione demo' }
+    }
     try {
       return eseguiLogicaBackup(payload.tipo)
     } catch (error) {
@@ -3661,6 +3685,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:seleziona-cartella')
   ipcMain.handle('backup:seleziona-cartella', async () => {
+    if (vietatoInDemo('backup:seleziona-cartella')) {
+      return { ok: false as const }
+    }
     const win = BrowserWindow.getFocusedWindow()
     try {
       const r = win
@@ -3678,6 +3705,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:seleziona-file-ripristino')
   ipcMain.handle('backup:seleziona-file-ripristino', async () => {
+    if (vietatoInDemo('backup:seleziona-file-ripristino')) {
+      return { ok: false as const }
+    }
     const win = BrowserWindow.getFocusedWindow()
     try {
       const opts = {
@@ -3699,6 +3729,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:configura-percorso')
   ipcMain.handle('backup:configura-percorso', (_e, payload: { percorso: string }) => {
+    if (vietatoInDemo('backup:configura-percorso')) {
+      return { ok: false as const }
+    }
     try {
       const p = payload.percorso.trim()
       db.prepare(
@@ -3717,6 +3750,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:lista')
   ipcMain.handle('backup:lista', () => {
+    if (vietatoInDemo('backup:lista')) {
+      return []
+    }
     try {
       return db
         .prepare(
@@ -3741,6 +3777,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:ripristina')
   ipcMain.handle('backup:ripristina', (_e, payload: { percorso_file: string }) => {
+    if (vietatoInDemo('backup:ripristina')) {
+      return { ok: false as const, errore: 'Non disponibile nella versione demo' }
+    }
     try {
       const src = path.resolve(payload.percorso_file)
       if (!fs.existsSync(src) || !fs.statSync(src).isFile()) {
@@ -3771,6 +3810,10 @@ function registerBackupIpcHandlers(): void {
 }
 
 function configuraAutoUpdater(): void {
+  if (__DEMO_MODE__) {
+    console.log('[AutoUpdate] disabilitato in modalità demo')
+    return
+  }
   if (!app.isPackaged) {
     console.log('[AutoUpdate] skip (app non impacchettata)')
     return
@@ -3882,6 +3925,9 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  if (__DEMO_MODE__) {
+    resetDatabaseDemo()
+  }
   initDatabase()
   ensureAiConfigRows(db)
   registerAiIpcHandlers(() => db)
