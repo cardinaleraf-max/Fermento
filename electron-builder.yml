@@ -2,10 +2,9 @@ appId: com.fermento.app
 npmRebuild: false
 productName: Fermento
 publish:
-  provider: github
-  owner: cardinaleraf-max
-  repo: Fermento
-  private: true
+  provider: generic
+  url: https://updates.fermento-software.it/prod
+  channel: latest
 directories:
   buildResources: build
   output: release
