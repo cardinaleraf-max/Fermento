@@ -1,6 +1,6 @@
 {
   "name": "fermento",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "productName": "Fermento",
   "description": "Fermento — gestionale per birrifici",
   "main": "./out/main/index.js",
