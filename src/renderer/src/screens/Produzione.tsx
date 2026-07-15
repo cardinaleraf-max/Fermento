@@ -93,6 +93,7 @@ type NuovaCottaForm = {
 type ConfezionamentoForm = {
   bottiglie_prodotte: string
   scarto_litri: string
+  data_scadenza: string
   fusti: Record<number, string>
 }
 
@@ -122,6 +123,7 @@ const defaultNuovaCottaForm = (): NuovaCottaForm => ({
 const defaultConfezionamentoForm = (): ConfezionamentoForm => ({
   bottiglie_prodotte: '',
   scarto_litri: '',
+  data_scadenza: '',
   fusti: {}
 })
 
@@ -427,6 +429,16 @@ export default function Produzione(): React.JSX.Element {
     setConfezionamentoForm(defaultConfezionamentoForm())
     setErroreConfezionamento('')
     void caricaFustiDisponibili()
+    void window.api.prod
+      .scadenzaDefault()
+      .then((scadenza) => {
+        setConfezionamentoForm((prev) =>
+          prev.data_scadenza === '' ? { ...prev, data_scadenza: scadenza } : prev
+        )
+      })
+      .catch(() => {
+        // il campo resta vuoto: la validazione al submit lo richiede comunque
+      })
     setDialogConfezionamentoOpen(true)
   }
 
@@ -539,13 +551,19 @@ export default function Produzione(): React.JSX.Element {
       ? Number(confezionamentoForm.scarto_litri)
       : null
 
+    if (!confezionamentoForm.data_scadenza) {
+      setErroreConfezionamento('Data scadenza obbligatoria')
+      return
+    }
+
     setSubmittingConfezionamento(true)
     try {
       const result = await window.api.prod.confeziona({
         cotta_id: dettaglio.id,
         bottiglie_prodotte: bottiglie,
         fusti,
-        scarto_litri: scarto
+        scarto_litri: scarto,
+        data_scadenza: confezionamentoForm.data_scadenza
       })
       if (!result.ok) {
         setErroreConfezionamento(result.errore)
@@ -857,6 +875,21 @@ export default function Produzione(): React.JSX.Element {
                     setConfezionamentoForm((prev) => ({ ...prev, scarto_litri: event.target.value }))
                   }
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="conf_scadenza">Data scadenza *</Label>
+                <Input
+                  id="conf_scadenza"
+                  type="date"
+                  value={confezionamentoForm.data_scadenza}
+                  onChange={(event) =>
+                    setConfezionamentoForm((prev) => ({ ...prev, data_scadenza: event.target.value }))
+                  }
+                />
+                <p className="text-xs text-muted-foreground">
+                  Precompilata con la shelf life di default; modificabile.
+                </p>
               </div>
 
               {fustiDisponibili.length > 0 && (
