@@ -1776,6 +1776,16 @@ function rimettiBottiglieInLotto(cotta_id: number, quantita: number): void {
   }
 }
 
+function saldoFustiRendere(clienteId: number, materialeId: number): number {
+  const row = db
+    .prepare(
+      `SELECT COALESCE(SUM(CASE WHEN tipo = 'uscita' THEN quantita ELSE -quantita END), 0) AS saldo
+       FROM movimenti_fusti_rendere WHERE cliente_id = ? AND materiale_id = ?`
+    )
+    .get(clienteId, materialeId) as { saldo: number }
+  return row.saldo
+}
+
 function aggiornaStatoCotta(cotta_id: number): void {
   const gpc = db
     .prepare(
@@ -2465,6 +2475,117 @@ function registerVenditeIpcHandlers(): void {
     } catch (error) {
       console.error('[IPC vendite:elimina]', error)
       const msg = error instanceof Error ? error.message : 'Errore durante la cancellazione'
+      return { ok: false as const, errore: msg }
+    }
+  })
+
+  type RientroFustiPayload = {
+    cliente_id: number
+    materiale_id: number
+    quantita: number
+    data: string
+    note?: string | null
+  }
+
+  ipcMain.removeHandler('fusti:saldi')
+  ipcMain.handle('fusti:saldi', () => {
+    try {
+      const saldi = db
+        .prepare(
+          `SELECT m.cliente_id, c.nome AS cliente_nome, m.materiale_id,
+                  mc.nome AS formato_nome, mc.capacita_litri,
+                  SUM(CASE WHEN m.tipo = 'uscita' THEN m.quantita ELSE -m.quantita END) AS fusti_fuori,
+                  MAX(CASE WHEN m.tipo = 'uscita' THEN m.data END) AS data_ultima_uscita
+           FROM movimenti_fusti_rendere m
+           JOIN clienti c ON c.id = m.cliente_id
+           JOIN materiali_confezionamento mc ON mc.id = m.materiale_id
+           GROUP BY m.cliente_id, m.materiale_id
+           HAVING fusti_fuori > 0
+           ORDER BY c.nome, mc.nome`
+        )
+        .all() as Array<{
+        cliente_id: number
+        cliente_nome: string
+        materiale_id: number
+        formato_nome: string
+        capacita_litri: number | null
+        fusti_fuori: number
+        data_ultima_uscita: string | null
+      }>
+      const totale = saldi.reduce((acc, s) => acc + s.fusti_fuori, 0)
+      return { totale, saldi }
+    } catch (error) {
+      console.error('[IPC fusti:saldi]', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('fusti:movimenti-cliente')
+  ipcMain.handle('fusti:movimenti-cliente', (_event, clienteId: number) => {
+    try {
+      return db
+        .prepare(
+          `SELECT m.id, m.tipo, m.materiale_id, mc.nome AS formato_nome,
+                  m.quantita, m.data, m.vendita_id, m.note
+           FROM movimenti_fusti_rendere m
+           JOIN materiali_confezionamento mc ON mc.id = m.materiale_id
+           WHERE m.cliente_id = ?
+           ORDER BY m.data DESC, m.id DESC`
+        )
+        .all(clienteId)
+    } catch (error) {
+      console.error('[IPC fusti:movimenti-cliente]', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('fusti:uscite-vendita')
+  ipcMain.handle('fusti:uscite-vendita', (_event, venditaId: number) => {
+    try {
+      return db
+        .prepare(
+          `SELECT materiale_id, SUM(quantita) AS quantita
+           FROM movimenti_fusti_rendere
+           WHERE vendita_id = ? AND tipo = 'uscita'
+           GROUP BY materiale_id`
+        )
+        .all(venditaId)
+    } catch (error) {
+      console.error('[IPC fusti:uscite-vendita]', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('fusti:registra-rientro')
+  ipcMain.handle('fusti:registra-rientro', (_event, dati: RientroFustiPayload) => {
+    try {
+      if (!dati?.cliente_id || !Number.isFinite(dati.cliente_id)) {
+        return { ok: false as const, errore: 'Cliente non valido' }
+      }
+      if (!dati?.materiale_id || !Number.isFinite(dati.materiale_id)) {
+        return { ok: false as const, errore: 'Formato fusto non valido' }
+      }
+      if (!Number.isFinite(dati.quantita) || dati.quantita <= 0) {
+        return { ok: false as const, errore: 'La quantita deve essere maggiore di zero' }
+      }
+      if (!dati.data || !/^\d{4}-\d{2}-\d{2}$/.test(dati.data)) {
+        return { ok: false as const, errore: 'Data non valida' }
+      }
+      const saldo = saldoFustiRendere(dati.cliente_id, dati.materiale_id)
+      if (dati.quantita > saldo) {
+        return {
+          ok: false as const,
+          errore: `Il cliente ha fuori solo ${saldo} fusti di questo formato`
+        }
+      }
+      db.prepare(
+        `INSERT INTO movimenti_fusti_rendere (cliente_id, materiale_id, tipo, quantita, data, note)
+         VALUES (?, ?, 'rientro', ?, ?, ?)`
+      ).run(dati.cliente_id, dati.materiale_id, dati.quantita, dati.data, dati.note?.trim() || null)
+      return { ok: true as const }
+    } catch (error) {
+      console.error('[IPC fusti:registra-rientro]', error)
+      const msg = error instanceof Error ? error.message : 'Errore durante il rientro'
       return { ok: false as const, errore: msg }
     }
   })

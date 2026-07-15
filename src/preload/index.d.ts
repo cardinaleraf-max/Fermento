@@ -388,6 +388,41 @@ type VenditeModificaPayload = {
 type VenditeModificaResult = { ok: true } | { ok: false; errore: string }
 type VenditeEliminaResult = { ok: true } | { ok: false; errore: string }
 
+type SaldoFustiRendere = {
+  cliente_id: number
+  cliente_nome: string
+  materiale_id: number
+  formato_nome: string
+  capacita_litri: number | null
+  fusti_fuori: number
+  data_ultima_uscita: string | null
+}
+
+type FustiSaldiResult = { totale: number; saldi: SaldoFustiRendere[] }
+
+type MovimentoFustiRendere = {
+  id: number
+  tipo: 'uscita' | 'rientro'
+  materiale_id: number
+  formato_nome: string
+  quantita: number
+  data: string
+  vendita_id: number | null
+  note: string | null
+}
+
+type UscitaFustiVendita = { materiale_id: number; quantita: number }
+
+type RientroFustiPayload = {
+  cliente_id: number
+  materiale_id: number
+  quantita: number
+  data: string
+  note?: string | null
+}
+
+type RientroFustiResult = { ok: true } | { ok: false; errore: string }
+
 type ModificaLottoPayload = {
   data_scadenza: string
   quantita_residua: number
@@ -772,6 +807,12 @@ interface FermentoAPI {
     clienti: () => Promise<ClienteSelezionabileVendite[]>
     modifica: (id: number, dati: VenditeModificaPayload) => Promise<VenditeModificaResult>
     elimina: (id: number) => Promise<VenditeEliminaResult>
+  }
+  fusti: {
+    saldi: () => Promise<FustiSaldiResult>
+    movimentiCliente: (clienteId: number) => Promise<MovimentoFustiRendere[]>
+    usciteVendita: (venditaId: number) => Promise<UscitaFustiVendita[]>
+    registraRientro: (dati: RientroFustiPayload) => Promise<RientroFustiResult>
   }
   dashboard: {
     dati: () => Promise<DashboardDati>

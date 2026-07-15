@@ -38,13 +38,29 @@ const createTableStatements = [
     scadenza DATE,
     emessa_il TIMESTAMP NOT NULL,
     attivata_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  );`,
+  `CREATE TABLE IF NOT EXISTS movimenti_fusti_rendere (
+    id INTEGER PRIMARY KEY,
+    cliente_id INTEGER NOT NULL,
+    materiale_id INTEGER NOT NULL,
+    vendita_id INTEGER,
+    tipo TEXT NOT NULL CHECK (tipo IN ('uscita','rientro')),
+    quantita INTEGER NOT NULL CHECK (quantita > 0),
+    data DATE NOT NULL,
+    note TEXT,
+    creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (cliente_id) REFERENCES clienti(id),
+    FOREIGN KEY (materiale_id) REFERENCES materiali_confezionamento(id),
+    FOREIGN KEY (vendita_id) REFERENCES vendite(id)
   );`
 ]
 
 const createIndexStatements = [
   `CREATE INDEX IF NOT EXISTS idx_lotti_mp_scadenza ON lotti_materie_prime(materia_prima_id, data_scadenza);`,
   `CREATE INDEX IF NOT EXISTS idx_vendite_data ON vendite(data);`,
-  `CREATE INDEX IF NOT EXISTS idx_avvisi_risolto ON avvisi(risolto, priorita);`
+  `CREATE INDEX IF NOT EXISTS idx_avvisi_risolto ON avvisi(risolto, priorita);`,
+  `CREATE INDEX IF NOT EXISTS idx_mov_fusti_cliente ON movimenti_fusti_rendere(cliente_id, materiale_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_mov_fusti_vendita ON movimenti_fusti_rendere(vendita_id);`
 ]
 
 function seedInitialData(database: BetterSqlite3.Database): void {

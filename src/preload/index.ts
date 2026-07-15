@@ -131,6 +131,14 @@ type VenditeModificaPayload = {
   righe: VenditeModificaRiga[]
 }
 
+type RientroFustiPayload = {
+  cliente_id: number
+  materiale_id: number
+  quantita: number
+  data: string
+  note?: string | null
+}
+
 type ReportOmaggiPeriodo = { da?: string | null; a?: string | null }
 
 type ModificaLottoPayload = {
@@ -281,6 +289,14 @@ const api = {
     modifica: (id: number, dati: VenditeModificaPayload) =>
       ipcRenderer.invoke('vendite:modifica', id, dati),
     elimina: (id: number) => ipcRenderer.invoke('vendite:elimina', id)
+  },
+  fusti: {
+    saldi: () => ipcRenderer.invoke('fusti:saldi'),
+    movimentiCliente: (clienteId: number) =>
+      ipcRenderer.invoke('fusti:movimenti-cliente', clienteId),
+    usciteVendita: (venditaId: number) => ipcRenderer.invoke('fusti:uscite-vendita', venditaId),
+    registraRientro: (dati: RientroFustiPayload) =>
+      ipcRenderer.invoke('fusti:registra-rientro', dati)
   },
   dashboard: {
     dati: () => ipcRenderer.invoke('dashboard:dati')
