@@ -93,6 +93,7 @@ type RigaFustoForm = {
   birra_id: string
   key: string
   quantita: string
+  fusti_rendere: string
   suggerimenti: LottoFustoSuggerito[]
   caricamentoSuggerimenti: boolean
 }
@@ -122,6 +123,7 @@ type RigaFustoEditForm = {
   tipo: 'fusto'
   key: string
   quantita: string
+  fusti_rendere: string
   omaggio: boolean
 }
 
@@ -136,6 +138,7 @@ type RigaEsistenteForm = {
   omaggio: boolean
   quantitaOriginale: number
   quantita: string
+  fusti_rendere: string
   eliminata: boolean
 }
 
@@ -228,6 +231,7 @@ function newRigaForm(): RigaForm {
     birra_id: '',
     key: '',
     quantita: '',
+    fusti_rendere: '',
     suggerimenti: [],
     caricamentoSuggerimenti: false
   }
@@ -410,7 +414,10 @@ export default function Vendite(): React.JSX.Element {
   const aggiornaRigaFusto = (
     rowId: string,
     patch: Partial<
-      Pick<RigaFustoForm, 'birra_id' | 'key' | 'quantita' | 'suggerimenti' | 'caricamentoSuggerimenti'>
+      Pick<
+        RigaFustoForm,
+        'birra_id' | 'key' | 'quantita' | 'fusti_rendere' | 'suggerimenti' | 'caricamentoSuggerimenti'
+      >
     >
   ): void => {
     setRighe((p) =>
@@ -564,10 +571,18 @@ export default function Vendite(): React.JSX.Element {
       altro_prodotto_id?: number | null
       omaggio?: boolean
       quantita: number
+      fusti_rendere?: number
     }> = []
     for (const r of righeFustoCompilate) {
       const p = parseProdottoKey(r.key)
-      righeApi.push({ ...p, quantita: parseInt(r.quantita, 10) || 0 })
+      const quantita = parseInt(r.quantita, 10) || 0
+      const rendere =
+        clienteId && r.fusti_rendere.trim() !== '' ? parseInt(r.fusti_rendere, 10) || 0 : 0
+      if (rendere < 0 || rendere > quantita) {
+        setErroreModal('I fusti a rendere non possono superare la quantità venduta')
+        return
+      }
+      righeApi.push({ ...p, quantita, fusti_rendere: rendere })
     }
     for (const r of righeBottigliaCompilate) {
       righeApi.push({
@@ -620,9 +635,21 @@ export default function Vendite(): React.JSX.Element {
     setEditNote(selezionata.note ?? '')
     setEditOmaggio(selezionata.omaggio === 1)
     setEditOccasione(selezionata.occasione ?? '')
+    let uscitePerMateriale = new Map<number, number>()
+    try {
+      const uscite = await window.api.fusti.usciteVendita(selezionata.id)
+      uscitePerMateriale = new Map(uscite.map((u) => [u.materiale_id, u.quantita]))
+    } catch {
+      // nessun prefill: i campi a rendere partono vuoti
+    }
     setEditRigheEsistenti(
       dettaglio.map((r) => {
         const tp = tipoEsistenteDaStringa(r.tipo_prodotto)
+        let fustiRendere = ''
+        if (tp === 'fusto' && r.materiale_id != null && uscitePerMateriale.has(r.materiale_id)) {
+          fustiRendere = String(uscitePerMateriale.get(r.materiale_id))
+          uscitePerMateriale.delete(r.materiale_id)
+        }
         return {
           id: r.id,
           key: prodottoKey(tp, r.cotta_id, r.materiale_id, r.altro_prodotto_id),
@@ -634,6 +661,7 @@ export default function Vendite(): React.JSX.Element {
           omaggio: r.omaggio === 1,
           quantitaOriginale: r.quantita,
           quantita: String(r.quantita),
+          fusti_rendere: fustiRendere,
           eliminata: false
         }
       })
@@ -711,7 +739,7 @@ export default function Vendite(): React.JSX.Element {
 
   const aggiornaRigaEsistente = (
     id: number,
-    patch: Partial<Pick<RigaEsistenteForm, 'quantita' | 'eliminata' | 'omaggio'>>
+    patch: Partial<Pick<RigaEsistenteForm, 'quantita' | 'fusti_rendere' | 'eliminata' | 'omaggio'>>
   ): void => {
     setEditRigheEsistenti((p) => p.map((r) => (r.id === id ? { ...r, ...patch } : r)))
   }
@@ -719,7 +747,7 @@ export default function Vendite(): React.JSX.Element {
   const aggiungiRigaNuova = (): void => {
     setEditRigheNuove((p) => [
       ...p,
-      { rowId: newRowId(), tipo: 'fusto', key: '', quantita: '', omaggio: false }
+      { rowId: newRowId(), tipo: 'fusto', key: '', quantita: '', fusti_rendere: '', omaggio: false }
     ])
   }
 
@@ -729,7 +757,7 @@ export default function Vendite(): React.JSX.Element {
 
   const aggiornaRigaNuova = (
     rowId: string,
-    patch: Partial<Pick<RigaFustoEditForm, 'key' | 'quantita' | 'omaggio'>>
+    patch: Partial<Pick<RigaFustoEditForm, 'key' | 'quantita' | 'fusti_rendere' | 'omaggio'>>
   ): void => {
     setEditRigheNuove((p) => p.map((r) => (r.rowId === rowId ? { ...r, ...patch } : r)))
   }
@@ -792,8 +820,14 @@ export default function Vendite(): React.JSX.Element {
       altro_prodotto_id?: number | null
       omaggio?: boolean
       quantita: number
+      fusti_rendere?: number
     }> = []
+    const rendereDaForm = (fustiRendere: string, quantita: number): number => {
+      if (!editClienteId || fustiRendere.trim() === '') return 0
+      return Math.max(0, Math.min(quantita, parseInt(fustiRendere, 10) || 0))
+    }
     for (const r of righeAttiveEsistenti) {
+      const quantita = parseInt(r.quantita, 10) || 0
       righePayload.push({
         id: r.id,
         cotta_id: r.cotta_id,
@@ -801,11 +835,14 @@ export default function Vendite(): React.JSX.Element {
         materiale_id: r.materiale_id,
         altro_prodotto_id: r.altro_prodotto_id,
         omaggio: r.omaggio,
-        quantita: parseInt(r.quantita, 10) || 0
+        quantita,
+        fusti_rendere:
+          r.tipo_prodotto === 'fusto' ? rendereDaForm(r.fusti_rendere, quantita) : undefined
       })
     }
     for (const r of righeNuoveCompilate) {
       const p = parseProdottoKey(r.key)
+      const quantita = parseInt(r.quantita, 10) || 0
       righePayload.push({
         id: null,
         cotta_id: p.cotta_id,
@@ -813,7 +850,9 @@ export default function Vendite(): React.JSX.Element {
         materiale_id: p.materiale_id,
         altro_prodotto_id: p.altro_prodotto_id,
         omaggio: r.omaggio,
-        quantita: parseInt(r.quantita, 10) || 0
+        quantita,
+        fusti_rendere:
+          p.tipo_prodotto === 'fusto' ? rendereDaForm(r.fusti_rendere, quantita) : undefined
       })
     }
 
@@ -1127,7 +1166,7 @@ export default function Vendite(): React.JSX.Element {
                               </label>
                             )}
                           </div>
-                          <div className="flex w-full items-center gap-2 sm:w-36">
+                          <div className="flex w-full flex-col gap-1 sm:w-36">
                             <Input
                               type="number"
                               min={0}
@@ -1137,6 +1176,25 @@ export default function Vendite(): React.JSX.Element {
                               disabled={r.eliminata}
                               onChange={(e) => aggiornaRigaEsistente(r.id, { quantita: e.target.value })}
                             />
+                            {r.tipo_prodotto === 'fusto' && editClienteId && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] text-muted-foreground">
+                                  di cui a rendere
+                                </Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={parseInt(r.quantita, 10) || 0}
+                                  placeholder="0"
+                                  className="h-8"
+                                  value={r.fusti_rendere}
+                                  disabled={r.eliminata}
+                                  onChange={(e) =>
+                                    aggiornaRigaEsistente(r.id, { fusti_rendere: e.target.value })
+                                  }
+                                />
+                              </div>
+                            )}
                           </div>
                           <Button
                             type="button"
@@ -1198,7 +1256,7 @@ export default function Vendite(): React.JSX.Element {
                               ))}
                             </select>
                           </div>
-                          <div className="flex w-full items-center gap-2 sm:w-36">
+                          <div className="flex w-full flex-col gap-1 sm:w-36">
                             <Input
                               type="number"
                               min={0}
@@ -1212,6 +1270,24 @@ export default function Vendite(): React.JSX.Element {
                               <span className="whitespace-nowrap text-xs text-muted-foreground">
                                 max {maxQ}
                               </span>
+                            )}
+                            {r.key.startsWith('fusto:') && editClienteId && (
+                              <div className="space-y-0.5">
+                                <Label className="text-[10px] text-muted-foreground">
+                                  di cui a rendere
+                                </Label>
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  max={parseInt(r.quantita, 10) || 0}
+                                  placeholder="0"
+                                  className="h-8"
+                                  value={r.fusti_rendere}
+                                  onChange={(e) =>
+                                    aggiornaRigaNuova(r.rowId, { fusti_rendere: e.target.value })
+                                  }
+                                />
+                              </div>
                             )}
                           </div>
                           {r.key.startsWith('altro:') && (
@@ -1578,7 +1654,13 @@ export default function Vendite(): React.JSX.Element {
                               value={r.quantita}
                               disabled={!r.key}
                               onChange={(e) =>
-                                aggiornaRigaFusto(r.rowId, { quantita: e.target.value })
+                                aggiornaRigaFusto(r.rowId, {
+                                  quantita: e.target.value,
+                                  fusti_rendere:
+                                    r.fusti_rendere === '' || r.fusti_rendere === r.quantita
+                                      ? e.target.value
+                                      : r.fusti_rendere
+                                })
                               }
                             />
                             {r.key && (
@@ -1586,6 +1668,23 @@ export default function Vendite(): React.JSX.Element {
                             )}
                           </div>
                         </div>
+
+                        {clienteId && r.key && (
+                          <div className="space-y-1">
+                            <Label className="text-xs">Di cui a rendere (vuoti da restituire)</Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              max={parseInt(r.quantita, 10) || 0}
+                              placeholder="0"
+                              className="h-9"
+                              value={r.fusti_rendere}
+                              onChange={(e) =>
+                                aggiornaRigaFusto(r.rowId, { fusti_rendere: e.target.value })
+                              }
+                            />
+                          </div>
+                        )}
 
                         {r.birra_id && (
                           <div className="space-y-1">
