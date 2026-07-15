@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import FustiInGiro from '@/screens/FustiInGiro'
 
 type VenditaLista = {
   id: number
@@ -269,6 +270,7 @@ function ModalError({ message }: { message: string }): React.JSX.Element {
 }
 
 export default function Vendite(): React.JSX.Element {
+  const [vista, setVista] = useState<'vendite' | 'fusti'>('vendite')
   const [lista, setLista] = useState<VenditaLista[]>([])
   const [selezionata, setSelezionata] = useState<VenditaLista | null>(null)
   const [dettaglio, setDettaglio] = useState<VenditaRiga[]>([])
@@ -1396,6 +1398,29 @@ export default function Vendite(): React.JSX.Element {
     )
   }
 
+  if (vista === 'fusti') {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Vendite</h2>
+            <p className="text-sm text-muted-foreground">Fusti a rendere in giro</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            type="button"
+            onClick={() => setVista('vendite')}
+          >
+            <ArrowLeft className="mr-1.5 h-4 w-4" />
+            Torna alle vendite
+          </Button>
+        </div>
+        <FustiInGiro />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -1403,10 +1428,16 @@ export default function Vendite(): React.JSX.Element {
           <h2 className="text-xl font-semibold text-foreground">Vendite</h2>
           <p className="text-sm text-muted-foreground">Storico e registrazione vendite</p>
         </div>
-        <Button onClick={() => void apriModal()} size="sm" type="button">
-          <Plus className="mr-1.5 h-4 w-4" />
-          Nuova vendita
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" type="button" onClick={() => setVista('fusti')}>
+            <Box className="mr-1.5 h-4 w-4" />
+            Fusti in giro
+          </Button>
+          <Button onClick={() => void apriModal()} size="sm" type="button">
+            <Plus className="mr-1.5 h-4 w-4" />
+            Nuova vendita
+          </Button>
+        </div>
       </div>
 
       {errore && !loading && (
