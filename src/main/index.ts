@@ -73,6 +73,7 @@ type ConfezionaPayload = {
   bottiglie_prodotte: number
   fusti: Array<{ materiale_id: number; quantita: number }>
   scarto_litri?: number | null
+  data_scadenza?: string | null
 }
 
 type ClientePayload = {
@@ -1106,6 +1107,22 @@ function registerProduzioneIpcHandlers(): void {
     }
   )
 
+  ipcMain.removeHandler('prod:scadenza-default')
+  ipcMain.handle('prod:scadenza-default', () => {
+    try {
+      const row = db
+        .prepare(`SELECT valore FROM configurazioni WHERE chiave = 'shelf_life_mesi'`)
+        .get() as { valore: string } | undefined
+      const mesi = Number(row?.valore ?? 13)
+      const d = new Date()
+      d.setMonth(d.getMonth() + mesi)
+      return d.toISOString().split('T')[0]
+    } catch (error) {
+      console.error('[IPC prod:scadenza-default]', error)
+      throw error
+    }
+  })
+
   ipcMain.removeHandler('prod:confeziona')
   ipcMain.handle('prod:confeziona', (_event, dati: ConfezionaPayload) => {
     try {
@@ -1118,7 +1135,10 @@ function registerProduzioneIpcHandlers(): void {
       const oggiIso = oggi.toISOString().split('T')[0]
       const dataScadenzaDate = new Date(oggi)
       dataScadenzaDate.setMonth(dataScadenzaDate.getMonth() + shelfLifeMesi)
-      const dataScadenzaIso = dataScadenzaDate.toISOString().split('T')[0]
+      let dataScadenzaIso = dataScadenzaDate.toISOString().split('T')[0]
+      if (dati.data_scadenza && /^\d{4}-\d{2}-\d{2}$/.test(dati.data_scadenza)) {
+        dataScadenzaIso = dati.data_scadenza
+      }
 
       const cotta = db
         .prepare(`SELECT c.birra_id FROM cotte c WHERE c.id = ?`)

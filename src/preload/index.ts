@@ -65,6 +65,7 @@ type ConfezionaPayload = {
   bottiglie_prodotte: number
   fusti: Array<{ materiale_id: number; quantita: number }>
   scarto_litri?: number | null
+  data_scadenza?: string | null
 }
 
 type ClientePayload = {
@@ -236,6 +237,7 @@ const api = {
     dettaglioCotta: (cotta_id: number) => ipcRenderer.invoke('prod:dettaglio-cotta', cotta_id),
     materialiCotta: (cotta_id: number) => ipcRenderer.invoke('prod:materiali-cotta', cotta_id),
     confeziona: (dati: ConfezionaPayload) => ipcRenderer.invoke('prod:confeziona', dati),
+    scadenzaDefault: (): Promise<string> => ipcRenderer.invoke('prod:scadenza-default'),
     confezionamentoFusti: (cotta_id: number) =>
       ipcRenderer.invoke('prod:confezionamento-fusti', cotta_id),
     modificaConfezionamento: (cotta_id: number, dati: ModificaConfezionamentoPayload) =>

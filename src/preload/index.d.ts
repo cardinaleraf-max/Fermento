@@ -196,6 +196,7 @@ type ConfezionaPayload = {
   bottiglie_prodotte: number
   fusti: Array<{ materiale_id: number; quantita: number }>
   scarto_litri?: number | null
+  data_scadenza?: string | null
 }
 
 type ConfezionaResult = { ok: true } | { ok: false; errore: string }
@@ -731,6 +732,7 @@ interface FermentoAPI {
     dettaglioCotta: (cotta_id: number) => Promise<DettaglioCotta | undefined>
     materialiCotta: (cotta_id: number) => Promise<MaterialeCotta[]>
     confeziona: (dati: ConfezionaPayload) => Promise<ConfezionaResult>
+    scadenzaDefault: () => Promise<string>
     confezionamentoFusti: (cotta_id: number) => Promise<ConfezionamentoFustoRiga[]>
     modificaConfezionamento: (
       cotta_id: number,
