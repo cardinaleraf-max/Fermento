@@ -351,6 +351,7 @@ type VenditaRigaRegistro = {
   altro_prodotto_id?: number | null
   omaggio?: boolean
   quantita: number
+  fusti_rendere?: number
 }
 
 type VenditeRegistraPayload = {
@@ -374,6 +375,7 @@ type VenditeModificaRiga = {
   altro_prodotto_id?: number | null
   omaggio?: boolean
   quantita: number
+  fusti_rendere?: number
 }
 
 type VenditeModificaPayload = {

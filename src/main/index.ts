@@ -93,6 +93,7 @@ type VenditaRigaRegistro = {
   altro_prodotto_id?: number | null
   omaggio?: boolean
   quantita: number
+  fusti_rendere?: number
 }
 
 type VenditeRegistraPayload = {
@@ -112,6 +113,7 @@ type VenditeModificaRiga = {
   altro_prodotto_id?: number | null
   omaggio?: boolean
   quantita: number
+  fusti_rendere?: number
 }
 
 type CreaAltroProdottoPayload = {
@@ -1776,6 +1778,62 @@ function rimettiBottiglieInLotto(cotta_id: number, quantita: number): void {
   }
 }
 
+/** Riallinea i movimenti 'uscita' fusti a rendere di una vendita. Da chiamare DENTRO una transazione. */
+function riallineaUsciteFustiVendita(
+  venditaId: number,
+  clienteId: number | null,
+  righe: Array<{ tipo_prodotto: string; materiale_id: number | null; fusti_rendere?: number }>
+): void {
+  const coppieCoinvolte = db
+    .prepare(
+      `SELECT DISTINCT cliente_id, materiale_id FROM movimenti_fusti_rendere
+       WHERE vendita_id = ? AND tipo = 'uscita'`
+    )
+    .all(venditaId) as Array<{ cliente_id: number; materiale_id: number }>
+
+  db.prepare(`DELETE FROM movimenti_fusti_rendere WHERE vendita_id = ? AND tipo = 'uscita'`).run(
+    venditaId
+  )
+
+  const perMateriale = new Map<number, number>()
+  if (clienteId != null) {
+    for (const r of righe) {
+      if (r.tipo_prodotto !== 'fusto' || r.materiale_id == null) continue
+      const n = Number(r.fusti_rendere ?? 0)
+      if (!Number.isFinite(n) || n <= 0) continue
+      perMateriale.set(r.materiale_id, (perMateriale.get(r.materiale_id) ?? 0) + n)
+    }
+  }
+
+  if (perMateriale.size > 0) {
+    const dataVendita = db.prepare(`SELECT data FROM vendite WHERE id = ?`).get(venditaId) as
+      | { data: string }
+      | undefined
+    const ins = db.prepare(
+      `INSERT INTO movimenti_fusti_rendere (cliente_id, materiale_id, vendita_id, tipo, quantita, data)
+       VALUES (?, ?, ?, 'uscita', ?, ?)`
+    )
+    for (const [materialeId, quantita] of perMateriale) {
+      ins.run(
+        clienteId,
+        materialeId,
+        venditaId,
+        quantita,
+        dataVendita?.data ?? new Date().toISOString().split('T')[0]
+      )
+      coppieCoinvolte.push({ cliente_id: clienteId as number, materiale_id: materialeId })
+    }
+  }
+
+  for (const coppia of coppieCoinvolte) {
+    if (saldoFustiRendere(coppia.cliente_id, coppia.materiale_id) < 0) {
+      throw new Error(
+        'Operazione bloccata: il cliente ha gia registrato piu rientri dei fusti a rendere rimanenti. Correggi prima i rientri dalla sezione Fusti in giro.'
+      )
+    }
+  }
+}
+
 function saldoFustiRendere(clienteId: number, materialeId: number): number {
   const row = db
     .prepare(
@@ -2043,6 +2101,15 @@ function registerVenditeIpcHandlers(): void {
         if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia' && r.tipo_prodotto !== 'altro') {
           return { ok: false, errore: 'Tipo prodotto non valido' }
         }
+        if (r.tipo_prodotto === 'fusto' && r.fusti_rendere != null) {
+          const n = Number(r.fusti_rendere)
+          if (!Number.isFinite(n) || n < 0 || n > r.quantita) {
+            return { ok: false, errore: 'I fusti a rendere devono essere tra 0 e la quantita venduta' }
+          }
+          if (n > 0 && clienteId == null) {
+            return { ok: false, errore: 'I fusti a rendere richiedono un cliente' }
+          }
+        }
       }
 
       const esegui = db.transaction((): number => {
@@ -2111,6 +2178,8 @@ function registerVenditeIpcHandlers(): void {
           }
         }
 
+        riallineaUsciteFustiVendita(venditaId, clienteId, dati.righe)
+
         const cottaIds = [...new Set(dati.righe.map((x) => x.cotta_id).filter((x): x is number => x != null))]
         for (const cid of cottaIds) {
           aggiornaStatoCotta(cid)
@@ -2174,6 +2243,18 @@ function registerVenditeIpcHandlers(): void {
         }
         if (r.tipo_prodotto !== 'fusto' && r.tipo_prodotto !== 'bottiglia' && r.tipo_prodotto !== 'altro') {
           return { ok: false as const, errore: 'Tipo prodotto non valido' }
+        }
+        if (r.tipo_prodotto === 'fusto' && r.fusti_rendere != null) {
+          const n = Number(r.fusti_rendere)
+          if (!Number.isFinite(n) || n < 0 || n > r.quantita) {
+            return {
+              ok: false as const,
+              errore: 'I fusti a rendere devono essere tra 0 e la quantita venduta'
+            }
+          }
+          if (n > 0 && clienteId == null) {
+            return { ok: false as const, errore: 'I fusti a rendere richiedono un cliente' }
+          }
         }
       }
 
@@ -2377,6 +2458,8 @@ function registerVenditeIpcHandlers(): void {
           }
         }
 
+        riallineaUsciteFustiVendita(id, clienteId, dati.righe)
+
         for (const cid of cottaIdsCoinvolte) {
           aggiornaStatoCotta(cid)
         }
@@ -2461,6 +2544,8 @@ function registerVenditeIpcHandlers(): void {
             addAltro.run(r.altro_prodotto_id, r.quantita)
           }
         }
+
+        riallineaUsciteFustiVendita(id, null, [])
 
         db.prepare(`DELETE FROM vendita_dettaglio WHERE vendita_id = ?`).run(id)
         db.prepare(`DELETE FROM vendite WHERE id = ?`).run(id)
