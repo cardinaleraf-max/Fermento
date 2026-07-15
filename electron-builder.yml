@@ -1,5 +1,6 @@
 appId: com.fermento.app
 npmRebuild: false
+afterPack: scripts/after-pack-fuses.cjs
 productName: Fermento
 publish:
   provider: generic

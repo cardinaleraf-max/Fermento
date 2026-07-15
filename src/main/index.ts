@@ -4072,7 +4072,8 @@ function createWindow(): void {
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
-      sandbox: false
+      sandbox: false,
+      devTools: !app.isPackaged
     }
   })
 
