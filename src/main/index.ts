@@ -3996,6 +3996,27 @@ function registerBackupIpcHandlers(): void {
   console.log('[startup] IPC handlers registrati: backup:*')
 }
 
+/**
+ * Estrae le note della SOLA versione più recente da RELEASE_NOTES.md
+ * (il file è ordinato dal più recente, quindi prendiamo la prima sezione
+ * "## ..." fino alla successiva) e ripulisce il markdown per un dialog nativo.
+ */
+function formattaNoteRilascio(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null
+  const testo = raw.replace(/\r/g, '')
+  const idx = testo.indexOf('## ')
+  let sezione = idx >= 0 ? testo.slice(idx) : testo
+  const succ = sezione.indexOf('\n## ')
+  if (succ > 0) sezione = sezione.slice(0, succ)
+  const pulito = sezione
+    .replace(/^#{1,6}\s*/gm, '')
+    .replace(/^\s*[-*]\s+/gm, '• ')
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .trim()
+  if (!pulito) return null
+  return pulito.length > 1500 ? `${pulito.slice(0, 1500)}…` : pulito
+}
+
 function configuraAutoUpdater(): void {
   if (!app.isPackaged) {
     console.log('[AutoUpdate] skip (app non impacchettata)')
@@ -4007,12 +4028,14 @@ function configuraAutoUpdater(): void {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[AutoUpdate] update disponibile:', info?.version)
+    const note = formattaNoteRilascio(info?.releaseNotes)
     const finestra = BrowserWindow.getAllWindows()[0]
     dialog.showMessageBox(finestra, {
       type: 'info',
       title: 'Aggiornamento disponibile',
       message: `È disponibile una nuova versione di Fermento${info?.version ? ` (${info.version})` : ''}.`,
       detail:
+        (note ? `Novità di questa versione:\n\n${note}\n\n` : '') +
         'Il download partirà in background. Quando sarà pronto ti chiederò di riavviare per installarlo.',
       buttons: ['OK']
     })
