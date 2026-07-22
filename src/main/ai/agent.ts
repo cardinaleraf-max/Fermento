@@ -425,6 +425,32 @@ export function ensureAiConfigRows(db: BetterSqlite3.Database): void {
     'Timeout per chiamata al provider AI (secondi, 30-3600)',
     'assistente_ai'
   )
+
+  // Rete di sicurezza retrocompatibilita': in passato la config esponeva sia il
+  // campo URL sia la API key, ed era facile incollare la key (che inizia con
+  // 'gsk_') nel campo URL. Se troviamo una key valida in 'ai_groq_url' e la
+  // vera API key e' vuota, la spostiamo automaticamente cosi' Bira continua a
+  // funzionare dopo l'aggiornamento senza che l'utente debba riconfigurare.
+  try {
+    const leggi = (chiave: string): string => {
+      const row = db.prepare(`SELECT valore FROM configurazioni WHERE chiave = ?`).get(chiave) as
+        | { valore: string }
+        | undefined
+      return (row?.valore ?? '').trim()
+    }
+    const apiKey = leggi('ai_groq_api_key')
+    const url = leggi('ai_groq_url')
+    if (!apiKey && url.startsWith('gsk_')) {
+      db.prepare(
+        `UPDATE configurazioni SET valore = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'ai_groq_api_key'`
+      ).run(url)
+      db.prepare(
+        `UPDATE configurazioni SET valore = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'ai_groq_url'`
+      ).run('https://api.groq.com/openai/v1')
+    }
+  } catch {
+    // best-effort: se la migrazione non e' applicabile ignoriamo
+  }
 }
 
 export function registerAiIpcHandlers(getDb: () => BetterSqlite3.Database): void {
