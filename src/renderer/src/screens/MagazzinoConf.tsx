@@ -457,7 +457,7 @@ export default function MagazzinoConf(): React.JSX.Element {
   }
 
   return (
-    <div className="grid min-h-[calc(100vh-9rem)] grid-cols-1 gap-4 xl:grid-cols-[1.2fr_1fr]">
+    <div className="grid min-h-[calc(100vh-9rem)] grid-cols-1 gap-4 [&>*]:min-w-0 xl:grid-cols-[1.2fr_1fr]">
       <section className="rounded-lg border border-border bg-card">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="text-sm font-semibold text-foreground">Materiali confezionamento</h3>

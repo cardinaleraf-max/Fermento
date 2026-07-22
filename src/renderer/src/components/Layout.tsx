@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   BarChart3,
   Bell,
@@ -57,21 +57,42 @@ const sezioneLabelMap: Record<Sezione, string> = Object.fromEntries(
 
 export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutProps): React.JSX.Element {
   const [conteggioAvvisi, setConteggioAvvisi] = useState(0)
+  const [avvisiNuovi, setAvvisiNuovi] = useState(false)
   const [nomeBirrificio, setNomeBirrificio] = useState('')
+  const conteggioPrecedente = useRef<number | null>(null)
 
   useEffect(() => {
     void window.api.impostazioni.valoreDi('nome_birrificio').then(setNomeBirrificio).catch(() => {})
   }, [])
 
+  // Polling avvisi: aggiorna il contatore e fa "muovere" il badge quando ne arriva uno nuovo.
   useEffect(() => {
-    void (async () => {
+    let attivo = true
+    const carica = async (): Promise<void> => {
       try {
         const lista = await window.api.avvisi.lista()
-        setConteggioAvvisi(lista.length)
+        if (!attivo) return
+        const n = lista.length
+        if (conteggioPrecedente.current !== null && n > conteggioPrecedente.current) {
+          setAvvisiNuovi(true)
+        }
+        conteggioPrecedente.current = n
+        setConteggioAvvisi(n)
       } catch {
-        setConteggioAvvisi(0)
+        if (attivo) setConteggioAvvisi(0)
       }
-    })()
+    }
+    void carica()
+    const timer = setInterval(() => void carica(), 30000)
+    return () => {
+      attivo = false
+      clearInterval(timer)
+    }
+  }, [sezioneCorrente])
+
+  // Aprendo la pagina Avvisi si "spegne" l'animazione: l'utente li ha visti.
+  useEffect(() => {
+    if (sezioneCorrente === 'avvisi') setAvvisiNuovi(false)
   }, [sezioneCorrente])
 
   return (
@@ -123,6 +144,21 @@ export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutPro
               >
                 <Icon className="h-3.5 w-3.5 shrink-0" />
                 <span className="truncate">{item.label}</span>
+                {item.key === 'avvisi' && conteggioAvvisi > 0 && (
+                  <span className="relative ml-auto flex shrink-0 items-center justify-center">
+                    {avvisiNuovi && (
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500/70" />
+                    )}
+                    <span
+                      className={cn(
+                        'relative inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 py-px text-[10px] font-bold text-white',
+                        avvisiNuovi && 'animate-bounce'
+                      )}
+                    >
+                      {conteggioAvvisi}
+                    </span>
+                  </span>
+                )}
               </button>
             )
           })}
@@ -135,22 +171,28 @@ export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutPro
             className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left transition-all hover:bg-white/[0.04]"
           >
             <div className="flex items-center gap-2 text-white/35">
-              <Bell className="h-3.5 w-3.5" />
+              <Bell className={cn('h-3.5 w-3.5', avvisiNuovi && 'animate-bounce text-red-400')} />
               <span className="text-xs font-medium">Avvisi attivi</span>
             </div>
-            <span
-              className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-amber-400"
-              style={{ background: 'rgba(232,160,32,0.12)', border: '1px solid rgba(232,160,32,0.25)' }}
-            >
-              {conteggioAvvisi}
-            </span>
+            {avvisiNuovi ? (
+              <span className="rounded-full border border-red-500/40 bg-red-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-red-300">
+                {conteggioAvvisi}
+              </span>
+            ) : (
+              <span
+                className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-amber-400"
+                style={{ background: 'rgba(232,160,32,0.12)', border: '1px solid rgba(232,160,32,0.25)' }}
+              >
+                {conteggioAvvisi}
+              </span>
+            )}
           </button>
         </div>
 
         <BiraLauncher />
       </aside>
 
-      <div className="ml-56 flex min-h-screen flex-1 flex-col">
+      <div className="ml-56 flex min-h-screen min-w-0 flex-1 flex-col">
         <header
           className="sticky top-0 z-10 px-6 py-3.5"
           style={{
@@ -164,7 +206,7 @@ export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutPro
             {sezioneLabelMap[sezioneCorrente]}
           </h2>
         </header>
-        <main className="flex-1 p-6">{children}</main>
+        <main className="min-w-0 flex-1 p-6">{children}</main>
       </div>
     </div>
   )

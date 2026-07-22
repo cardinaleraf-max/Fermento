@@ -190,10 +190,10 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
     } catch (e) {
       setHealth({
         abilitato: true,
-        provider: 'ollama',
+        provider: 'groq',
         url: '',
         modello: '',
-        remoto: false,
+        remoto: true,
         raggiungibile: false,
         errore: e instanceof Error ? e.message : 'Errore'
       })
@@ -317,9 +317,8 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
     if (healthLoading) return { testo: 'Verifica…', colore: 'text-white/40' }
     if (!health) return { testo: 'Stato sconosciuto', colore: 'text-white/40' }
     if (!health.abilitato) return { testo: 'Configura…', colore: 'text-amber-400/70' }
-    const nomeProvider = health.provider === 'groq' ? 'Groq' : 'Ollama'
     if (!health.raggiungibile)
-      return { testo: `${nomeProvider} non raggiungibile`, colore: 'text-red-400/80' }
+      return { testo: 'Non raggiungibile', colore: 'text-red-400/80' }
     return {
       testo: `Online · ${health.modello || 'modello sconosciuto'}`,
       colore: 'text-emerald-400/80'
@@ -413,15 +412,9 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
         <div className="flex items-start gap-1.5 border-b border-amber-500/20 bg-amber-500/[0.08] px-3 py-2 text-[11px] text-amber-100/85">
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
           <div>
-            <div className="font-medium">
-              {health.provider === 'groq'
-                ? 'Groq non raggiungibile'
-                : `Ollama non raggiungibile${health.url ? ` su ${health.url}` : ''}`}
-            </div>
+            <div className="font-medium">Bira non raggiungibile</div>
             <div className="mt-0.5 text-amber-100/70">
-              {health.provider === 'groq'
-                ? 'Verifica API key e connessione internet dalle Impostazioni.'
-                : "Avvia Ollama oppure passa a Groq dalle Impostazioni \u2192 Assistente AI."}
+              Verifica la API key e la connessione internet dalle Impostazioni.
             </div>
           </div>
         </div>

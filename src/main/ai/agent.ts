@@ -10,7 +10,6 @@ import type BetterSqlite3 from 'better-sqlite3'
 import type { OllamaMessage } from './ollama'
 import {
   creaClient,
-  normalizzaProvider,
   urlDefaultPerProvider,
   type ChatClient,
   type ProviderTipo
@@ -90,25 +89,19 @@ type AgentConfig = {
 }
 
 function leggiConfig(get: ConfigGetter): AgentConfig {
-  const provider = normalizzaProvider(get('ai_provider'))
-  const remoto = provider !== 'ollama'
+  // Provider unico: Groq (cloud). La scelta Ollama e' stata rimossa dalla UI
+  // per rendere la configurazione a prova di errore: l'utente inserisce solo
+  // la API key. L'endpoint e' fisso (non piu' modificabile) cosi' e'
+  // impossibile incollare la key nel campo sbagliato.
+  const provider: ProviderTipo = 'groq'
+  const remoto = true
 
-  // Per mantenere retrocompatibilita', il campo 'ai_url' e 'ai_modello'
-  // continuano a valere per Ollama. Groq ha chiavi dedicate.
-  let baseUrl: string
-  let modello: string
-  let apiKey = ''
-  if (provider === 'groq') {
-    baseUrl = (get('ai_groq_url') || '').trim() || urlDefaultPerProvider('groq')
-    modello = (get('ai_groq_modello') || '').trim() || DEFAULT_MODEL_GROQ
-    apiKey = (get('ai_groq_api_key') || '').trim()
-  } else {
-    baseUrl = (get('ai_url') || '').trim() || urlDefaultPerProvider('ollama')
-    modello = (get('ai_modello') || '').trim() || DEFAULT_MODEL_OLLAMA
-  }
+  const baseUrl = urlDefaultPerProvider('groq')
+  const modello = (get('ai_groq_modello') || '').trim() || DEFAULT_MODEL_GROQ
+  const apiKey = (get('ai_groq_api_key') || '').trim()
 
-  // ai_abilitato non viene più letto: derivato dallo stato del provider
-  const abilitato = provider === 'groq' ? apiKey.length > 0 : true
+  // Abilitato = c'e' una API key. Nient'altro da configurare.
+  const abilitato = apiKey.length > 0
 
   const tempRaw = (get('ai_temperatura') || '').trim()
   const tempNum = tempRaw === '' ? DEFAULT_TEMPERATURE : Number(tempRaw)

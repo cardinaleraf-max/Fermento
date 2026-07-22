@@ -195,10 +195,10 @@ export default function Impostazioni(): React.JSX.Element {
     } catch (e) {
       setAiHealth({
         abilitato: true,
-        provider: 'ollama',
+        provider: 'groq',
         url: '',
         modello: '',
-        remoto: false,
+        remoto: true,
         raggiungibile: false,
         errore: e instanceof Error ? e.message : 'Impossibile contattare l’assistente'
       })
@@ -258,11 +258,11 @@ export default function Impostazioni(): React.JSX.Element {
     [config]
   )
 
+  // Configurazione a prova di errore: esponiamo SOLO la API key Groq.
+  // Provider, URL e modello sono fissi lato backend (vedi agent.ts), cosi'
+  // l'utente non puo' sbagliare campo.
   const righeAssistente = useMemo(
-    () =>
-      config
-        .filter((c) => c.categoria === CAT_ASSISTENTE && c.chiave !== 'ai_abilitato')
-        .sort((a, b) => (a.etichetta || a.chiave).localeCompare(b.etichetta || b.chiave, 'it')),
+    () => config.filter((c) => c.chiave === 'ai_groq_api_key'),
     [config]
   )
 
@@ -754,7 +754,9 @@ export default function Impostazioni(): React.JSX.Element {
             <CardHeader>
               <CardTitle className="text-base">Assistente Bira</CardTitle>
               <CardDescription>
-                L&apos;assistente Bira si attiva automaticamente quando configuri un provider valido. Per usarlo in cloud inserisci la tua API key Groq. Per usarlo in locale assicurati che Ollama sia avviato sul tuo computer.
+                Per attivare Bira inserisci la tua API key Groq qui sotto. La ottieni
+                gratis su console.groq.com/keys. Una volta salvata, Bira è pronto: non
+                serve altro.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -765,21 +767,18 @@ export default function Impostazioni(): React.JSX.Element {
               )}
               {!aiHealthLoad && aiHealth && (() => {
                 const h = aiHealth
-                const nomeProvider = h.provider === 'groq' ? 'Groq' : 'Ollama'
                 const pronto = h.abilitato && h.raggiungibile
                 const titolo = !h.abilitato
-                  ? 'Disabilitato'
+                  ? 'Da configurare'
                   : h.raggiungibile
                     ? 'Pronto'
-                    : `${nomeProvider} non raggiungibile`
+                    : 'Non raggiungibile'
                 const sottotesto = h.errore
                   ?? (pronto
                     ? `Online · ${h.modello || 'modello sconosciuto'}`
-                    : h.provider === 'groq'
-                      ? 'Verifica API key e internet.'
-                      : h.url
-                        ? `Controlla Ollama su ${h.url}`
-                        : 'Avvia Ollama o passa a Groq.')
+                    : !h.abilitato
+                      ? 'Inserisci la API key Groq qui sotto.'
+                      : 'Verifica la API key e la connessione a internet.')
                 return (
                   <div
                     className={cn(
@@ -792,10 +791,9 @@ export default function Impostazioni(): React.JSX.Element {
                   >
                     <span className="font-medium">{titolo}</span>
                     <span className="text-foreground/80"> — {sottotesto}</span>
-                    {h.abilitato && (
+                    {pronto && (
                       <div className="mt-1 text-xs text-foreground/60">
-                        Provider: {nomeProvider} · {h.remoto ? 'cloud' : 'locale'}
-                        {h.url ? ` · ${h.url}` : ''}
+                        Groq · cloud
                       </div>
                     )}
                   </div>
@@ -805,13 +803,13 @@ export default function Impostazioni(): React.JSX.Element {
           </Card>
 
           {righeAssistente.length === 0 && (
-            <p className="text-sm text-muted-foreground">Nessun parametro assistente in database (controlla la migrazione).</p>
+            <p className="text-sm text-muted-foreground">Campo API key non trovato in database (controlla la migrazione).</p>
           )}
 
           {righeAssistente.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Parametri</CardTitle>
+                <CardTitle className="text-base">API key Groq</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {righeAssistente.map((r) => {
