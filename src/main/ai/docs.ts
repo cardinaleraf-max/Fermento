@@ -124,6 +124,7 @@ export const DOCS: DocEntry[] = [
       'avviare una nuova cotta (seleziona birra, ricetta, data inizio, litri teorici, numero lotto)',
       'aprire il dettaglio di una cotta in corso e vedere le MP usate',
       'confezionare una cotta (bottiglie prodotte, fusti per formato, scarto)',
+      'impostare la data di scadenza al confezionamento: e\' precompilata in base alla shelf life ma si puo\' modificare a mano',
       'correggere un confezionamento gia\' effettuato'
     ],
     tags: [
@@ -147,7 +148,8 @@ export const DOCS: DocEntry[] = [
     azioni: [
       'vedere bottiglie e fusti disponibili per lotto/cotta',
       'registrare un carico iniziale (bottiglie e fusti gia\' esistenti prima dell\'uso del gestionale)',
-      'togliere bottiglie manualmente (scarto, rottura, assaggio)'
+      'togliere bottiglie manualmente (scarto, rottura, assaggio)',
+      'gestire gli "altri prodotti" (prodotti diversi dalla birra, es. gadget/merchandising) e la loro giacenza'
     ],
     tags: [
       'prodotto finito',
@@ -157,7 +159,10 @@ export const DOCS: DocEntry[] = [
       'fusti disponibili',
       'scarto',
       'rotture',
-      'carico iniziale'
+      'carico iniziale',
+      'altri prodotti',
+      'gadget',
+      'merchandising'
     ]
   },
   {
@@ -178,13 +183,15 @@ export const DOCS: DocEntry[] = [
     sezione: 'vendite',
     titolo: 'Vendite',
     descrizione:
-      'Registrazione delle vendite. Ogni vendita e\' legata a un cliente (o e\' un omaggio/assaggio) e contiene righe con bottiglie/fusti di cotte specifiche. Il sistema scala le giacenze di prodotto finito in automatico.',
+      'Registrazione delle vendite. Ogni vendita e\' legata a un cliente (o e\' un omaggio/assaggio) e contiene righe con bottiglie, fusti o altri prodotti di cotte specifiche. Il sistema scala le giacenze di prodotto finito in automatico. Per le righe fusto si puo\' indicare quanti fusti sono "a rendere" (da restituire).',
     percorso: 'Sidebar → "Vendite".',
     azioni: [
-      'registrare una nuova vendita (cliente, data, righe bottiglie/fusti)',
-      'marcare una vendita come omaggio',
+      'registrare una nuova vendita (cliente, data, righe bottiglie/fusti/altri prodotti)',
+      'indicare i fusti "a rendere" su una riga fusto (quanti il cliente dovra\' restituire)',
+      'marcare una vendita come omaggio, con occasione',
       'modificare o eliminare una vendita esistente',
-      'vedere elenco vendite con totali per bottiglie/fusti'
+      'vedere elenco vendite con totali per bottiglie/fusti',
+      'aprire la vista "Fusti in giro" (dall\'intestazione delle Vendite) per i saldi dei fusti a rendere per cliente'
     ],
     tags: [
       'vendita',
@@ -194,7 +201,31 @@ export const DOCS: DocEntry[] = [
       'omaggio',
       'assaggio',
       'scarico pf',
-      'modifica vendita'
+      'modifica vendita',
+      'fusti a rendere',
+      'altri prodotti'
+    ]
+  },
+  {
+    sezione: 'vendite',
+    titolo: 'Fusti a rendere (Fusti in giro)',
+    descrizione:
+      'Traccia i fusti consegnati ai clienti che devono essere restituiti (fusti "a rendere"). Quando registri una vendita con righe fusto, indichi quanti fusti sono a rendere: il sistema crea un\'uscita. La vista "Fusti in giro" mostra, per ogni cliente e formato, il saldo di fusti ancora da restituire (uscite meno rientri) e permette di registrare i rientri quando il cliente li riporta indietro.',
+    percorso: 'Sidebar → "Vendite" → pulsante "Fusti in giro" nell\'intestazione.',
+    azioni: [
+      'vedere quali clienti hanno fusti ancora da restituire e quanti, per formato',
+      'registrare il rientro di uno o piu\' fusti quando il cliente li riporta',
+      'consultare lo storico dei movimenti (uscite e rientri) di un cliente'
+    ],
+    tags: [
+      'fusti a rendere',
+      'fusti in giro',
+      'fusto a rendere',
+      'rientro fusti',
+      'restituzione fusti',
+      'saldo fusti',
+      'vuoto a rendere',
+      'recupero fusti'
     ]
   },
   {
@@ -249,13 +280,13 @@ export const DOCS: DocEntry[] = [
     sezione: 'impostazioni',
     titolo: 'Impostazioni',
     descrizione:
-      'Configurazioni generali, gestione birre e ricette, cambio password, assistente AI (provider, modello, API key Groq, tool abilitati), backup.',
+      'Configurazioni generali, gestione birre e ricette, cambio password, assistente Bira (API key Groq), backup.',
     percorso: 'Sidebar → "Impostazioni".',
     azioni: [
       'modificare i parametri globali (finestra scadenze, giorni per cliente inattivo, nome birrificio)',
       'creare/modificare una birra (nome, stile, descrizione, attiva)',
       'definire o modificare la ricetta attiva di una birra (elenco ingredienti e quantita\')',
-      'configurare l\'assistente AI: scegliere provider (ollama/groq), modello, API key, timeout',
+      'attivare l\'assistente Bira: basta incollare la propria API key Groq (si ottiene gratis su console.groq.com/keys). Nessun altro campo da configurare.',
       'cambiare la password di accesso',
       'configurare il percorso di backup, eseguire backup manuale, ripristinare un backup'
     ],
@@ -271,10 +302,8 @@ export const DOCS: DocEntry[] = [
       'ripristino',
       'assistente ai',
       'bira',
-      'provider',
       'api key',
-      'groq',
-      'ollama'
+      'groq'
     ]
   }
 ]

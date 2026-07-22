@@ -47,10 +47,10 @@ const PROMPT_LOCALI = [
 
 const PROMPT_CLOUD = [
   'Riassumimi la situazione del birrificio',
+  'Quali clienti hanno fusti da restituire?',
   'Quali sono le birre pi\u00f9 vendute negli ultimi 90 giorni?',
-  'Come si confeziona una cotta?',
-  'Dove imposto il provider AI?',
-  'Giacenza attuale di prodotto finito per ogni birra'
+  'Giacenza attuale di prodotto finito per ogni birra',
+  'Come si confeziona una cotta?'
 ]
 
 function generaId(): string {

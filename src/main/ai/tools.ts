@@ -420,9 +420,9 @@ const tools: ToolDefinition[] = [
 
   {
     name: 'clienti_inattivi',
-    cloud_safe: false,
+    cloud_safe: true,
     description:
-      'Elenca clienti senza vendite (non omaggio) negli ultimi N giorni. Default: usa la configurazione cliente_inattivo_giorni.',
+      'Elenca clienti senza vendite (non omaggio) negli ultimi N giorni. Default: usa la configurazione cliente_inattivo_giorni. Restituisce nome e tipo cliente, non i contatti.',
     parameters: {
       type: 'object',
       properties: {
@@ -439,8 +439,6 @@ const tools: ToolDefinition[] = [
           `SELECT cli.id,
                   cli.nome,
                   cli.tipo_cliente,
-                  cli.telefono,
-                  cli.email,
                   MAX(CASE WHEN v.omaggio = 0 THEN v.data END) as ultima_vendita
            FROM clienti cli
            LEFT JOIN vendite v ON v.cliente_id = cli.id
@@ -457,9 +455,9 @@ const tools: ToolDefinition[] = [
 
   {
     name: 'top_clienti',
-    cloud_safe: false,
+    cloud_safe: true,
     description:
-      'Top clienti per bottiglie vendute (escluse omaggio) in un periodo. Default: ultimi 90 giorni, primi 10.',
+      'Top clienti per bottiglie vendute (escluse omaggio) in un periodo. Default: ultimi 90 giorni, primi 10. Restituisce nome e tipo cliente, non i contatti.',
     parameters: {
       type: 'object',
       properties: {
@@ -579,9 +577,119 @@ const tools: ToolDefinition[] = [
   },
 
   {
+    name: 'fusti_a_rendere',
+    cloud_safe: true,
+    description:
+      'Fusti a rendere ancora "in giro": quali clienti hanno fusti consegnati e non ancora restituiti, con quantita per formato, piu il totale complessivo. Usa questo tool per domande tipo "quali fusti sono in giro", "chi deve restituire fusti", "quanti fusti a rendere ha il cliente X".',
+    parameters: {
+      type: 'object',
+      properties: {
+        cliente: {
+          type: 'string',
+          description: 'Filtro opzionale: nome (anche parziale) del cliente.'
+        }
+      }
+    },
+    handler: (db, args) => {
+      const cliente = asString(args.cliente).trim()
+      const params: unknown[] = []
+      let filtro = ''
+      if (cliente) {
+        filtro = `AND cli.nome LIKE ?`
+        params.push(`%${cliente}%`)
+      }
+      const rows = db
+        .prepare(
+          `SELECT cli.nome AS cliente,
+                  mc.nome AS formato,
+                  mc.capacita_litri,
+                  SUM(CASE WHEN m.tipo = 'uscita' THEN m.quantita ELSE -m.quantita END) AS fusti_da_restituire
+           FROM movimenti_fusti_rendere m
+           JOIN clienti cli ON cli.id = m.cliente_id
+           JOIN materiali_confezionamento mc ON mc.id = m.materiale_id
+           WHERE 1=1 ${filtro}
+           GROUP BY m.cliente_id, m.materiale_id
+           HAVING fusti_da_restituire > 0
+           ORDER BY cli.nome, mc.capacita_litri`
+        )
+        .all(...params) as Array<{ fusti_da_restituire: number }>
+      const totale = rows.reduce((s, r) => s + Number(r.fusti_da_restituire ?? 0), 0)
+      return { totale_fusti_in_giro: totale, righe: rows }
+    }
+  },
+
+  {
+    name: 'altri_prodotti',
+    cloud_safe: true,
+    description:
+      'Giacenza degli "altri prodotti" (prodotti diversi dalla birra, es. gadget/merchandising) con la quantita disponibile.',
+    parameters: { type: 'object', properties: {} },
+    handler: (db) => {
+      const rows = db
+        .prepare(
+          `SELECT ap.nome,
+                  COALESCE(gap.quantita_disponibile, 0) AS disponibili
+           FROM altri_prodotti ap
+           LEFT JOIN giacenza_altri_prodotti gap ON gap.altro_prodotto_id = ap.id
+           WHERE ap.attivo = 1
+           ORDER BY ap.nome`
+        )
+        .all()
+      return { totale: rows.length, prodotti: rows }
+    }
+  },
+
+  {
+    name: 'omaggi',
+    cloud_safe: true,
+    description:
+      'Elenca le vendite marcate come omaggio/assaggio in un periodo (default ultimi 90 giorni): data, cliente (se presente), occasione e quantita di bottiglie/fusti omaggiati.',
+    parameters: {
+      type: 'object',
+      properties: {
+        giorni: { ...integerLikeParam('Giorni indietro da oggi. Default 90.') },
+        da: { type: 'string', description: 'Data inizio YYYY-MM-DD (opzionale).' },
+        a: { type: 'string', description: 'Data fine YYYY-MM-DD (opzionale).' }
+      }
+    },
+    handler: (db, args) => {
+      const da = asDateOrNull(args.da)
+      const a = asDateOrNull(args.a)
+      let where = `v.omaggio = 1`
+      const params: unknown[] = []
+      if (da && a) {
+        where += ` AND v.data BETWEEN ? AND ?`
+        params.push(da, a)
+      } else {
+        const giorni = asInt(args.giorni, 90, 1, 3650)
+        where += ` AND v.data >= DATE('now', ?)`
+        params.push(`-${giorni} days`)
+      }
+      const rows = db
+        .prepare(
+          `SELECT v.id,
+                  v.data,
+                  COALESCE(cli.nome, '(senza cliente)') AS cliente,
+                  v.occasione,
+                  SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END) AS bottiglie,
+                  SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END) AS fusti
+           FROM vendite v
+           LEFT JOIN clienti cli ON cli.id = v.cliente_id
+           LEFT JOIN vendita_dettaglio vd ON vd.vendita_id = v.id
+           WHERE ${where}
+           GROUP BY v.id
+           ORDER BY v.data DESC`
+        )
+        .all(...params)
+      return { totale: rows.length, omaggi: rows }
+    }
+  },
+
+  {
     name: 'cerca_cliente',
-    cloud_safe: false,
-    description: 'Cerca clienti per nome (LIKE case-insensitive). Restituisce max 20 risultati.',
+    cloud_safe: true,
+    description:
+      'Cerca clienti per nome (LIKE case-insensitive). Restituisce max 20 risultati (nome e tipo cliente, non i contatti).',
     parameters: {
       type: 'object',
       properties: {
@@ -594,7 +702,7 @@ const tools: ToolDefinition[] = [
       if (!testo) return { totale: 0, clienti: [] }
       const rows = db
         .prepare(
-          `SELECT id, nome, tipo_cliente, telefono, email, attivo
+          `SELECT id, nome, tipo_cliente, attivo
            FROM clienti
            WHERE nome LIKE ?
            ORDER BY attivo DESC, nome ASC
