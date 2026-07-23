@@ -343,7 +343,8 @@ const api = {
   },
   licenza: {
     stato: () => ipcRenderer.invoke('licenza:stato'),
-    attiva: (stringa: string) => ipcRenderer.invoke('licenza:attiva', stringa)
+    attiva: (stringa: string) => ipcRenderer.invoke('licenza:attiva', stringa),
+    codiceMacchina: (): Promise<string> => ipcRenderer.invoke('licenza:codiceMacchina')
   },
   backup: {
     esegui: (tipo: 'manuale' | 'automatico') => ipcRenderer.invoke('backup:esegui', { tipo }),

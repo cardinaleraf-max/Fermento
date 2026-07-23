@@ -857,6 +857,7 @@ interface FermentoAPI {
   licenza: {
     stato: () => Promise<{ valida: boolean; intestatario?: string; scadenza?: string | null; errore?: string }>
     attiva: (stringa: string) => Promise<{ ok: true; intestatario: string } | { ok: false; errore: string }>
+    codiceMacchina: () => Promise<string>
   }
   backup: {
     esegui: (tipo: 'manuale' | 'automatico') => Promise<BackupEseguiResult>

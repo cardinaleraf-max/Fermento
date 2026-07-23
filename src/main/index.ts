@@ -8,6 +8,7 @@ import icon from '../../resources/icon.png?asset'
 import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenDatabaseConnection } from './database'
 import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 import { licenzaSalvataValida, salvaLicenza } from './licenza'
+import { codiceMacchina } from './impronta'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -3364,6 +3365,16 @@ function registerLicenzaIpcHandlers(): void {
       console.error('[IPC licenza:attiva] errore:', error)
       const msg = error instanceof Error ? error.message : 'Errore attivazione licenza'
       return { ok: false as const, errore: msg }
+    }
+  })
+
+  ipcMain.removeHandler('licenza:codiceMacchina')
+  ipcMain.handle('licenza:codiceMacchina', () => {
+    try {
+      return codiceMacchina()
+    } catch (error) {
+      console.error('[IPC licenza:codiceMacchina] errore:', error)
+      return ''
     }
   })
 
