@@ -25,19 +25,18 @@ function idHardwareGrezzo(): string {
   } catch {
     // fallback sotto
   }
-  // Fallback stabile: hostname + primo MAC non-interno
-  let mac = ''
+  // Fallback stabile: hostname + tutti i MAC non-interni ordinati (deterministico
+  // a prescindere dall'ordine di iterazione delle interfacce di rete).
+  const macs: string[] = []
   const ifs = networkInterfaces()
   for (const nome of Object.keys(ifs)) {
     for (const info of ifs[nome] ?? []) {
       if (!info.internal && info.mac && info.mac !== '00:00:00:00:00:00') {
-        mac = info.mac
-        break
+        macs.push(info.mac)
       }
     }
-    if (mac) break
   }
-  return 'fallback:' + hostname() + '|' + mac
+  return 'fallback:' + hostname() + '|' + macs.sort().join(',')
 }
 
 let cache: string | null = null

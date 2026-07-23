@@ -18,9 +18,13 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
   }, [])
 
   const copiaCodice = async (): Promise<void> => {
-    await navigator.clipboard.writeText(codicePc)
-    setCopiato(true)
-    setTimeout(() => setCopiato(false), 1500)
+    try {
+      await navigator.clipboard.writeText(codicePc)
+      setCopiato(true)
+      setTimeout(() => setCopiato(false), 1500)
+    } catch {
+      // clipboard non disponibile o permesso negato: nessuna azione
+    }
   }
 
   const handleAttiva = async (): Promise<void> => {

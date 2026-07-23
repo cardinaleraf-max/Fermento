@@ -30,7 +30,8 @@ export function formattaChiave(base64url: string): string {
 }
 
 export function estraiBase64url(chiave: string): string {
-  const body = chiave.replace(/^FRMTO-/, '')
+  const pulita = chiave.replace(/\s+/g, '')
+  const body = pulita.replace(/^FRMTO-/, '')
   // Ogni blocco e' DIM_GRUPPO char di contenuto + 1 separatore '-'.
   // Prendo i primi DIM_GRUPPO di ogni blocco da (DIM_GRUPPO+1) e salto il separatore,
   // così un '-' che fa parte del contenuto non viene mai scambiato per separatore.

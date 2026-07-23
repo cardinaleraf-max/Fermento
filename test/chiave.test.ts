@@ -22,3 +22,17 @@ test('formattaChiave/estraiBase64url sono inversi anche quando il contenuto incl
     assert.equal(estraiBase64url(chiave), b64url, `round-trip rotto per: ${chiave}`)
   }
 })
+
+test('estraiBase64url ignora whitespace/newline interni (paste da email/chat)', () => {
+  const clean = formattaChiave(bufferToBase64url(randomBytes(80)))
+  // Inserisce \n e spazi in alcune posizioni interne per simulare il wrap del testo.
+  const dirty =
+    clean.slice(0, 8) +
+    '\n' +
+    clean.slice(8, 20) +
+    '  ' +
+    clean.slice(20, 33) +
+    '\n ' +
+    clean.slice(33)
+  assert.equal(estraiBase64url(dirty), estraiBase64url(clean))
+})

@@ -3,7 +3,7 @@ import type BetterSqlite3 from 'better-sqlite3'
 import { estraiBase64url, base64urlToBuffer } from './chiave'
 import { codiceMacchina } from './impronta'
 
-// Placeholder: sostituire con il contenuto di public.pem dopo aver eseguito npm run genera-chiavi
+// Chiave pubblica di PRODUZIONE — NON sostituire. La privata corrispondente e' in ~/.fermento-licensing/private.pem
 export const CHIAVE_PUBBLICA_PEM = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAslMzyjVod9lxuAYee3tw
 LHW6j/fdNsj8CPGQgTghx30CyAObv1eYKc8MXO4P66Lqt08jsd40k9T7mafCGAd2

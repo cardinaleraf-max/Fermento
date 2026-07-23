@@ -22,6 +22,22 @@ if (scadenzaArg === 'mai') {
   d.setFullYear(d.getFullYear() + 1)
   scadenza = d.toISOString().split('T')[0]
 } else {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(args[1])
+  const dataReale =
+    m &&
+    (() => {
+      const d = new Date(`${args[1]}T00:00:00Z`)
+      return (
+        !Number.isNaN(d.getTime()) &&
+        d.getUTCFullYear() === Number(m[1]) &&
+        d.getUTCMonth() + 1 === Number(m[2]) &&
+        d.getUTCDate() === Number(m[3])
+      )
+    })()
+  if (!dataReale) {
+    console.error('ERRORE: data scadenza non valida. Usa "mai", "annuale" oppure YYYY-MM-DD')
+    process.exit(1)
+  }
   scadenza = args[1]
 }
 
