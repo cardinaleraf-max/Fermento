@@ -161,19 +161,8 @@ function migrazioneRetrocompatibilita(database: BetterSqlite3.Database): void {
   })
   tx()
 
-  // Inserisci licenza fondatore se non esiste ancora
-  const licenzaEsistente = database
-    .prepare(`SELECT id FROM licenza WHERE id = 1`)
-    .get() as { id: number } | undefined
-
-  if (!licenzaEsistente) {
-    database
-      .prepare(
-        `INSERT INTO licenza (id, stringa, intestatario, scadenza, emessa_il)
-         VALUES (1, 'FONDATORE-LUCA-LOOKDOWN', 'Birrificio Lookdown', NULL, '2026-04-01T00:00:00Z')`
-      )
-      .run()
-  }
+  // Nessuna licenza di default: un DB senza riga licenza mostra la schermata di
+  // attivazione (il legame licenza-PC richiede una licenza firmata e legata).
 }
 
 function runAdditiveMigrations(database: BetterSqlite3.Database): void {

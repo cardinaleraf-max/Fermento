@@ -33,28 +33,11 @@ type StatoLicenza = {
   errore?: string
 }
 
-// Segnaposto speciale per il cliente fondatore Luca (Birrificio Lookdown).
-// Non richiede verifica firma: accesso perpetuo garantito contrattualmente.
-const FONDATORE_STRINGA = 'FONDATORE-LUCA-LOOKDOWN'
-
 export function verificaLicenza(
   stringaLicenza: string,
   improntaCorrente?: string,
   chiavePubblica: string = CHIAVE_PUBBLICA_PEM
 ): VerificaResult {
-  // Caso speciale fondatore: bypass verifica firma (rimosso in versione futura)
-  if (stringaLicenza === FONDATORE_STRINGA) {
-    return {
-      valida: true,
-      payload: {
-        intestatario: 'Birrificio Lookdown',
-        scadenza: null,
-        emessa_il: '2026-04-01T00:00:00Z',
-        id: 'fondatore'
-      }
-    }
-  }
-
   if (!chiavePubblica) {
     return { valida: false, errore: 'Chiave pubblica non configurata' }
   }

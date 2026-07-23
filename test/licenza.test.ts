@@ -44,9 +44,9 @@ test('licenza scaduta → invalida', () => {
   if (!r.valida) assert.equal(r.errore, 'Licenza scaduta')
 })
 
-test('scorciatoia fondatore → ancora valida', () => {
+test('scorciatoia fondatore RIMOSSA → non è più valida', () => {
   const r = verificaLicenza('FONDATORE-LUCA-LOOKDOWN')
-  assert.equal(r.valida, true)
+  assert.equal(r.valida, false)
 })
 
 test('round-trip firma reale con payload lungo → valida (blinda il baco trattini)', () => {
