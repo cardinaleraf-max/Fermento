@@ -22,7 +22,8 @@
     "build:mac": "npm run build && node scripts/blinda.mjs && electron-builder --mac --x64",
     "build:linux": "electron-vite build && electron-builder --linux",
     "genera-chiavi": "tsx scripts/genera-coppia-chiavi.ts",
-    "genera-licenza": "tsx scripts/genera-licenza.ts"
+    "genera-licenza": "tsx scripts/genera-licenza.ts",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
