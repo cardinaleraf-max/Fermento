@@ -1,5 +1,13 @@
 # Note di rilascio
 
+## v1.4.0 — Luglio 2026
+
+### Miglioramenti
+- Migliorie interne di stabilità e sicurezza.
+
+### Per gli utenti esistenti
+Nessuna azione richiesta. I tuoi dati, configurazioni e accessi restano invariati. Apri Fermento normalmente con la tua password.
+
 ## v1.3.1 — Luglio 2026
 
 ### Correzioni
