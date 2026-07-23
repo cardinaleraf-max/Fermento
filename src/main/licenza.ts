@@ -1,5 +1,7 @@
 import { createVerify } from 'node:crypto'
 import type BetterSqlite3 from 'better-sqlite3'
+import { estraiBase64url, base64urlToBuffer } from './chiave'
+import { codiceMacchina } from './impronta'
 
 // Placeholder: sostituire con il contenuto di public.pem dopo aver eseguito npm run genera-chiavi
 export const CHIAVE_PUBBLICA_PEM = `-----BEGIN PUBLIC KEY-----
@@ -17,6 +19,7 @@ type LicenzaPayload = {
   scadenza: string | null
   emessa_il: string
   id: string
+  macchina?: string
 }
 
 type VerificaResult =
@@ -34,8 +37,12 @@ type StatoLicenza = {
 // Non richiede verifica firma: accesso perpetuo garantito contrattualmente.
 const FONDATORE_STRINGA = 'FONDATORE-LUCA-LOOKDOWN'
 
-export function verificaLicenza(stringaLicenza: string): VerificaResult {
-  // Caso speciale fondatore: bypass verifica firma
+export function verificaLicenza(
+  stringaLicenza: string,
+  improntaCorrente?: string,
+  chiavePubblica: string = CHIAVE_PUBBLICA_PEM
+): VerificaResult {
+  // Caso speciale fondatore: bypass verifica firma (rimosso in versione futura)
   if (stringaLicenza === FONDATORE_STRINGA) {
     return {
       valida: true,
@@ -48,26 +55,17 @@ export function verificaLicenza(stringaLicenza: string): VerificaResult {
     }
   }
 
-  if (!CHIAVE_PUBBLICA_PEM) {
+  if (!chiavePubblica) {
     return { valida: false, errore: 'Chiave pubblica non configurata' }
   }
 
   try {
-    // Rimuovi il prefisso FRMTO- e i trattini di formattazione, poi decodifica base64url
-    const pulita = stringaLicenza
-      .replace(/^FRMTO-/, '')
-      .replace(/-/g, '')
-
-    // Converti base64url in base64 standard e aggiungi padding
-    const base64 = pulita.replace(/-/g, '+').replace(/_/g, '/')
-    const pad = (4 - (base64.length % 4)) % 4
-    const base64padded = base64 + '='.repeat(pad)
-    const raw = Buffer.from(base64padded, 'base64').toString('utf-8')
+    const raw = base64urlToBuffer(estraiBase64url(stringaLicenza)).toString('utf-8')
     const { payload: payloadStr, firma } = JSON.parse(raw) as { payload: string; firma: string }
 
     const verify = createVerify('RSA-SHA256')
     verify.update(payloadStr)
-    const firmaValida = verify.verify(CHIAVE_PUBBLICA_PEM, firma, 'base64')
+    const firmaValida = verify.verify(chiavePubblica, firma, 'base64')
 
     if (!firmaValida) {
       return { valida: false, errore: 'Firma non valida' }
@@ -77,6 +75,15 @@ export function verificaLicenza(stringaLicenza: string): VerificaResult {
 
     if (payload.scadenza !== null && payload.scadenza < new Date().toISOString().split('T')[0]) {
       return { valida: false, errore: 'Licenza scaduta' }
+    }
+
+    // Machine binding: se la licenza porta un codice macchina, deve combaciare col PC.
+    // Se assente → salta il controllo (retrocompatibilità, rete di sicurezza).
+    if (payload.macchina) {
+      const impronta = improntaCorrente ?? codiceMacchina()
+      if (payload.macchina !== impronta) {
+        return { valida: false, errore: 'Licenza legata a un altro computer' }
+      }
     }
 
     return { valida: true, payload }
