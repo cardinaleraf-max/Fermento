@@ -1,5 +1,13 @@
 # Note di rilascio
 
+## v1.3.1 — Luglio 2026
+
+### Correzioni
+- Risolto un errore che, dopo l'aggiornamento alla 1.3.0, impediva l'avvio dell'applicazione su Windows. L'app ora si apre regolarmente.
+
+### Per gli utenti esistenti
+Nessuna azione richiesta. I tuoi dati, configurazioni e accessi restano invariati. Apri Fermento normalmente con la tua password.
+
 ## v1.3.0 — Luglio 2026
 
 ### Novita
