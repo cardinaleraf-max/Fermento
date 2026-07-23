@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
@@ -10,6 +10,18 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
   const [chiave, setChiave] = useState('')
   const [errore, setErrore] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [codicePc, setCodicePc] = useState('')
+  const [copiato, setCopiato] = useState(false)
+
+  useEffect(() => {
+    void window.api.licenza.codiceMacchina().then(setCodicePc)
+  }, [])
+
+  const copiaCodice = async (): Promise<void> => {
+    await navigator.clipboard.writeText(codicePc)
+    setCopiato(true)
+    setTimeout(() => setCopiato(false), 1500)
+  }
 
   const handleAttiva = async (): Promise<void> => {
     if (!chiave.trim()) {
@@ -99,6 +111,38 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
             Inserisci la chiave di licenza che hai ricevuto. La trovi nel messaggio che ti &egrave; stato inviato insieme al link di download di Fermento.
           </p>
 
+          {codicePc && (
+            <div
+              style={{
+                marginBottom: '20px',
+                padding: '12px 14px',
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px'
+              }}
+            >
+              <p style={{ fontSize: '0.7rem', color: 'rgba(150,150,160,0.85)', marginBottom: '6px' }}>
+                Codice di questo computer
+              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <code style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'hsl(var(--foreground))', wordBreak: 'break-all' }}>
+                  {codicePc}
+                </code>
+                <Button
+                  type="button"
+                  className="h-7 px-2"
+                  onClick={() => { void copiaCodice() }}
+                  style={{ flexShrink: 0 }}
+                >
+                  {copiato ? 'Copiato' : 'Copia'}
+                </Button>
+              </div>
+              <p style={{ fontSize: '0.7rem', color: 'rgba(150,150,160,0.7)', marginTop: '8px', lineHeight: 1.4 }}>
+                Se non riesci ad attivare, invia questo codice a Fermento.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="chiave">Chiave licenza</Label>
@@ -140,7 +184,9 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
                   ? 'La licenza non è più valida. Contatta il supporto per rinnovarla.'
                   : errore === 'Firma non valida'
                     ? 'La chiave inserita non è valida. Controlla di averla copiata per intero.'
-                    : errore}
+                    : errore === 'Licenza legata a un altro computer'
+                      ? `Questa chiave è legata a un altro computer. Invia a Fermento il codice di questo PC (${codicePc}) per ricevere la chiave corretta.`
+                      : errore}
               </div>
             )}
 
