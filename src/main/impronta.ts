@@ -16,7 +16,7 @@ function idHardwareGrezzo(): string {
     } else if (process.platform === 'win32') {
       const out = execFileSync(
         'reg',
-        ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid'],
+        ['query', 'HKLM\\SOFTWARE\\Microsoft\\Cryptography', '/v', 'MachineGuid', '/reg:64'],
         { encoding: 'utf-8', timeout: 5000 }
       )
       const m = out.match(/MachineGuid\s+REG_SZ\s+([A-Fa-f0-9-]+)/)
