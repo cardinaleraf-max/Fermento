@@ -1,15 +1,22 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   BarChart3,
   Bell,
   Box,
+  Boxes,
+  Flame,
   FlaskConical,
   LayoutDashboard,
+  Microscope,
   Package,
+  Route,
   Settings,
   ShoppingCart,
+  Sprout,
+  Tractor,
   Users,
-  Warehouse
+  Warehouse,
+  Wheat
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BiraLauncher } from './BiraLauncher'
@@ -25,10 +32,19 @@ export type Sezione =
   | 'report'
   | 'avvisi'
   | 'impostazioni'
+  | 'agri-campi'
+  | 'agri-operazioni'
+  | 'agri-raccolte'
+  | 'agri-calibrature'
+  | 'agri-maltazioni'
+  | 'agri-input'
+  | 'agri-tracciabilita'
 
 type LayoutProps = {
   sezioneCorrente: Sezione
   onSezioneChange: (sezione: Sezione) => void
+  /** Mostra il gruppo "Filiera agricola" nel menu (modulo agricolo attivo). */
+  moduloAgricolo?: boolean
   children: ReactNode
 }
 
@@ -51,18 +67,47 @@ const navItems: NavItem[] = [
   { key: 'impostazioni', label: 'Impostazioni', icon: Settings }
 ]
 
+/** Voci del modulo agricolo, nell'ordine del processo. */
+const navItemsAgricoli: NavItem[] = [
+  { key: 'agri-campi', label: 'Campi e semine', icon: Sprout },
+  { key: 'agri-operazioni', label: 'Operazioni di campo', icon: Tractor },
+  { key: 'agri-raccolte', label: 'Raccolte', icon: Wheat },
+  { key: 'agri-calibrature', label: 'Analisi e calibratura', icon: Microscope },
+  { key: 'agri-maltazioni', label: 'Maltazioni', icon: Flame },
+  { key: 'agri-input', label: 'Magazzino input agricoli', icon: Boxes },
+  { key: 'agri-tracciabilita', label: 'Tracciabilità', icon: Route }
+]
+
+export const SEZIONI_AGRICOLE: Sezione[] = navItemsAgricoli.map((i) => i.key)
+
 const sezioneLabelMap: Record<Sezione, string> = Object.fromEntries(
-  navItems.map((item) => [item.key, item.label])
+  [...navItems, ...navItemsAgricoli].map((item) => [item.key, item.label])
 ) as Record<Sezione, string>
 
-export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutProps): React.JSX.Element {
+function TitoloGruppo({ children }: { children: ReactNode }): React.JSX.Element {
+  return (
+    <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/25">
+      {children}
+    </p>
+  )
+}
+
+export function Layout({
+  sezioneCorrente,
+  onSezioneChange,
+  moduloAgricolo = false,
+  children
+}: LayoutProps): React.JSX.Element {
   const [conteggioAvvisi, setConteggioAvvisi] = useState(0)
   const [avvisiNuovi, setAvvisiNuovi] = useState(false)
   const [nomeBirrificio, setNomeBirrificio] = useState('')
   const conteggioPrecedente = useRef<number | null>(null)
 
   useEffect(() => {
-    void window.api.impostazioni.valoreDi('nome_birrificio').then(setNomeBirrificio).catch(() => {})
+    void window.api.impostazioni
+      .valoreDi('nome_birrificio')
+      .then(setNomeBirrificio)
+      .catch(() => {})
   }, [])
 
   // Polling avvisi: aggiorna il contatore e fa "muovere" il badge quando ne arriva uno nuovo.
@@ -128,38 +173,71 @@ export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutPro
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto p-2.5">
-          {navItems.map((item) => {
+          {navItems.map((item, indice) => {
             const Icon = item.icon
             const isActive = item.key === sezioneCorrente
+            // A modulo agricolo attivo: Dashboard, poi "Filiera agricola", poi "Birrificio".
+            const gruppoAgricolo =
+              moduloAgricolo && indice === 1 ? (
+                <div key="gruppo-agricolo" className="space-y-0.5">
+                  <TitoloGruppo>Filiera agricola</TitoloGruppo>
+                  {navItemsAgricoli.map((agri) => {
+                    const AgriIcon = agri.icon
+                    const agriAttivo = agri.key === sezioneCorrente
+                    return (
+                      <button
+                        key={agri.key}
+                        className={cn(
+                          'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs font-medium transition-all duration-150',
+                          agriAttivo
+                            ? 'text-amber-400'
+                            : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                        )}
+                        style={agriAttivo ? { background: 'rgba(232,160,32,0.1)' } : undefined}
+                        onClick={() => onSezioneChange(agri.key)}
+                      >
+                        <AgriIcon className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate">{agri.label}</span>
+                      </button>
+                    )
+                  })}
+                  <TitoloGruppo>Birrificio</TitoloGruppo>
+                </div>
+              ) : null
 
             return (
-              <button
-                key={item.key}
-                className={cn(
-                  'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs font-medium transition-all duration-150',
-                  isActive ? 'text-amber-400' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
-                )}
-                style={isActive ? { background: 'rgba(232,160,32,0.1)' } : undefined}
-                onClick={() => onSezioneChange(item.key)}
-              >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">{item.label}</span>
-                {item.key === 'avvisi' && conteggioAvvisi > 0 && (
-                  <span className="relative ml-auto flex shrink-0 items-center justify-center">
-                    {avvisiNuovi && (
-                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500/70" />
-                    )}
-                    <span
-                      className={cn(
-                        'relative inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 py-px text-[10px] font-bold text-white',
-                        avvisiNuovi && 'animate-bounce'
+              <Fragment key={item.key}>
+                {gruppoAgricolo}
+                <button
+                  key={item.key}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs font-medium transition-all duration-150',
+                    isActive
+                      ? 'text-amber-400'
+                      : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                  )}
+                  style={isActive ? { background: 'rgba(232,160,32,0.1)' } : undefined}
+                  onClick={() => onSezioneChange(item.key)}
+                >
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                  {item.key === 'avvisi' && conteggioAvvisi > 0 && (
+                    <span className="relative ml-auto flex shrink-0 items-center justify-center">
+                      {avvisiNuovi && (
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500/70" />
                       )}
-                    >
-                      {conteggioAvvisi}
+                      <span
+                        className={cn(
+                          'relative inline-flex min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1.5 py-px text-[10px] font-bold text-white',
+                          avvisiNuovi && 'animate-bounce'
+                        )}
+                      >
+                        {conteggioAvvisi}
+                      </span>
                     </span>
-                  </span>
-                )}
-              </button>
+                  )}
+                </button>
+              </Fragment>
             )
           })}
         </nav>
@@ -181,7 +259,10 @@ export function Layout({ sezioneCorrente, onSezioneChange, children }: LayoutPro
             ) : (
               <span
                 className="rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-amber-400"
-                style={{ background: 'rgba(232,160,32,0.12)', border: '1px solid rgba(232,160,32,0.25)' }}
+                style={{
+                  background: 'rgba(232,160,32,0.12)',
+                  border: '1px solid rgba(232,160,32,0.25)'
+                }}
               >
                 {conteggioAvvisi}
               </span>

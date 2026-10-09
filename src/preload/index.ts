@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type { CampoPayload, FrazioneDefault, SeminaPayload } from '../shared/agricolo'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -209,6 +210,23 @@ type AiNavigaPayload = {
 
 // Custom APIs for renderer
 const api = {
+  agri: {
+    stato: () => ipcRenderer.invoke('agri:stato'),
+    impostazioni: () => ipcRenderer.invoke('agri:impostazioni'),
+    salvaImpostazioni: (p: {
+      stagione_corrente?: string
+      frazioni_default?: FrazioneDefault[]
+      shelf_life_malto_mesi?: number
+    }) => ipcRenderer.invoke('agri:salva-impostazioni', p),
+    campiLista: (stagione: string | null) => ipcRenderer.invoke('agri:campi-lista', stagione),
+    campoSalva: (id: number | null, p: CampoPayload) => ipcRenderer.invoke('agri:campo-salva', id, p),
+    campoArchivia: (id: number, attivo: boolean) => ipcRenderer.invoke('agri:campo-archivia', id, attivo),
+    campoElimina: (id: number) => ipcRenderer.invoke('agri:campo-elimina', id),
+    semineLista: (filtro: { campo_id?: number | null; stagione?: string | null }) =>
+      ipcRenderer.invoke('agri:semine-lista', filtro),
+    seminaSalva: (id: number | null, p: SeminaPayload) => ipcRenderer.invoke('agri:semina-salva', id, p),
+    seminaElimina: (id: number) => ipcRenderer.invoke('agri:semina-elimina', id)
+  },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),
     impostaPassword: (password: string) => ipcRenderer.invoke('login:imposta-password', password)

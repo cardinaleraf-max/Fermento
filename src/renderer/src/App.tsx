@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Layout, type Sezione } from './components/Layout'
+import { Layout, SEZIONI_AGRICOLE, type Sezione } from './components/Layout'
+import { AgricoloProvider, useAgricolo } from './components/agricolo/contesto'
 import Dashboard from './screens/Dashboard'
 import Login from './screens/Login'
 import AttivazioneLicenza from './screens/AttivazioneLicenza'
@@ -15,6 +16,7 @@ import Avvisi from './screens/Avvisi'
 import Report from './screens/Report'
 import Impostazioni from './screens/Impostazioni'
 import { ProposteNavigazione } from './components/ProposteNavigazione'
+import Campi from './screens/agricolo/Campi'
 
 function App(): React.JSX.Element {
   const [stato, setStato] = useState<'loading' | 'licenza' | 'password' | 'login' | 'onboarding' | 'app'>('loading')
@@ -84,20 +86,63 @@ function App(): React.JSX.Element {
     return <Onboarding onOnboardingCompletato={() => setStato('app')} />
   }
 
-  const sezioneTitoli: Record<Exclude<Sezione, 'dashboard'>, string> = {
-    'magazzino-mp': 'Magazzino materie prime',
-    'magazzino-conf': 'Magazzino confezionamento',
-    produzione: 'Produzione',
-    'prodotto-finito': 'Prodotto finito',
-    clienti: 'Clienti',
-    vendite: 'Vendite',
-    report: 'Report',
-    avvisi: 'Avvisi',
-    impostazioni: 'Impostazioni'
-  }
+  return (
+    <AgricoloProvider>
+      <AreaApp sezioneCorrente={sezioneCorrente} setSezioneCorrente={setSezioneCorrente} />
+    </AgricoloProvider>
+  )
+}
+
+const sezioneTitoli: Record<Exclude<Sezione, 'dashboard'>, string> = {
+  'magazzino-mp': 'Magazzino materie prime',
+  'magazzino-conf': 'Magazzino confezionamento',
+  produzione: 'Produzione',
+  'prodotto-finito': 'Prodotto finito',
+  clienti: 'Clienti',
+  vendite: 'Vendite',
+  report: 'Report',
+  avvisi: 'Avvisi',
+  impostazioni: 'Impostazioni',
+  'agri-campi': 'Campi e semine',
+  'agri-operazioni': 'Operazioni di campo',
+  'agri-raccolte': 'Raccolte',
+  'agri-calibrature': 'Analisi e calibratura',
+  'agri-maltazioni': 'Maltazioni',
+  'agri-input': 'Magazzino input agricoli',
+  'agri-tracciabilita': 'Tracciabilità'
+}
+
+const SEZIONI_REALIZZATE: Sezione[] = [
+  'dashboard',
+  'magazzino-mp',
+  'magazzino-conf',
+  'produzione',
+  'prodotto-finito',
+  'clienti',
+  'vendite',
+  'avvisi',
+  'report',
+  'impostazioni',
+  'agri-campi'
+]
+
+function AreaApp({
+  sezioneCorrente,
+  setSezioneCorrente
+}: {
+  sezioneCorrente: Sezione
+  setSezioneCorrente: (s: Sezione) => void
+}): React.JSX.Element {
+  const agricolo = useAgricolo()
+  const sezioneAgricola = SEZIONI_AGRICOLE.includes(sezioneCorrente)
+
+  // Se il modulo agricolo viene spento mentre si è in una sua pagina, si torna alla dashboard.
+  useEffect(() => {
+    if (agricolo.pronto && !agricolo.attivo && sezioneAgricola) setSezioneCorrente('dashboard')
+  }, [agricolo.pronto, agricolo.attivo, sezioneAgricola, setSezioneCorrente])
 
   return (
-    <Layout sezioneCorrente={sezioneCorrente} onSezioneChange={setSezioneCorrente}>
+    <Layout sezioneCorrente={sezioneCorrente} onSezioneChange={setSezioneCorrente} moduloAgricolo={agricolo.attivo}>
       <ProposteNavigazione onNaviga={setSezioneCorrente} />
       {sezioneCorrente === 'dashboard' && <Dashboard onVaiAvvisi={() => setSezioneCorrente('avvisi')} />}
       {sezioneCorrente === 'magazzino-mp' && <MagazzinoMP />}
@@ -109,9 +154,8 @@ function App(): React.JSX.Element {
       {sezioneCorrente === 'avvisi' && <Avvisi />}
       {sezioneCorrente === 'report' && <Report />}
       {sezioneCorrente === 'impostazioni' && <Impostazioni />}
-      {!['dashboard', 'magazzino-mp', 'magazzino-conf', 'produzione', 'prodotto-finito', 'clienti', 'vendite', 'avvisi', 'report', 'impostazioni'].includes(
-        sezioneCorrente
-      ) && (
+      {agricolo.attivo && sezioneCorrente === 'agri-campi' && <Campi />}
+      {!SEZIONI_REALIZZATE.includes(sezioneCorrente) && (!sezioneAgricola || agricolo.attivo) && (
         <Placeholder titolo={sezioneTitoli[sezioneCorrente as Exclude<Sezione, 'dashboard'>]} />
       )}
     </Layout>

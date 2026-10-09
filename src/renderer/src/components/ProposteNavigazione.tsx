@@ -26,7 +26,14 @@ const SEZIONE_LABEL: Record<Sezione, string> = {
   vendite: 'Vendite',
   report: 'Report',
   avvisi: 'Avvisi',
-  impostazioni: 'Impostazioni'
+  impostazioni: 'Impostazioni',
+  'agri-campi': 'Campi e semine',
+  'agri-operazioni': 'Operazioni di campo',
+  'agri-raccolte': 'Raccolte',
+  'agri-calibrature': 'Analisi e calibratura',
+  'agri-maltazioni': 'Maltazioni',
+  'agri-input': 'Magazzino input agricoli',
+  'agri-tracciabilita': 'Tracciabilità'
 }
 
 type Proposta = {

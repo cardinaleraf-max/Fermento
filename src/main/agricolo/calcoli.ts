@@ -6,19 +6,7 @@ import { arrotonda } from './unita'
 
 // ── Stagioni e date ──────────────────────────────────────────────────────────
 
-/** Stagione agraria/maltaria "AAAA/AAAA+1" che parte a luglio (dopo la raccolta). */
-export function stagioneDaData(iso: string): string {
-  const anno = Number(iso.slice(0, 4))
-  const mese = Number(iso.slice(5, 7))
-  const inizio = mese >= 7 ? anno : anno - 1
-  return `${inizio}/${inizio + 1}`
-}
-
-/** "2026/2027" valida; "2026/2028", "2026-2027" no. */
-export function stagioneValida(s: string): boolean {
-  const m = /^(\d{4})\/(\d{4})$/.exec(s)
-  return m !== null && Number(m[2]) === Number(m[1]) + 1
-}
+export { stagioneDaData, stagioneValida } from '../../shared/agricolo'
 
 /** Data locale di oggi in formato AAAA-MM-GG (non UTC, per evitare lo scarto di mezzanotte). */
 export function oggiIso(): string {

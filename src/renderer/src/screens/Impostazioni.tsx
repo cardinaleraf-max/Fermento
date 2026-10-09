@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Sparkles } from 'lucide-react'
+import { Plus, Sparkles, Wheat } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,8 +14,17 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
+import { Switch } from '@/components/ui/switch'
+import { useAgricolo } from '@/components/agricolo/contesto'
+import ModuloAgricoloImpostazioni from './impostazioni/ModuloAgricoloImpostazioni'
+import {
+  etichettaCategoria,
+  isCategoriaInputAgricolo,
+  isCategoriaMpAgricola,
+  notificaCambioModulo
+} from '@/lib/agricolo'
 
-type TabId = 'identita' | 'parametri' | 'assistente' | 'birre' | 'sicurezza' | 'backup'
+type TabId = 'identita' | 'parametri' | 'assistente' | 'birre' | 'agricolo' | 'sicurezza' | 'backup'
 
 type ConfigRiga = Awaited<ReturnType<typeof window.api.impostazioni.lista>>[number]
 type AiHealth = Awaited<ReturnType<typeof window.api.ai.health>>
@@ -36,6 +45,9 @@ const tabs: { id: TabId; label: string; icon?: typeof Sparkles }[] = [
 ]
 
 const CAT_ASSISTENTE = 'assistente_ai'
+/** Categorie gestite da schermate dedicate, non dall'elenco generico dei parametri. */
+const CAT_MODULI = 'moduli'
+const CAT_AGRICOLO = 'agricolo'
 
 function groupByCategoria(
   items: ConfigRiga[],
@@ -55,6 +67,13 @@ function groupByCategoria(
 
 export default function Impostazioni(): React.JSX.Element {
   const [tab, setTab] = useState<TabId>('identita')
+  const agricolo = useAgricolo()
+  const tabsVisibili = useMemo(() => {
+    if (!agricolo.attivo) return tabs
+    const i = tabs.findIndex((t) => t.id === 'birre')
+    return [...tabs.slice(0, i + 1), { id: 'agricolo' as const, label: 'Modulo agricolo', icon: Wheat }, ...tabs.slice(i + 1)]
+  }, [agricolo.attivo])
+  const [moduloInSalvataggio, setModuloInSalvataggio] = useState(false)
   const [config, setConfig] = useState<ConfigRiga[]>([])
   const [valori, setValori] = useState<Record<string, string>>({})
   const [savingKey, setSavingKey] = useState<string | null>(null)
@@ -163,6 +182,27 @@ export default function Impostazioni(): React.JSX.Element {
     void caricaConfig()
   }, [caricaConfig])
 
+  // Se il modulo agricolo viene spento mentre si è nella sua tab, torna ai parametri.
+  useEffect(() => {
+    if (tab === 'agricolo' && agricolo.pronto && !agricolo.attivo) setTab('parametri')
+  }, [tab, agricolo.pronto, agricolo.attivo])
+
+  const rigaModuloAgricolo = config.find((c) => c.chiave === 'modulo_agricolo_attivo')
+
+  const cambiaModuloAgricolo = async (attivo: boolean): Promise<void> => {
+    setModuloInSalvataggio(true)
+    setErrParam(null)
+    try {
+      await window.api.impostazioni.aggiorna('modulo_agricolo_attivo', attivo ? '1' : '0')
+      await caricaConfig()
+      notificaCambioModulo()
+    } catch (e) {
+      setErrParam(e instanceof Error ? e.message : 'Impossibile cambiare il modulo')
+    } finally {
+      setModuloInSalvataggio(false)
+    }
+  }
+
   useEffect(() => {
     if (tab === 'identita') {
       void caricaLicenza()
@@ -254,7 +294,7 @@ export default function Impostazioni(): React.JSX.Element {
   const birreInattive = useMemo(() => birre.filter((b) => b.attiva === 0), [birre])
 
   const groupedParametri = useMemo(
-    () => groupByCategoria(config, { escludiCategorie: [CAT_ASSISTENTE] }),
+    () => groupByCategoria(config, { escludiCategorie: [CAT_ASSISTENTE, CAT_MODULI, CAT_AGRICOLO] }),
     [config]
   )
 
@@ -524,7 +564,7 @@ export default function Impostazioni(): React.JSX.Element {
   return (
     <div className="space-y-4">
       <div className="inline-flex flex-wrap gap-1 rounded-md border border-border bg-secondary/50 p-1">
-        {tabs.map((t) => {
+        {tabsVisibili.map((t) => {
           const Icon = t.icon
           return (
             <button
@@ -692,6 +732,32 @@ export default function Impostazioni(): React.JSX.Element {
               {errParam}
             </p>
           )}
+          {rigaModuloAgricolo && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Moduli aggiuntivi</CardTitle>
+                <CardDescription>Funzioni facoltative, da attivare solo se ti servono.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Filiera agricola (campo → malto)</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      Per i birrifici agricoli: campi e semine, concimazioni e trattamenti, raccolte, analisi e
+                      calibratura dell&apos;orzo, maltazione e tracciabilità dal campo alla bottiglia. Spegnendolo
+                      i dati restano salvati, solo nascosti.
+                    </p>
+                  </div>
+                  <Switch
+                    aria-label="Attiva il modulo filiera agricola"
+                    checked={rigaModuloAgricolo.valore === '1'}
+                    disabled={moduloInSalvataggio}
+                    onCheckedChange={(v) => void cambiaModuloAgricolo(v)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )}
           {[...groupedParametri.entries()]
             .sort((a, b) => a[0].localeCompare(b[0]))
             .map(([categoria, righe]) => (
@@ -741,6 +807,8 @@ export default function Impostazioni(): React.JSX.Element {
             ))}
         </div>
       )}
+
+      {tab === 'agricolo' && agricolo.attivo && <ModuloAgricoloImpostazioni />}
 
       {tab === 'assistente' && (
         <div className="space-y-4">
@@ -1215,11 +1283,15 @@ export default function Impostazioni(): React.JSX.Element {
                         }}
                       >
                         <option value={0}>Scegli…</option>
-                        {materie.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.nome} — {m.categoria} ({m.unita_misura})
-                          </option>
-                        ))}
+                        {materie
+                          .filter((m) => !isCategoriaInputAgricolo(m.categoria) || m.id === b.materia_prima_id)
+                          .map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.nome} —{' '}
+                              {isCategoriaMpAgricola(m.categoria) ? etichettaCategoria(m.categoria) : m.categoria} (
+                              {m.unita_misura})
+                            </option>
+                          ))}
                       </select>
                     </div>
                     <div className="sm:col-span-3">

@@ -12,6 +12,16 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useAgricolo } from '@/components/agricolo/contesto'
+import {
+  CATEGORIE_MP_AGRICOLE,
+  UNITA_AGRICOLE,
+  ETICHETTE_UNITA,
+  etichettaCategoria,
+  isCategoriaInputAgricolo,
+  isCategoriaMpAgricola,
+  type OrigineLotto
+} from '@/lib/agricolo'
 
 type MateriaPrima = {
   id: number
@@ -34,6 +44,9 @@ type LottoMateriaPrima = {
   quantita_iniziale: number
   quantita_residua: number
   note: string | null
+  origine_tipo?: OrigineLotto
+  stagione?: string | null
+  calibro?: string | null
 }
 
 type ModificaLottoForm = {
@@ -50,8 +63,8 @@ type FornitoreOption = {
 
 type MateriaPrimaForm = {
   nome: string
-  categoria: 'malto' | 'luppolo' | 'lievito' | 'altro'
-  unita_misura: 'kg' | 'g'
+  categoria: string
+  unita_misura: string
   soglia_riordino_fissa: string
   soglia_riordino_dinamica_cotte: string
   fornitore_preferito: string
@@ -95,6 +108,11 @@ function categoryBadgeClass(categoria: string): string {
       return 'bg-green-500/15 text-green-400 border-green-500/25'
     case 'lievito':
       return 'bg-blue-500/15 text-blue-400 border-blue-500/25'
+    case 'orzo_grezzo':
+    case 'orzo_calibrato':
+      return 'bg-yellow-500/15 text-yellow-300 border-yellow-500/25'
+    case 'luppolo_grezzo':
+      return 'bg-lime-500/15 text-lime-300 border-lime-500/25'
     default:
       return 'bg-secondary text-muted-foreground border-border'
   }
@@ -108,7 +126,18 @@ function isNearExpiry(dataScadenza: string, sogliaGiorni: number): boolean {
   return diffGiorni <= sogliaGiorni
 }
 
+const ETICHETTE_ORIGINE: Record<Exclude<OrigineLotto, 'acquisto'>, string> = {
+  raccolta: 'Da raccolta',
+  calibratura: 'Da calibratura',
+  maltazione: 'Da maltazione'
+}
+
+function testoCategoria(categoria: string): string {
+  return isCategoriaMpAgricola(categoria) ? etichettaCategoria(categoria) : categoria
+}
+
 export default function MagazzinoMP(): React.JSX.Element {
+  const agricolo = useAgricolo()
   const [materiePrime, setMateriePrime] = useState<MateriaPrima[]>([])
   const [lotti, setLotti] = useState<LottoMateriaPrima[]>([])
   const [fornitori, setFornitori] = useState<FornitoreOption[]>([])
@@ -143,7 +172,8 @@ export default function MagazzinoMP(): React.JSX.Element {
     setLoading(true)
     setErrore('')
     try {
-      const lista = await window.api.mp.lista()
+      // Gli input agricoli (sementi, concimi, fitofarmaci) hanno il loro magazzino dedicato.
+      const lista = (await window.api.mp.lista()).filter((m) => !isCategoriaInputAgricolo(m.categoria))
       setMateriePrime(lista)
 
       if (lista.length === 0) {
@@ -463,7 +493,7 @@ export default function MagazzinoMP(): React.JSX.Element {
                       <td className="px-4 py-2">{materiaPrima.nome}</td>
                       <td className="px-4 py-2">
                         <Badge variant="outline" className={categoryBadgeClass(materiaPrima.categoria)}>
-                          {materiaPrima.categoria}
+                          {testoCategoria(materiaPrima.categoria)}
                         </Badge>
                       </td>
                       <td className="px-4 py-2">{materiaPrima.unita_misura}</td>
@@ -555,8 +585,31 @@ export default function MagazzinoMP(): React.JSX.Element {
                           isNearExpiry(lotto.data_scadenza, SOGLIA_SCADENZA_DEFAULT) ? 'bg-amber-500/10' : ''
                         }`}
                       >
-                        <td className="px-3 py-2">{lotto.lotto_fornitore}</td>
-                        <td className="px-3 py-2">{lotto.fornitore_nome || '-'}</td>
+                        <td className="px-3 py-2">
+                          {lotto.lotto_fornitore}
+                          {lotto.origine_tipo && lotto.origine_tipo !== 'acquisto' && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              <span className="rounded-full border border-yellow-500/25 bg-yellow-500/10 px-2 py-0.5 text-[11px] text-yellow-300">
+                                {ETICHETTE_ORIGINE[lotto.origine_tipo]}
+                              </span>
+                              {lotto.calibro && (
+                                <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
+                                  Calibro {lotto.calibro}
+                                </span>
+                              )}
+                              {lotto.stagione && (
+                                <span className="rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] text-muted-foreground">
+                                  {lotto.stagione}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {lotto.origine_tipo && lotto.origine_tipo !== 'acquisto'
+                            ? 'Produzione propria'
+                            : lotto.fornitore_nome || '-'}
+                        </td>
                         <td className="px-3 py-2">{lotto.data_carico}</td>
                         <td className="px-3 py-2">{lotto.data_scadenza}</td>
                         <td className="px-3 py-2">
@@ -581,7 +634,12 @@ export default function MagazzinoMP(): React.JSX.Element {
                               variant="outline"
                               size="sm"
                               onClick={() => openEliminaLottoDialog(lotto)}
-                              title="Elimina lotto"
+                              disabled={!!lotto.origine_tipo && lotto.origine_tipo !== 'acquisto'}
+                              title={
+                                lotto.origine_tipo && lotto.origine_tipo !== 'acquisto'
+                                  ? "Lotto prodotto in azienda: si elimina dalla lavorazione che l'ha creato"
+                                  : 'Elimina lotto'
+                              }
                               className="text-red-400 hover:text-red-300"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
@@ -612,7 +670,7 @@ export default function MagazzinoMP(): React.JSX.Element {
             <DialogDescription>Inserisci i dati principali della materia prima.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
-            <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
+            <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} moduloAgricolo={agricolo.attivo} />
             {erroreModal && <ModalError message={erroreModal} />}
           </div>
           <DialogFooter>
@@ -633,7 +691,7 @@ export default function MagazzinoMP(): React.JSX.Element {
             <DialogDescription>Aggiorna i dati della materia prima selezionata.</DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto min-h-0">
-            <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} />
+            <MateriaPrimaFormFields form={materiaForm} onChange={setMateriaForm} moduloAgricolo={agricolo.attivo} />
             {erroreModal && <ModalError message={erroreModal} />}
           </div>
           <DialogFooter>
@@ -924,11 +982,18 @@ function ModalError({ message }: { message: string }): React.JSX.Element {
 
 function MateriaPrimaFormFields({
   form,
-  onChange
+  onChange,
+  moduloAgricolo
 }: {
   form: MateriaPrimaForm
   onChange: React.Dispatch<React.SetStateAction<MateriaPrimaForm>>
+  moduloAgricolo: boolean
 }): React.JSX.Element {
+  // Categorie e unità agricole solo a modulo attivo (o se la materia prima le usa già).
+  const categorieAgricole = (CATEGORIE_MP_AGRICOLE as readonly string[]).filter(
+    (c) => moduloAgricolo || c === form.categoria
+  )
+  const unitaAgricole = (UNITA_AGRICOLE as readonly string[]).filter((u) => moduloAgricolo || u === form.unita_misura)
   return (
     <div className="grid gap-3">
       <div className="grid gap-1.5">
@@ -947,6 +1012,11 @@ function MateriaPrimaFormFields({
           <option value="luppolo">luppolo</option>
           <option value="lievito">lievito</option>
           <option value="altro">altro</option>
+          {categorieAgricole.map((c) => (
+            <option key={c} value={c}>
+              {etichettaCategoria(c)}
+            </option>
+          ))}
         </select>
       </div>
       <div className="grid gap-1.5">
@@ -959,6 +1029,11 @@ function MateriaPrimaFormFields({
         >
           <option value="kg">kg</option>
           <option value="g">g</option>
+          {unitaAgricole.map((u) => (
+            <option key={u} value={u}>
+              {ETICHETTE_UNITA[u] ?? u}
+            </option>
+          ))}
         </select>
       </div>
       <div className="rounded-md border border-border bg-secondary/30 p-3 grid gap-3">

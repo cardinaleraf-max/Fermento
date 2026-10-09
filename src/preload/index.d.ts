@@ -1,4 +1,15 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
+import type {
+  CampoPayload,
+  CampoRiga,
+  Esito,
+  EsitoId,
+  FrazioneDefault,
+  OrigineLotto,
+  SeminaPayload,
+  SeminaRiga,
+  StatoModuloAgricolo
+} from '../shared/agricolo'
 
 type LoginResponse = { ok: true } | { ok: false; errore: string }
 
@@ -14,6 +25,9 @@ type MateriaPrima = {
   creato_il: string
   aggiornato_il: string
   giacenza_totale: number
+  numero_registrazione: string | null
+  principio_attivo: string | null
+  tempo_carenza_giorni: number | null
 }
 
 type MateriaPrimaPayload = {
@@ -39,6 +53,10 @@ type LottoMateriaPrima = {
   creato_il: string
   aggiornato_il: string
   fornitore_nome: string | null
+  origine_tipo: OrigineLotto
+  origine_id: number | null
+  stagione: string | null
+  calibro: string | null
 }
 
 type CaricoPayload = {
@@ -720,7 +738,30 @@ type AiAvvisiIntelligentiResult =
     }
   | { ok: false; errore: string }
 
+type ImpostazioniAgricole = {
+  frazioni_default: FrazioneDefault[]
+  shelf_life_malto_mesi: number
+}
+
+type ImpostazioniAgricolePayload = {
+  stagione_corrente?: string
+  frazioni_default?: FrazioneDefault[]
+  shelf_life_malto_mesi?: number
+}
+
 interface FermentoAPI {
+  agri: {
+    stato: () => Promise<StatoModuloAgricolo>
+    impostazioni: () => Promise<ImpostazioniAgricole>
+    salvaImpostazioni: (p: ImpostazioniAgricolePayload) => Promise<Esito>
+    campiLista: (stagione: string | null) => Promise<CampoRiga[]>
+    campoSalva: (id: number | null, p: CampoPayload) => Promise<EsitoId>
+    campoArchivia: (id: number, attivo: boolean) => Promise<Esito>
+    campoElimina: (id: number) => Promise<Esito>
+    semineLista: (filtro: { campo_id?: number | null; stagione?: string | null }) => Promise<SeminaRiga[]>
+    seminaSalva: (id: number | null, p: SeminaPayload) => Promise<EsitoId>
+    seminaElimina: (id: number) => Promise<Esito>
+  }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
     riattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>

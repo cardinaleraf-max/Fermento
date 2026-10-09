@@ -9,6 +9,7 @@ import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenD
 import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 import { licenzaSalvataValida, salvaLicenza } from './licenza'
 import { codiceMacchina } from './impronta'
+import { registerAgricoloIpcHandlers } from './agricolo/ipc'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -4159,6 +4160,7 @@ app.whenReady().then(() => {
   registerLicenzaIpcHandlers()
   registerImpostazioniIpcHandlers()
   registerBackupIpcHandlers()
+  registerAgricoloIpcHandlers()
 
   ipcMain.on('ping', () => console.log('pong'))
 

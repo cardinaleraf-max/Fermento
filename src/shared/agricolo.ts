@@ -47,6 +47,22 @@ export function isCategoriaMpAgricola(c: string): c is CategoriaMpAgricola {
   return (CATEGORIE_MP_AGRICOLE as readonly string[]).includes(c)
 }
 
+// ── Stagioni ─────────────────────────────────────────────────────────────────
+
+/** Stagione agraria/maltaria "AAAA/AAAA+1" che parte a luglio (dopo la raccolta). */
+export function stagioneDaData(iso: string): string {
+  const anno = Number(iso.slice(0, 4))
+  const mese = Number(iso.slice(5, 7))
+  const inizio = mese >= 7 ? anno : anno - 1
+  return `${inizio}/${inizio + 1}`
+}
+
+/** "2026/2027" valida; "2026/2028", "2026-2027" no. */
+export function stagioneValida(s: string): boolean {
+  const m = /^(\d{4})\/(\d{4})$/.exec(s)
+  return m !== null && Number(m[2]) === Number(m[1]) + 1
+}
+
 // ── Esiti ────────────────────────────────────────────────────────────────────
 
 export type Esito = { ok: true } | { ok: false; errore: string }
