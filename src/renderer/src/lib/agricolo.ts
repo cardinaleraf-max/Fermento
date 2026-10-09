@@ -71,3 +71,9 @@ export function messaggioErrore(e: unknown, fallback = 'Operazione non riuscita'
   }
   return fallback
 }
+
+/** "2026-05-20" + 30 giorni → "2026-06-19" (calcolo in UTC, senza scarti di fuso). */
+export function aggiungiGiorniIso(iso: string, giorni: number): string {
+  const [a, m, g] = iso.split('-').map(Number)
+  return new Date(Date.UTC(a, m - 1, g + giorni)).toISOString().slice(0, 10)
+}

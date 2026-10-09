@@ -175,6 +175,24 @@ export const TIPI_OPERAZIONE: Array<{ valore: TipoOperazione; etichetta: string 
   { valore: 'altro', etichetta: 'Altro' }
 ]
 
+/** Quali categorie di prodotto sono ammesse per ogni tipo di operazione. */
+export const CATEGORIE_PER_TIPO: Record<TipoOperazione, string[]> = {
+  concimazione: ['concime', 'input_altro'],
+  trattamento: ['fitofarmaco', 'input_altro'],
+  lavorazione: ['concime', 'fitofarmaco', 'semente', 'input_altro'],
+  irrigazione: ['concime', 'fitofarmaco', 'input_altro'],
+  altro: ['concime', 'fitofarmaco', 'semente', 'input_altro']
+}
+
+/** Per concimazioni e trattamenti il prodotto è obbligatorio. */
+export const PRODOTTO_OBBLIGATORIO: Record<TipoOperazione, boolean> = {
+  concimazione: true,
+  trattamento: true,
+  lavorazione: false,
+  irrigazione: false,
+  altro: false
+}
+
 export type ProdottoOperazione = {
   materia_prima_id: number
   quantita: number

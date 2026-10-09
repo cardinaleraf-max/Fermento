@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { db } from '../database'
-import type { CampoPayload, SeminaPayload } from '../../shared/agricolo'
+import type { CampoPayload, OperazionePayload, SeminaPayload } from '../../shared/agricolo'
 import { ErroreUtente } from './errori'
 import {
   archiviaCampo,
@@ -12,6 +12,7 @@ import {
   salvaSemina
 } from './servizi/campi'
 import { lottiDisponibili } from './servizi/magazzino'
+import { eliminaOperazione, listaOperazioni, salvaOperazione } from './servizi/operazioni'
 import {
   frazioniDefault,
   salvaImpostazioniAgricole,
@@ -85,6 +86,25 @@ export function registerAgricoloIpcHandlers(): void {
   }))
   gestisci('agri:semina-elimina', (id: number) => {
     eliminaSemina(db, id)
+    return ok
+  })
+
+  // Operazioni di campo
+  gestisci(
+    'agri:operazioni-lista',
+    (f: {
+      stagione?: string | null
+      campo_id?: number | null
+      semina_id?: number | null
+      tipo?: string | null
+    }) => listaOperazioni(db, f ?? {})
+  )
+  gestisci('agri:operazione-salva', (id: number | null, p: OperazionePayload) => ({
+    ok: true as const,
+    id: salvaOperazione(db, id ?? null, p)
+  }))
+  gestisci('agri:operazione-elimina', (id: number) => {
+    eliminaOperazione(db, id)
     return ok
   })
 

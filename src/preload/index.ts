@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { CampoPayload, FrazioneDefault, SeminaPayload } from '../shared/agricolo'
+import type { CampoPayload, FrazioneDefault, OperazionePayload, SeminaPayload } from '../shared/agricolo'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -230,7 +230,11 @@ const api = {
     seminaSalva: (id: number | null, p: SeminaPayload) => ipcRenderer.invoke('agri:semina-salva', id, p),
     seminaElimina: (id: number) => ipcRenderer.invoke('agri:semina-elimina', id),
     lottiDisponibili: (categorie: string[], opzioni?: { stagione?: string | null; includi?: number[] }) =>
-      ipcRenderer.invoke('agri:lotti-disponibili', categorie, opzioni)
+      ipcRenderer.invoke('agri:lotti-disponibili', categorie, opzioni),
+    operazioniLista: (f: { stagione?: string | null; campo_id?: number | null; semina_id?: number | null; tipo?: string | null }) =>
+      ipcRenderer.invoke('agri:operazioni-lista', f),
+    operazioneSalva: (id: number | null, p: OperazionePayload) => ipcRenderer.invoke('agri:operazione-salva', id, p),
+    operazioneElimina: (id: number) => ipcRenderer.invoke('agri:operazione-elimina', id)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),

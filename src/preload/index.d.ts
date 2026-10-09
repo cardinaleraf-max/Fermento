@@ -6,6 +6,8 @@ import type {
   EsitoId,
   FrazioneDefault,
   LottoDisponibile,
+  OperazionePayload,
+  OperazioneRiga,
   OrigineLotto,
   SeminaPayload,
   SeminaRiga,
@@ -769,6 +771,14 @@ interface FermentoAPI {
       categorie: string[],
       opzioni?: { stagione?: string | null; includi?: number[] }
     ) => Promise<LottoDisponibile[]>
+    operazioniLista: (f: {
+      stagione?: string | null
+      campo_id?: number | null
+      semina_id?: number | null
+      tipo?: string | null
+    }) => Promise<OperazioneRiga[]>
+    operazioneSalva: (id: number | null, p: OperazionePayload) => Promise<EsitoId>
+    operazioneElimina: (id: number) => Promise<Esito>
   }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
