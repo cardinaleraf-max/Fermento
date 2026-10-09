@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import path from 'path'
 import type BetterSqlite3 from 'better-sqlite3'
+import { migraModuloAgricolo } from './agricolo/schema'
 
 const Database = require('better-sqlite3') as typeof import('better-sqlite3')
 
@@ -142,6 +143,7 @@ export function applicaSchema(database: BetterSqlite3.Database): void {
   ensureBackupConfigRow(database)
   runAdditiveMigrations(database)
   migrazioneRetrocompatibilita(database)
+  migraModuloAgricolo(database)
 }
 
 function migrazioneRetrocompatibilita(database: BetterSqlite3.Database): void {
