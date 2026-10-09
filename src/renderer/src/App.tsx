@@ -17,6 +17,7 @@ import Report from './screens/Report'
 import Impostazioni from './screens/Impostazioni'
 import { ProposteNavigazione } from './components/ProposteNavigazione'
 import Campi from './screens/agricolo/Campi'
+import InputAgricoli from './screens/agricolo/InputAgricoli'
 
 function App(): React.JSX.Element {
   const [stato, setStato] = useState<'loading' | 'licenza' | 'password' | 'login' | 'onboarding' | 'app'>('loading')
@@ -123,7 +124,8 @@ const SEZIONI_REALIZZATE: Sezione[] = [
   'avvisi',
   'report',
   'impostazioni',
-  'agri-campi'
+  'agri-campi',
+  'agri-input'
 ]
 
 function AreaApp({
@@ -155,6 +157,7 @@ function AreaApp({
       {sezioneCorrente === 'report' && <Report />}
       {sezioneCorrente === 'impostazioni' && <Impostazioni />}
       {agricolo.attivo && sezioneCorrente === 'agri-campi' && <Campi />}
+      {agricolo.attivo && sezioneCorrente === 'agri-input' && <InputAgricoli />}
       {!SEZIONI_REALIZZATE.includes(sezioneCorrente) && (!sezioneAgricola || agricolo.attivo) && (
         <Placeholder titolo={sezioneTitoli[sezioneCorrente as Exclude<Sezione, 'dashboard'>]} />
       )}

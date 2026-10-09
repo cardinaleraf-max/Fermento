@@ -160,6 +160,7 @@ export type LottoDisponibile = {
   origine_tipo: OrigineLotto
   stagione: string | null
   calibro: string | null
+  tempo_carenza_giorni: number | null
 }
 
 // ── Operazioni di campo ──────────────────────────────────────────────────────

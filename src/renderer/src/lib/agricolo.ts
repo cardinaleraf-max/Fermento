@@ -66,7 +66,7 @@ export function erroreDa(r: { ok: boolean; errore?: string } | { ok: true } | { 
 export function messaggioErrore(e: unknown, fallback = 'Operazione non riuscita'): string {
   if (e instanceof Error) {
     // "Error invoking remote method 'x': Error: messaggio" → "messaggio"
-    const m = /Error: (.*)$/.exec(e.message)
+    const m = /(?:Error|ErroreUtente): (.*)$/.exec(e.message)
     return m ? m[1] : e.message
   }
   return fallback

@@ -24,6 +24,12 @@ import {
 } from '@/components/agricolo/common'
 import { useAgricolo } from '@/components/agricolo/contesto'
 import { FiltroStagione } from '@/components/agricolo/FiltroStagione'
+import {
+  SelettoreProdotto,
+  prodottoInPayload,
+  prodottoVuoto,
+  type ValoreProdotto
+} from '@/components/agricolo/SelettoreProdotto'
 import { cn } from '@/lib/utils'
 import {
   erroreDa,
@@ -38,6 +44,7 @@ import {
   stagioneDaData,
   type CampoRiga,
   type Coltura,
+  type ConsumoLotto,
   type SeminaRiga
 } from '@/lib/agricolo'
 
@@ -53,9 +60,18 @@ type SeminaForm = {
   varieta: string
   data: string
   superficie: string
+  fonte_semente: 'magazzino' | 'testo'
+  semente: ValoreProdotto
+  /** Semente già scaricata da questa semina (in modifica torna disponibile). */
+  restituibili: ConsumoLotto[]
   semente_testo: string
   note: string
 }
+
+const FONTI_SEMENTE: Array<{ valore: 'magazzino' | 'testo'; etichetta: string }> = [
+  { valore: 'magazzino', etichetta: 'Dal magazzino' },
+  { valore: 'testo', etichetta: 'Scrivo lotto e fornitore' }
+]
 
 const COLTURE: Array<{ valore: Coltura; etichetta: string }> = [
   { valore: 'orzo', etichetta: 'Orzo' },
@@ -206,6 +222,17 @@ export default function Campi(): React.JSX.Element {
         varieta: semina.varieta ?? '',
         data: semina.data,
         superficie: numeroInInput(semina.superficie_ha),
+        fonte_semente: semina.semente.length > 0 ? 'magazzino' : 'testo',
+        semente:
+          semina.semente.length > 0
+            ? {
+                materia_prima_id: String(semina.semente[0].materia_prima_id),
+                quantita: numeroInInput(semina.semente.reduce((t, l) => t + l.quantita, 0)),
+                // un solo lotto: lo si ripropone; più lotti: torna automatico
+                lotto_id: semina.semente.length === 1 ? String(semina.semente[0].lotto_id) : ''
+              }
+            : prodottoVuoto,
+        restituibili: semina.semente,
         semente_testo: semina.semente_testo ?? '',
         note: semina.note ?? ''
       })
@@ -219,6 +246,9 @@ export default function Campi(): React.JSX.Element {
         varieta: '',
         data,
         superficie: numeroInInput(selezionato.superficie_ha),
+        fonte_semente: 'magazzino',
+        semente: prodottoVuoto,
+        restituibili: [],
         semente_testo: '',
         note: ''
       })
@@ -255,8 +285,8 @@ export default function Campi(): React.JSX.Element {
         varieta: seminaForm.varieta,
         data: seminaForm.data,
         superficie_ha: superficie,
-        semente_testo: seminaForm.semente_testo,
-        semente: null,
+        semente_testo: seminaForm.fonte_semente === 'testo' ? seminaForm.semente_testo : null,
+        semente: seminaForm.fonte_semente === 'magazzino' ? prodottoInPayload(seminaForm.semente) : null,
         note: seminaForm.note
       })
       const err = erroreDa(r)
@@ -670,17 +700,36 @@ export default function Campi(): React.JSX.Element {
                   </datalist>
                 </CampoForm>
               </div>
-              <CampoForm
-                etichetta="Semente (lotto e fornitore)"
-                htmlFor="semina-semente"
-                aiuto="Testo libero, es. Lotto SEM-77 · Consorzio agrario."
-              >
-                <Input
-                  id="semina-semente"
-                  value={seminaForm.semente_testo}
-                  onChange={(e) => aggiornaSemina({ semente_testo: e.target.value })}
+              <CampoForm etichetta="Semente">
+                <SceltaPulsanti
+                  opzioni={FONTI_SEMENTE}
+                  valore={seminaForm.fonte_semente}
+                  onChange={(v) => aggiornaSemina({ fonte_semente: v })}
                 />
               </CampoForm>
+              {seminaForm.fonte_semente === 'magazzino' ? (
+                <SelettoreProdotto
+                  idBase="semente"
+                  categorie={['semente']}
+                  etichetta="Semente usata"
+                  valore={seminaForm.semente}
+                  restituibili={seminaForm.restituibili}
+                  onChange={(v) => aggiornaSemina({ semente: v })}
+                  testoVuoto="Nessuna semente in magazzino. Caricala da Magazzino input agricoli, oppure scrivi lotto e fornitore a mano."
+                />
+              ) : (
+                <CampoForm
+                  etichetta="Lotto e fornitore della semente"
+                  htmlFor="semina-semente"
+                  aiuto="Testo libero, es. Lotto SEM-77 · Consorzio agrario."
+                >
+                  <Input
+                    id="semina-semente"
+                    value={seminaForm.semente_testo}
+                    onChange={(e) => aggiornaSemina({ semente_testo: e.target.value })}
+                  />
+                </CampoForm>
+              )}
               <CampoForm etichetta="Note" htmlFor="semina-note">
                 <textarea
                   id="semina-note"

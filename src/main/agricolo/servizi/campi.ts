@@ -1,11 +1,12 @@
 import type BetterSqlite3 from 'better-sqlite3'
 import type { CampoPayload, CampoRiga, Coltura, SeminaPayload, SeminaRiga } from '../../../shared/agricolo'
 import { ErroreUtente } from '../errori'
-import { consumiDi } from './magazzino'
+import { annullaConsumi, consumiDi, registraConsumi, scaricaPerMateria } from './magazzino'
 import {
   dataObbligatoria,
   idObbligatorio,
   numeroOpzionale,
+  numeroPositivo,
   stagioneObbligatoria,
   testoObbligatorio,
   testoOpzionale
@@ -111,9 +112,33 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
   const superficie = numeroOpzionale(p.superficie_ha, 'Superficie seminata', { min: 0 })
   const valori = [campoId, stagione, coltura, testoOpzionale(p.varieta), data, superficie, testoOpzionale(p.semente_testo), testoOpzionale(p.note)]
 
+  let semente: { materia_prima_id: number; quantita: number; lotto_id: number | null } | null = null
+  if (p.semente) {
+    const mpId = idObbligatorio(p.semente.materia_prima_id, 'Semente')
+    const mp = db.prepare(`SELECT categoria FROM materie_prime WHERE id = ?`).get(mpId) as
+      | { categoria: string }
+      | undefined
+    if (!mp || mp.categoria !== 'semente') {
+      throw new ErroreUtente('La semente dal magazzino deve essere un prodotto della categoria "Semente".')
+    }
+    semente = {
+      materia_prima_id: mpId,
+      quantita: numeroPositivo(p.semente.quantita, 'Quantità di semente'),
+      lotto_id: p.semente.lotto_id ? idObbligatorio(p.semente.lotto_id, 'Lotto di semente') : null
+    }
+  }
+
+  const applicaSemente = (seminaId: number): void => {
+    annullaConsumi(db, 'semina', seminaId)
+    if (semente) {
+      const righe = scaricaPerMateria(db, semente.materia_prima_id, semente.quantita, semente.lotto_id)
+      registraConsumi(db, 'semina', seminaId, semente.materia_prima_id, righe)
+    }
+  }
+
   const tx = db.transaction((): number => {
     if (id === null) {
-      return Number(
+      const nuovoId = Number(
         db
           .prepare(
             `INSERT INTO agri_semine (campo_id, stagione, coltura, varieta, data, superficie_ha, semente_testo, note)
@@ -121,6 +146,8 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
           )
           .run(...valori).lastInsertRowid
       )
+      applicaSemente(nuovoId)
+      return nuovoId
     }
     const attuale = db.prepare(`SELECT coltura FROM agri_semine WHERE id = ?`).get(id) as
       | { coltura: Coltura }
@@ -140,6 +167,7 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
       `UPDATE agri_semine SET campo_id = ?, stagione = ?, coltura = ?, varieta = ?, data = ?, superficie_ha = ?,
               semente_testo = ?, note = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
     ).run(...valori, id)
+    applicaSemente(id)
     return id
   })
   return tx()
@@ -157,5 +185,8 @@ export function eliminaSemina(db: Db, id: number): void {
       'Questa semina ha operazioni di campo o raccolte collegate: elimina prima quelle, oppure correggi la semina.'
     )
   }
-  db.prepare(`DELETE FROM agri_semine WHERE id = ?`).run(id)
+  db.transaction(() => {
+    annullaConsumi(db, 'semina', id)
+    db.prepare(`DELETE FROM agri_semine WHERE id = ?`).run(id)
+  })()
 }

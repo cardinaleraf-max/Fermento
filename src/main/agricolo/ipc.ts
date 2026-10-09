@@ -2,8 +2,23 @@ import { ipcMain } from 'electron'
 import { db } from '../database'
 import type { CampoPayload, SeminaPayload } from '../../shared/agricolo'
 import { ErroreUtente } from './errori'
-import { archiviaCampo, eliminaCampo, eliminaSemina, listaCampi, listaSemine, salvaCampo, salvaSemina } from './servizi/campi'
-import { frazioniDefault, salvaImpostazioniAgricole, shelfLifeMaltoMesi, statoModulo, type ImpostazioniAgricolePayload } from './servizi/config'
+import {
+  archiviaCampo,
+  eliminaCampo,
+  eliminaSemina,
+  listaCampi,
+  listaSemine,
+  salvaCampo,
+  salvaSemina
+} from './servizi/campi'
+import { lottiDisponibili } from './servizi/magazzino'
+import {
+  frazioniDefault,
+  salvaImpostazioniAgricole,
+  shelfLifeMaltoMesi,
+  statoModulo,
+  type ImpostazioniAgricolePayload
+} from './servizi/config'
 
 /**
  * Registra un canale con il pattern standard di Fermento (removeHandler +
@@ -37,6 +52,13 @@ export function registerAgricoloIpcHandlers(): void {
     salvaImpostazioniAgricole(db, p)
     return ok
   })
+
+  // Lotti di magazzino selezionabili (per categoria)
+  gestisci(
+    'agri:lotti-disponibili',
+    (categorie: string[], opzioni?: { stagione?: string | null; includi?: number[] }) =>
+      lottiDisponibili(db, Array.isArray(categorie) ? categorie : [], opzioni ?? {})
+  )
 
   // Campi
   gestisci('agri:campi-lista', (stagione: string | null) => listaCampi(db, stagione ?? null))

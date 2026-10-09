@@ -10,6 +10,9 @@ type MateriaPrimaPayload = {
   soglia_riordino_dinamica_cotte?: number | null
   fornitore_preferito?: string | null
   note?: string | null
+  numero_registrazione?: string | null
+  principio_attivo?: string | null
+  tempo_carenza_giorni?: number | null
 }
 
 type CaricoPayload = {
@@ -17,7 +20,7 @@ type CaricoPayload = {
   fornitore_id?: number | null
   lotto_fornitore: string
   data_carico: string
-  data_scadenza: string
+  data_scadenza: string | null
   quantita_iniziale: number
   note?: string | null
 }
@@ -145,7 +148,7 @@ type RientroFustiPayload = {
 type ReportOmaggiPeriodo = { da?: string | null; a?: string | null }
 
 type ModificaLottoPayload = {
-  data_scadenza: string
+  data_scadenza: string | null
   quantita_residua: number
   lotto_fornitore: string
   note?: string | null
@@ -225,7 +228,9 @@ const api = {
     semineLista: (filtro: { campo_id?: number | null; stagione?: string | null }) =>
       ipcRenderer.invoke('agri:semine-lista', filtro),
     seminaSalva: (id: number | null, p: SeminaPayload) => ipcRenderer.invoke('agri:semina-salva', id, p),
-    seminaElimina: (id: number) => ipcRenderer.invoke('agri:semina-elimina', id)
+    seminaElimina: (id: number) => ipcRenderer.invoke('agri:semina-elimina', id),
+    lottiDisponibili: (categorie: string[], opzioni?: { stagione?: string | null; includi?: number[] }) =>
+      ipcRenderer.invoke('agri:lotti-disponibili', categorie, opzioni)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),

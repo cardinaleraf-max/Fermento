@@ -5,6 +5,7 @@ import type {
   Esito,
   EsitoId,
   FrazioneDefault,
+  LottoDisponibile,
   OrigineLotto,
   SeminaPayload,
   SeminaRiga,
@@ -38,6 +39,9 @@ type MateriaPrimaPayload = {
   soglia_riordino_dinamica_cotte?: number | null
   fornitore_preferito?: string | null
   note?: string | null
+  numero_registrazione?: string | null
+  principio_attivo?: string | null
+  tempo_carenza_giorni?: number | null
 }
 
 type LottoMateriaPrima = {
@@ -64,7 +68,7 @@ type CaricoPayload = {
   fornitore_id?: number | null
   lotto_fornitore: string
   data_carico: string
-  data_scadenza: string
+  data_scadenza: string | null
   quantita_iniziale: number
   note?: string | null
 }
@@ -444,7 +448,7 @@ type RientroFustiPayload = {
 type RientroFustiResult = { ok: true } | { ok: false; errore: string }
 
 type ModificaLottoPayload = {
-  data_scadenza: string
+  data_scadenza: string | null
   quantita_residua: number
   lotto_fornitore: string
   note?: string | null
@@ -761,6 +765,10 @@ interface FermentoAPI {
     semineLista: (filtro: { campo_id?: number | null; stagione?: string | null }) => Promise<SeminaRiga[]>
     seminaSalva: (id: number | null, p: SeminaPayload) => Promise<EsitoId>
     seminaElimina: (id: number) => Promise<Esito>
+    lottiDisponibili: (
+      categorie: string[],
+      opzioni?: { stagione?: string | null; includi?: number[] }
+    ) => Promise<LottoDisponibile[]>
   }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>

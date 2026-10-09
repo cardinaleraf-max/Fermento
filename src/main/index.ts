@@ -10,6 +10,7 @@ import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 import { licenzaSalvataValida, salvaLicenza } from './licenza'
 import { codiceMacchina } from './impronta'
 import { registerAgricoloIpcHandlers } from './agricolo/ipc'
+import { colonneFitofarmaco, salvaDatiFitofarmaco } from './agricolo/servizi/magazzino'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -19,6 +20,10 @@ type MateriaPrimaPayload = {
   soglia_riordino_dinamica_cotte?: number | null
   fornitore_preferito?: string | null
   note?: string | null
+  /** Solo fitofarmaci (modulo agricolo): se assenti non vengono toccati. */
+  numero_registrazione?: string | null
+  principio_attivo?: string | null
+  tempo_carenza_giorni?: number | null
 }
 
 type CaricoPayload = {
@@ -26,7 +31,7 @@ type CaricoPayload = {
   fornitore_id?: number | null
   lotto_fornitore: string
   data_carico: string
-  data_scadenza: string
+  data_scadenza: string | null
   quantita_iniziale: number
   note?: string | null
 }
@@ -138,7 +143,7 @@ type VenditeModificaPayload = {
 }
 
 type ModificaLottoPayload = {
-  data_scadenza: string
+  data_scadenza: string | null
   quantita_residua: number
   lotto_fornitore: string
   note?: string | null
@@ -204,6 +209,7 @@ function registerMpIpcHandlers(): void {
   ipcMain.removeHandler('mp:crea')
   ipcMain.handle('mp:crea', (_event, dati: MateriaPrimaPayload) => {
     try {
+      colonneFitofarmaco(dati) // valida prima di scrivere
       const result = db
         .prepare(
           `INSERT INTO materie_prime
@@ -219,8 +225,10 @@ function registerMpIpcHandlers(): void {
           dati.fornitore_preferito ?? null,
           dati.note ?? null
         )
+      const nuovoId = Number(result.lastInsertRowid)
+      salvaDatiFitofarmaco(db, nuovoId, dati)
 
-      return { ok: true, id: Number(result.lastInsertRowid) }
+      return { ok: true, id: nuovoId }
     } catch (error) {
       console.error('[IPC mp:crea] errore:', error)
       throw error
@@ -230,6 +238,7 @@ function registerMpIpcHandlers(): void {
   ipcMain.removeHandler('mp:aggiorna')
   ipcMain.handle('mp:aggiorna', (_event, id: number, dati: MateriaPrimaPayload) => {
     try {
+      colonneFitofarmaco(dati) // valida prima di scrivere
       db.prepare(
         `UPDATE materie_prime
          SET nome = ?,
@@ -251,6 +260,7 @@ function registerMpIpcHandlers(): void {
         dati.note ?? null,
         id
       )
+      salvaDatiFitofarmaco(db, id, dati)
 
       return { ok: true }
     } catch (error) {
