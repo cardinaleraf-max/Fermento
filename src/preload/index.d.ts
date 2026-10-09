@@ -4,7 +4,11 @@ import type {
   CampoRiga,
   Esito,
   EsitoId,
+  FaseLavorazione,
   FrazioneDefault,
+  GruppoParametri,
+  GruppoPayload,
+  ParametroPayload,
   LottoDisponibile,
   OperazionePayload,
   OperazioneRiga,
@@ -779,6 +783,19 @@ interface FermentoAPI {
     }) => Promise<OperazioneRiga[]>
     operazioneSalva: (id: number | null, p: OperazionePayload) => Promise<EsitoId>
     operazioneElimina: (id: number) => Promise<Esito>
+    parametriConfig: (fase: FaseLavorazione) => Promise<GruppoParametri[]>
+    gruppoSalva: (id: number | null, p: GruppoPayload) => Promise<EsitoId>
+    gruppoElimina: (id: number) => Promise<{ ok: true; esito: 'nascosto' | 'eliminato' } | { ok: false; errore: string }>
+    parametroSalva: (id: number | null, p: ParametroPayload) => Promise<EsitoId>
+    parametroElimina: (
+      id: number
+    ) => Promise<{ ok: true; esito: 'nascosto' | 'eliminato' } | { ok: false; errore: string }>
+    parametriSposta: (cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu') => Promise<Esito>
+    salvaParametri: (
+      lavorazioneId: number,
+      valori: Record<number, string>,
+      date: Record<number, string>
+    ) => Promise<Esito>
   }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>

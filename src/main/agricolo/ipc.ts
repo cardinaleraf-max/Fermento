@@ -1,6 +1,13 @@
 import { ipcMain } from 'electron'
 import { db } from '../database'
-import type { CampoPayload, OperazionePayload, SeminaPayload } from '../../shared/agricolo'
+import type {
+  CampoPayload,
+  FaseLavorazione,
+  GruppoPayload,
+  OperazionePayload,
+  ParametroPayload,
+  SeminaPayload
+} from '../../shared/agricolo'
 import { ErroreUtente } from './errori'
 import {
   archiviaCampo,
@@ -13,6 +20,15 @@ import {
 } from './servizi/campi'
 import { lottiDisponibili } from './servizi/magazzino'
 import { eliminaOperazione, listaOperazioni, salvaOperazione } from './servizi/operazioni'
+import {
+  configParametri,
+  eliminaGruppo,
+  eliminaParametro,
+  salvaGruppo,
+  salvaParametro,
+  salvaValori,
+  sposta
+} from './servizi/parametri'
 import {
   frazioniDefault,
   salvaImpostazioniAgricole,
@@ -107,6 +123,39 @@ export function registerAgricoloIpcHandlers(): void {
     eliminaOperazione(db, id)
     return ok
   })
+
+  // Parametri di fase configurabili
+  gestisci('agri:parametri-config', (fase: FaseLavorazione) => configParametri(db, fase))
+  gestisci('agri:gruppo-salva', (id: number | null, p: GruppoPayload) => ({
+    ok: true as const,
+    id: salvaGruppo(db, id ?? null, p)
+  }))
+  gestisci('agri:gruppo-elimina', (id: number) => ({
+    ok: true as const,
+    esito: eliminaGruppo(db, id)
+  }))
+  gestisci('agri:parametro-salva', (id: number | null, p: ParametroPayload) => ({
+    ok: true as const,
+    id: salvaParametro(db, id ?? null, p)
+  }))
+  gestisci('agri:parametro-elimina', (id: number) => ({
+    ok: true as const,
+    esito: eliminaParametro(db, id)
+  }))
+  gestisci(
+    'agri:parametri-sposta',
+    (cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu') => {
+      sposta(db, cosa, id, direzione)
+      return ok
+    }
+  )
+  gestisci(
+    'agri:salva-parametri',
+    (lavorazioneId: number, valori: Record<number, string>, date: Record<number, string>) => {
+      salvaValori(db, lavorazioneId, valori ?? {}, date ?? {})
+      return ok
+    }
+  )
 
   console.log('[startup] IPC handlers registrati: agri:*')
 }

@@ -1,6 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import type { CampoPayload, FrazioneDefault, OperazionePayload, SeminaPayload } from '../shared/agricolo'
+import type {
+  CampoPayload,
+  FaseLavorazione,
+  FrazioneDefault,
+  GruppoPayload,
+  OperazionePayload,
+  ParametroPayload,
+  SeminaPayload
+} from '../shared/agricolo'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -234,7 +242,16 @@ const api = {
     operazioniLista: (f: { stagione?: string | null; campo_id?: number | null; semina_id?: number | null; tipo?: string | null }) =>
       ipcRenderer.invoke('agri:operazioni-lista', f),
     operazioneSalva: (id: number | null, p: OperazionePayload) => ipcRenderer.invoke('agri:operazione-salva', id, p),
-    operazioneElimina: (id: number) => ipcRenderer.invoke('agri:operazione-elimina', id)
+    operazioneElimina: (id: number) => ipcRenderer.invoke('agri:operazione-elimina', id),
+    parametriConfig: (fase: FaseLavorazione) => ipcRenderer.invoke('agri:parametri-config', fase),
+    gruppoSalva: (id: number | null, p: GruppoPayload) => ipcRenderer.invoke('agri:gruppo-salva', id, p),
+    gruppoElimina: (id: number) => ipcRenderer.invoke('agri:gruppo-elimina', id),
+    parametroSalva: (id: number | null, p: ParametroPayload) => ipcRenderer.invoke('agri:parametro-salva', id, p),
+    parametroElimina: (id: number) => ipcRenderer.invoke('agri:parametro-elimina', id),
+    parametriSposta: (cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu') =>
+      ipcRenderer.invoke('agri:parametri-sposta', cosa, id, direzione),
+    salvaParametri: (lavorazioneId: number, valori: Record<number, string>, date: Record<number, string>) =>
+      ipcRenderer.invoke('agri:salva-parametri', lavorazioneId, valori, date)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),

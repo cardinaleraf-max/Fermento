@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input'
 import { AvvisoBox, CampoForm, ErroreBox } from '@/components/agricolo/common'
 import { useAgricolo } from '@/components/agricolo/contesto'
 import { erroreDa, messaggioErrore, notificaCambioModulo, type FrazioneDefault } from '@/lib/agricolo'
+import GestioneParametri from './GestioneParametri'
 
 function Salvato({ visibile }: { visibile: boolean }): React.JSX.Element | null {
   return visibile ? <span className="text-xs text-emerald-400">Salvato</span> : null
@@ -176,6 +177,8 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
           <AvvisoBox>Le calibrature già registrate non cambiano: queste sono solo le frazioni proposte per le nuove.</AvvisoBox>
         </CardContent>
       </Card>
+
+      <GestioneParametri />
 
       <Card>
         <CardHeader>
