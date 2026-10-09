@@ -116,24 +116,32 @@ export function initDatabase(): BetterSqlite3.Database {
   const dbPath = getDatabaseFilePath()
   db = new Database(dbPath)
   db.pragma('foreign_keys = ON')
+  applicaSchema(db)
+  return db
+}
 
-  const bootstrap = db.transaction(() => {
+/**
+ * Crea/aggiorna lo schema su una connessione già aperta. Tutte le operazioni
+ * sono idempotenti: si può eseguire su un DB nuovo o su un DB di produzione
+ * esistente senza alterare i dati. Usata da initDatabase e dai test.
+ */
+export function applicaSchema(database: BetterSqlite3.Database): void {
+  const bootstrap = database.transaction(() => {
     for (const statement of createTableStatements) {
-      db.prepare(statement).run()
+      database.prepare(statement).run()
     }
 
     for (const statement of createIndexStatements) {
-      db.prepare(statement).run()
+      database.prepare(statement).run()
     }
 
-    seedInitialData(db)
+    seedInitialData(database)
   })
 
   bootstrap()
-  ensureBackupConfigRow(db)
-  runAdditiveMigrations(db)
-  migrazioneRetrocompatibilita(db)
-  return db
+  ensureBackupConfigRow(database)
+  runAdditiveMigrations(database)
+  migrazioneRetrocompatibilita(database)
 }
 
 function migrazioneRetrocompatibilita(database: BetterSqlite3.Database): void {
