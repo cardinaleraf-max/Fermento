@@ -9,10 +9,11 @@ import { closeDatabaseConnection, db, getDatabaseFilePath, initDatabase, reopenD
 import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 import { licenzaSalvataValida, salvaLicenza } from './licenza'
 import { codiceMacchina } from './impronta'
-import { registerAgricoloIpcHandlers } from './agricolo/ipc'
+import { registerAgricoloIpcHandlers, registerImballiIpcHandlers } from './agricolo/ipc'
 import { colonneFitofarmaco, salvaDatiFitofarmaco } from './agricolo/servizi/magazzino'
 import { moduloAttivo } from './agricolo/servizi/config'
 import { generaAvvisiCarenza } from './agricolo/servizi/avvisi'
+import { collegamentiMovimento, inserisciLottiImballi } from './agricolo/servizi/imballi'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -42,6 +43,9 @@ type ConfCaricoPayload = {
   materiale_id: number
   quantita: number
   note?: string | null
+  /** Facoltativi (tracciabilità HACCP): se assenti il carico è identico a prima. */
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type ConfAggiornaSogliaPayload = {
@@ -83,6 +87,8 @@ type ConfezionaPayload = {
   fusti: Array<{ materiale_id: number; quantita: number }>
   scarto_litri?: number | null
   data_scadenza?: string | null
+  /** Facoltativo (HACCP): carichi di bottiglie/tappi/fusti usati per questa cotta. */
+  lotti_imballi?: number[]
 }
 
 type ClientePayload = {
@@ -154,6 +160,8 @@ type ModificaLottoPayload = {
 type ModificaMovimentoConfPayload = {
   quantita: number
   note?: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type CaricoInizialePayload = {
@@ -508,11 +516,20 @@ function registerConfIpcHandlers(): void {
   ipcMain.removeHandler('conf:carico')
   ipcMain.handle('conf:carico', (_event, dati: ConfCaricoPayload) => {
     try {
+      const lottoFornitore = typeof dati.lotto_fornitore === 'string' ? dati.lotto_fornitore.trim() : ''
+      const fornitore = typeof dati.fornitore === 'string' ? dati.fornitore.trim() : ''
       const transaction = db.transaction(() => {
-        db.prepare(
-          `INSERT INTO movimenti_confezionamento (materiale_id, tipo_movimento, quantita, causale, note)
-           VALUES (?, 'carico', ?, 'acquisto', ?)`
-        ).run(dati.materiale_id, dati.quantita, dati.note ?? null)
+        if (lottoFornitore || fornitore) {
+          db.prepare(
+            `INSERT INTO movimenti_confezionamento (materiale_id, tipo_movimento, quantita, causale, note, lotto_fornitore, fornitore)
+             VALUES (?, 'carico', ?, 'acquisto', ?, ?, ?)`
+          ).run(dati.materiale_id, dati.quantita, dati.note ?? null, lottoFornitore || null, fornitore || null)
+        } else {
+          db.prepare(
+            `INSERT INTO movimenti_confezionamento (materiale_id, tipo_movimento, quantita, causale, note)
+             VALUES (?, 'carico', ?, 'acquisto', ?)`
+          ).run(dati.materiale_id, dati.quantita, dati.note ?? null)
+        }
 
         db.prepare(
           `INSERT INTO giacenza_confezionamento (materiale_id, quantita, ultimo_aggiornamento)
@@ -677,6 +694,14 @@ function registerConfIpcHandlers(): void {
           db.prepare(
             `UPDATE movimenti_confezionamento SET quantita = ?, note = ? WHERE id = ?`
           ).run(dati.quantita, dati.note ?? null, id)
+          // Lotto e fornitore (HACCP) solo se inviati: chi non li usa non tocca le colonne nuove.
+          if ('lotto_fornitore' in dati || 'fornitore' in dati) {
+            const pulisci = (v: unknown): string | null =>
+              typeof v === 'string' && v.trim() ? v.trim() : null
+            db.prepare(
+              `UPDATE movimenti_confezionamento SET lotto_fornitore = ?, fornitore = ? WHERE id = ?`
+            ).run(pulisci(dati.lotto_fornitore), pulisci(dati.fornitore), id)
+          }
 
           if (delta !== 0) {
             db.prepare(
@@ -718,6 +743,13 @@ function registerConfIpcHandlers(): void {
         return {
           ok: false as const,
           errore: 'Solo i movimenti di carico sono eliminabili'
+        }
+      }
+      const cotteCollegate = collegamentiMovimento(db, id)
+      if (cotteCollegate) {
+        return {
+          ok: false as const,
+          errore: `Questo carico è indicato come lotto usato nel confezionamento della cotta ${cotteCollegate} (tracciabilità HACCP): toglilo prima dalla cotta.`
         }
       }
 
@@ -1236,6 +1268,11 @@ function registerProduzioneIpcHandlers(): void {
           if (fusto.quantita > 0) {
             scaricaGiacenza(fusto.materiale_id, fusto.quantita, 'produzione')
           }
+        }
+
+        // Facoltativo (HACCP): lotti di bottiglie, tappi e fusti usati. Non tocca le giacenze.
+        if (Array.isArray(dati.lotti_imballi) && dati.lotti_imballi.length > 0) {
+          inserisciLottiImballi(db, dati.cotta_id, dati.lotti_imballi)
         }
       })
 
@@ -4176,6 +4213,7 @@ app.whenReady().then(() => {
   registerImpostazioniIpcHandlers()
   registerBackupIpcHandlers()
   registerAgricoloIpcHandlers()
+  registerImballiIpcHandlers()
 
   ipcMain.on('ping', () => console.log('pong'))
 

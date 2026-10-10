@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { RiquadroLottiImballi, SezioneLottiImballi } from '@/components/LottiImballi'
 
 type Cotta = {
   id: number
@@ -179,6 +180,10 @@ export default function Produzione(): React.JSX.Element {
 
   const [dialogConfezionamentoOpen, setDialogConfezionamentoOpen] = useState(false)
   const [fustiDisponibili, setFustiDisponibili] = useState<MaterialeConfezionamento[]>([])
+  /** Facoltativo (HACCP): carichi di bottiglie/tappi/fusti usati per la cotta. */
+  const [lottiImballi, setLottiImballi] = useState<number[]>([])
+  /** Formati di fusto confezionati nella cotta selezionata (per i lotti imballi). */
+  const [fustiCottaIds, setFustiCottaIds] = useState<number[]>([])
   const [confezionamentoForm, setConfezionamentoForm] = useState<ConfezionamentoForm>(defaultConfezionamentoForm())
   const [erroreConfezionamento, setErroreConfezionamento] = useState('')
   const [submittingConfezionamento, setSubmittingConfezionamento] = useState(false)
@@ -240,6 +245,14 @@ export default function Produzione(): React.JSX.Element {
       ])
       setDettaglio(det ?? null)
       setMaterialiCotta(materiali)
+      if (det?.stato === 'confezionata') {
+        window.api.prod
+          .confezionamentoFusti(cottaId)
+          .then((righe) => setFustiCottaIds(righe.filter((r) => r.quantita > 0).map((r) => r.materiale_id)))
+          .catch(() => setFustiCottaIds([]))
+      } else {
+        setFustiCottaIds([])
+      }
     } catch (err) {
       setErrore(err instanceof Error ? err.message : String(err))
     } finally {
@@ -427,6 +440,7 @@ export default function Produzione(): React.JSX.Element {
 
   function apriDialogConfezionamento(): void {
     setConfezionamentoForm(defaultConfezionamentoForm())
+    setLottiImballi([])
     setErroreConfezionamento('')
     void caricaFustiDisponibili()
     void window.api.prod
@@ -563,7 +577,8 @@ export default function Produzione(): React.JSX.Element {
         bottiglie_prodotte: bottiglie,
         fusti,
         scarto_litri: scarto,
-        data_scadenza: confezionamentoForm.data_scadenza
+        data_scadenza: confezionamentoForm.data_scadenza,
+        ...(lottiImballi.length > 0 ? { lotti_imballi: lottiImballi } : {})
       })
       if (!result.ok) {
         setErroreConfezionamento(result.errore)
@@ -718,6 +733,15 @@ export default function Produzione(): React.JSX.Element {
                 </div>
               </div>
             )}
+
+            {dettaglio.stato === 'confezionata' && (
+              <RiquadroLottiImballi
+                key={dettaglio.id}
+                cottaId={dettaglio.id}
+                bottiglie={(dettaglio.bottiglie_prodotte ?? 0) > 0}
+                fusti={fustiCottaIds}
+              />
+            )}
           </>
         )}
 
@@ -839,7 +863,7 @@ export default function Produzione(): React.JSX.Element {
         </Dialog>
 
         <Dialog open={dialogConfezionamentoOpen} onOpenChange={setDialogConfezionamentoOpen}>
-          <DialogContent className="max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto" onOpenAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Registra confezionamento</DialogTitle>
               <DialogDescription>
@@ -915,6 +939,18 @@ export default function Produzione(): React.JSX.Element {
                     ))}
                   </div>
                 </div>
+              )}
+
+              {dettaglio && (
+                <SezioneLottiImballi
+                  cottaId={dettaglio.id}
+                  bottiglie={Number(confezionamentoForm.bottiglie_prodotte) > 0}
+                  fusti={Object.entries(confezionamentoForm.fusti)
+                    .filter(([, q]) => Number(q) > 0)
+                    .map(([id]) => Number(id))}
+                  selezionati={lottiImballi}
+                  onChange={setLottiImballi}
+                />
               )}
 
               {erroreConfezionamento && (

@@ -26,6 +26,11 @@ import {
 import { lottiDisponibili } from './servizi/magazzino'
 import { eliminaOperazione, listaOperazioni, salvaOperazione } from './servizi/operazioni'
 import {
+  lottiImballiCotta,
+  materialiImballoConfezionamento,
+  salvaLottiImballi
+} from './servizi/imballi'
+import {
   avviaMaltazione,
   chiudiMaltazione,
   dettaglioLavorazione,
@@ -223,4 +228,25 @@ export function registerAgricoloIpcHandlers(): void {
   gestisci('agri:scadenza-malto', (dataUscita: string) => scadenzaMaltoProposta(db, dataUscita))
 
   console.log('[startup] IPC handlers registrati: agri:*')
+}
+
+/**
+ * Lotti dei materiali di confezionamento (HACCP): valgono per tutti i
+ * birrifici, non solo per il modulo agricolo. Facoltativi.
+ */
+export function registerImballiIpcHandlers(): void {
+  gestisci(
+    'prod:imballi-confezionamento',
+    (cottaId: number, opzioni: { bottiglie: boolean; fusti: number[] }) =>
+      materialiImballoConfezionamento(db, cottaId, opzioni ?? { bottiglie: true, fusti: [] }),
+    { lettura: true }
+  )
+  gestisci('prod:lotti-imballi', (cottaId: number) => lottiImballiCotta(db, cottaId), {
+    lettura: true
+  })
+  gestisci('prod:salva-lotti-imballi', (cottaId: number, movimentoIds: number[]) => {
+    salvaLottiImballi(db, cottaId, movimentoIds ?? [])
+    return ok
+  })
+  console.log('[startup] IPC handlers registrati: prod:*-imballi')
 }

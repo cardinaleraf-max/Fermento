@@ -17,6 +17,8 @@ import type {
   RaccoltaPayload,
   StatoLavorazione,
   ViolazioneCarenzaRiga,
+  MaterialeImballo,
+  LottoImballoRiga,
   LottoDisponibile,
   OperazionePayload,
   OperazioneRiga,
@@ -111,6 +113,8 @@ type ConfCaricoPayload = {
   materiale_id: number
   quantita: number
   note?: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type MovimentoConfezionamento = {
@@ -122,6 +126,8 @@ type MovimentoConfezionamento = {
   causale: string | null
   riferimento: string | null
   note: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type ConfAggiornaSogliaPayload = {
@@ -233,6 +239,7 @@ type ConfezionaPayload = {
   fusti: Array<{ materiale_id: number; quantita: number }>
   scarto_litri?: number | null
   data_scadenza?: string | null
+  lotti_imballi?: number[]
 }
 
 type ConfezionaResult = { ok: true } | { ok: false; errore: string }
@@ -475,6 +482,8 @@ type EliminaMateriaResult = { ok: true } | { ok: false; errore: string }
 type ModificaMovimentoConfPayload = {
   quantita: number
   note?: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type ModificaMovimentoConfResult = { ok: true } | { ok: false; errore: string }
@@ -768,6 +777,14 @@ type ImpostazioniAgricolePayload = {
 }
 
 interface FermentoAPI {
+  imballi: {
+    perConfezionamento: (
+      cottaId: number,
+      opzioni: { bottiglie: boolean; fusti: number[] }
+    ) => Promise<MaterialeImballo[]>
+    lottiCotta: (cottaId: number) => Promise<LottoImballoRiga[]>
+    salvaLottiCotta: (cottaId: number, movimentoIds: number[]) => Promise<Esito>
+  }
   agri: {
     stato: () => Promise<StatoModuloAgricolo>
     impostazioni: () => Promise<ImpostazioniAgricole>

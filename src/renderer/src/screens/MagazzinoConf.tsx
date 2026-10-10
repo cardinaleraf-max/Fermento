@@ -32,16 +32,23 @@ type MovimentoConfezionamento = {
   data: string
   causale: string | null
   note: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type ModificaMovimentoForm = {
   quantita: string
   note: string
+  lotto_fornitore: string
+  fornitore: string
 }
 
 type CaricoForm = {
   quantita: string
   note: string
+  /** Facoltativi: tracciabilità HACCP dei materiali a contatto con la birra. */
+  lotto_fornitore: string
+  fornitore: string
 }
 
 type NuovoMaterialeForm = {
@@ -62,7 +69,9 @@ type BirraOption = Awaited<ReturnType<typeof window.api.impostazioni.birre>>[num
 
 const defaultCaricoForm: CaricoForm = {
   quantita: '',
-  note: ''
+  note: '',
+  lotto_fornitore: '',
+  fornitore: ''
 }
 
 const defaultNuovoMaterialeForm: NuovoMaterialeForm = {
@@ -120,7 +129,9 @@ export default function MagazzinoConf(): React.JSX.Element {
   const [movimentoSelezionato, setMovimentoSelezionato] = useState<MovimentoConfezionamento | null>(null)
   const [modificaMovimentoForm, setModificaMovimentoForm] = useState<ModificaMovimentoForm>({
     quantita: '',
-    note: ''
+    note: '',
+    lotto_fornitore: '',
+    fornitore: ''
   })
 
   const materialeSelezionato = useMemo(
@@ -230,10 +241,15 @@ export default function MagazzinoConf(): React.JSX.Element {
     setIsSubmitting(true)
     setErroreModal('')
     try {
+      const lottoFornitore = caricoForm.lotto_fornitore.trim()
+      const fornitore = caricoForm.fornitore.trim()
       await window.api.conf.carico({
         materiale_id: materialeSelezionatoId,
         quantita: Number(caricoForm.quantita),
-        note: caricoForm.note.trim() || null
+        note: caricoForm.note.trim() || null,
+        // inviati solo se compilati: altrimenti il carico è identico a prima
+        ...(lottoFornitore ? { lotto_fornitore: lottoFornitore } : {}),
+        ...(fornitore ? { fornitore } : {})
       })
 
       setDialogCaricoOpen(false)
@@ -280,7 +296,9 @@ export default function MagazzinoConf(): React.JSX.Element {
     setMovimentoSelezionato(movimento)
     setModificaMovimentoForm({
       quantita: movimento.quantita?.toString() ?? '',
-      note: movimento.note ?? ''
+      note: movimento.note ?? '',
+      lotto_fornitore: movimento.lotto_fornitore ?? '',
+      fornitore: movimento.fornitore ?? ''
     })
     setDialogModificaMovimentoOpen(true)
   }
@@ -306,9 +324,16 @@ export default function MagazzinoConf(): React.JSX.Element {
     setIsSubmitting(true)
     setErroreModal('')
     try {
+      const lottoNuovo = modificaMovimentoForm.lotto_fornitore.trim()
+      const fornitoreNuovo = modificaMovimentoForm.fornitore.trim()
+      const lottoCambiato =
+        lottoNuovo !== (movimentoSelezionato.lotto_fornitore ?? '') ||
+        fornitoreNuovo !== (movimentoSelezionato.fornitore ?? '')
       const result = await window.api.conf.modificaMovimento(movimentoSelezionato.id, {
         quantita: q,
-        note: modificaMovimentoForm.note.trim() || null
+        note: modificaMovimentoForm.note.trim() || null,
+        // lotto e fornitore inviati solo se cambiati
+        ...(lottoCambiato ? { lotto_fornitore: lottoNuovo || null, fornitore: fornitoreNuovo || null } : {})
       })
       if (!result.ok) {
         setErroreModal(result.errore)
@@ -591,7 +616,16 @@ export default function MagazzinoConf(): React.JSX.Element {
                           </td>
                           <td className="px-3 py-2">{movimento.quantita}</td>
                           <td className="px-3 py-2">{movimento.causale ?? '-'}</td>
-                          <td className="px-3 py-2">{movimento.note ?? '-'}</td>
+                          <td className="px-3 py-2">
+                            {movimento.note ?? '-'}
+                            {(movimento.lotto_fornitore || movimento.fornitore) && (
+                              <div className="text-xs text-muted-foreground">
+                                {movimento.lotto_fornitore ? `Lotto ${movimento.lotto_fornitore}` : ''}
+                                {movimento.lotto_fornitore && movimento.fornitore ? ' · ' : ''}
+                                {movimento.fornitore ?? ''}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-3 py-2">
                             {isCarico ? (
                               <div className="flex justify-end gap-1">
@@ -650,6 +684,28 @@ export default function MagazzinoConf(): React.JSX.Element {
                 value={caricoForm.quantita}
                 onChange={(event) => setCaricoForm((prev) => ({ ...prev, quantita: event.target.value }))}
               />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="conf_lotto">Lotto fornitore (facoltativo)</Label>
+                <Input
+                  id="conf_lotto"
+                  value={caricoForm.lotto_fornitore}
+                  onChange={(event) => setCaricoForm((prev) => ({ ...prev, lotto_fornitore: event.target.value }))}
+                />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="conf_fornitore">Fornitore (facoltativo)</Label>
+                <Input
+                  id="conf_fornitore"
+                  value={caricoForm.fornitore}
+                  onChange={(event) => setCaricoForm((prev) => ({ ...prev, fornitore: event.target.value }))}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground sm:col-span-2">
+                Utili per la tracciabilità HACCP di bottiglie, tappi e fusti: al confezionamento potrai indicare quale
+                lotto hai usato.
+              </p>
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="conf_note">Note</Label>
@@ -823,6 +879,26 @@ export default function MagazzinoConf(): React.JSX.Element {
                 value={modificaMovimentoForm.note}
                 onChange={(event) =>
                   setModificaMovimentoForm((prev) => ({ ...prev, note: event.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="mov_lotto">Lotto fornitore (facoltativo)</Label>
+              <Input
+                id="mov_lotto"
+                value={modificaMovimentoForm.lotto_fornitore}
+                onChange={(event) =>
+                  setModificaMovimentoForm((prev) => ({ ...prev, lotto_fornitore: event.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="mov_fornitore">Fornitore (facoltativo)</Label>
+              <Input
+                id="mov_fornitore"
+                value={modificaMovimentoForm.fornitore}
+                onChange={(event) =>
+                  setModificaMovimentoForm((prev) => ({ ...prev, fornitore: event.target.value }))
                 }
               />
             </div>

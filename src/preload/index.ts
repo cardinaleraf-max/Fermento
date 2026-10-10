@@ -42,6 +42,8 @@ type ConfCaricoPayload = {
   materiale_id: number
   quantita: number
   note?: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type ConfAggiornaSogliaPayload = {
@@ -83,6 +85,7 @@ type ConfezionaPayload = {
   fusti: Array<{ materiale_id: number; quantita: number }>
   scarto_litri?: number | null
   data_scadenza?: string | null
+  lotti_imballi?: number[]
 }
 
 type ClientePayload = {
@@ -170,6 +173,8 @@ type ModificaLottoPayload = {
 type ModificaMovimentoConfPayload = {
   quantita: number
   note?: string | null
+  lotto_fornitore?: string | null
+  fornitore?: string | null
 }
 
 type CaricoInizialePayload = {
@@ -226,6 +231,13 @@ type AiNavigaPayload = {
 
 // Custom APIs for renderer
 const api = {
+  imballi: {
+    perConfezionamento: (cottaId: number, opzioni: { bottiglie: boolean; fusti: number[] }) =>
+      ipcRenderer.invoke('prod:imballi-confezionamento', cottaId, opzioni),
+    lottiCotta: (cottaId: number) => ipcRenderer.invoke('prod:lotti-imballi', cottaId),
+    salvaLottiCotta: (cottaId: number, movimentoIds: number[]) =>
+      ipcRenderer.invoke('prod:salva-lotti-imballi', cottaId, movimentoIds)
+  },
   agri: {
     stato: () => ipcRenderer.invoke('agri:stato'),
     impostazioni: () => ipcRenderer.invoke('agri:impostazioni'),
