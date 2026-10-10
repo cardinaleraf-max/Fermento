@@ -8,3 +8,5 @@ release
 .fermento-licensing/
 docs/superpowers/
 out_test/
+# database di esempio della demo: generato da npm run seed:demo
+resources/demo/
