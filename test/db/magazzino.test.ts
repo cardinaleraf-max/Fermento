@@ -9,7 +9,12 @@ import {
   registraConsumi,
   scaricaPerMateria
 } from '../../src/main/agricolo/servizi/magazzino'
-import { eliminaSemina, listaSemine, salvaCampo, salvaSemina } from '../../src/main/agricolo/servizi/campi'
+import {
+  eliminaSemina,
+  listaSemine,
+  salvaCampo,
+  salvaSemina
+} from '../../src/main/agricolo/servizi/campi'
 import { ErroreUtente } from '../../src/main/agricolo/errori'
 import type { SeminaPayload } from '../../src/shared/agricolo'
 
@@ -62,7 +67,9 @@ test('registra e annulla consumi ripristina esattamente le giacenze', () => {
   const sem = materia(db, 'Seme', 'semente', 'kg')
   const a = lotto(db, sem, 'A', 10, '2026-12-31')
   const b = lotto(db, sem, 'B', 10, '2027-12-31')
-  db.transaction(() => registraConsumi(db, 'semina', 7, sem, scaricaPerMateria(db, sem, 15, null)))()
+  db.transaction(() =>
+    registraConsumi(db, 'semina', 7, sem, scaricaPerMateria(db, sem, 15, null))
+  )()
   assert.equal(conta(db, 'agri_consumi'), 2)
   db.transaction(() => annullaConsumi(db, 'semina', 7))()
   assert.equal(residuo(db, a), 10)
@@ -91,11 +98,18 @@ test('lotto usato a valle: cotta, consumo agricolo, residuo modificato', () => {
   const libero = lotto(db, sem, 'LIBERO', 10)
   const usato = lotto(db, sem, 'USATO', 10)
   assert.equal(lottoUsatoAValle(db, libero), null)
-  db.transaction(() => registraConsumi(db, 'operazione', 1, sem, scaricaPerMateria(db, sem, 2, usato)))()
+  db.transaction(() =>
+    registraConsumi(db, 'operazione', 1, sem, scaricaPerMateria(db, sem, 2, usato))
+  )()
   assert.match(lottoUsatoAValle(db, usato) ?? '', /usato/i)
 })
 
-function seminaConSemente(campo_id: number, materia_prima_id: number, quantita: number, lotto_id: number | null = null): SeminaPayload {
+function seminaConSemente(
+  campo_id: number,
+  materia_prima_id: number,
+  quantita: number,
+  lotto_id: number | null = null
+): SeminaPayload {
   return {
     campo_id,
     stagione: '2025/2026',
@@ -111,7 +125,13 @@ function seminaConSemente(campo_id: number, materia_prima_id: number, quantita: 
 
 test('semina con semente dal magazzino: scarica, mostra il lotto, modifica e elimina ripristinano', () => {
   const db = creaDbTest()
-  const campo = salvaCampo(db, null, { nome: 'C1', superficie_ha: 10, localita: null, rif_catastale: null, note: null })
+  const campo = salvaCampo(db, null, {
+    nome: 'C1',
+    superficie_ha: 10,
+    localita: null,
+    rif_catastale: null,
+    note: null
+  })
   const sem = materia(db, 'Orzo da seme', 'semente', 'kg')
   const a = lotto(db, sem, 'SEM-77', 2000, '2026-06-30')
   const id = salvaSemina(db, null, seminaConSemente(campo, sem, 1800))
@@ -137,7 +157,13 @@ test('semina con semente dal magazzino: scarica, mostra il lotto, modifica e eli
 
 test('semina: la semente deve essere una materia prima di categoria semente', () => {
   const db = creaDbTest()
-  const campo = salvaCampo(db, null, { nome: 'C1', superficie_ha: 10, localita: null, rif_catastale: null, note: null })
+  const campo = salvaCampo(db, null, {
+    nome: 'C1',
+    superficie_ha: 10,
+    localita: null,
+    rif_catastale: null,
+    note: null
+  })
   const conc = materia(db, 'NPK', 'concime', 'q')
   lotto(db, conc, 'C', 10)
   assert.throws(() => salvaSemina(db, null, seminaConSemente(campo, conc, 1)), ErroreUtente)
@@ -147,13 +173,32 @@ test('dati fitofarmaco: si aggiornano solo i campi presenti, gli altri restano',
   const { salvaDatiFitofarmaco } = await import('../../src/main/agricolo/servizi/magazzino')
   const db = creaDbTest()
   const f = materia(db, 'Fungicida X', 'fitofarmaco', 'L')
-  salvaDatiFitofarmaco(db, f, { numero_registrazione: 'REG-123', principio_attivo: 'Tebuconazolo', tempo_carenza_giorni: 30 })
+  salvaDatiFitofarmaco(db, f, {
+    numero_registrazione: 'REG-123',
+    principio_attivo: 'Tebuconazolo',
+    tempo_carenza_giorni: 30
+  })
   salvaDatiFitofarmaco(db, f, {}) // modifica dal magazzino normale: non tocca nulla
   salvaDatiFitofarmaco(db, f, { principio_attivo: ' Procloraz ' })
-  const r = db.prepare(`SELECT numero_registrazione, principio_attivo, tempo_carenza_giorni FROM materie_prime WHERE id = ?`).get(f)
-  assert.deepEqual(r, { numero_registrazione: 'REG-123', principio_attivo: 'Procloraz', tempo_carenza_giorni: 30 })
+  const r = db
+    .prepare(
+      `SELECT numero_registrazione, principio_attivo, tempo_carenza_giorni FROM materie_prime WHERE id = ?`
+    )
+    .get(f)
+  assert.deepEqual(r, {
+    numero_registrazione: 'REG-123',
+    principio_attivo: 'Procloraz',
+    tempo_carenza_giorni: 30
+  })
   salvaDatiFitofarmaco(db, f, { tempo_carenza_giorni: null })
-  assert.equal((db.prepare(`SELECT tempo_carenza_giorni t FROM materie_prime WHERE id = ?`).get(f) as { t: number | null }).t, null)
+  assert.equal(
+    (
+      db.prepare(`SELECT tempo_carenza_giorni t FROM materie_prime WHERE id = ?`).get(f) as {
+        t: number | null
+      }
+    ).t,
+    null
+  )
   assert.throws(() => salvaDatiFitofarmaco(db, f, { tempo_carenza_giorni: -3 }), ErroreUtente)
   assert.throws(() => salvaDatiFitofarmaco(db, f, { tempo_carenza_giorni: 2.5 }), ErroreUtente)
 })

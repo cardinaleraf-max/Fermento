@@ -16,7 +16,9 @@ export function tabellaEsiste(db: Db, nome: string): boolean {
 }
 
 function colonnaEsiste(db: Db, tabella: string, colonna: string): boolean {
-  return (db.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{ name: string }>).some((c) => c.name === colonna)
+  return (db.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{ name: string }>).some(
+    (c) => c.name === colonna
+  )
 }
 
 function carichiDi(db: Db, materialeId: number): CaricoImballo[] {
@@ -48,7 +50,9 @@ export function materialiImballoConfezionamento(
   if (opzioni.bottiglie) {
     for (const categoria of ['bottiglia', 'tappo']) {
       const m = db
-        .prepare(`SELECT id FROM materiali_confezionamento WHERE categoria = ? AND attivo = 1 LIMIT 1`)
+        .prepare(
+          `SELECT id FROM materiali_confezionamento WHERE categoria = ? AND attivo = 1 LIMIT 1`
+        )
         .get(categoria) as { id: number } | undefined
       aggiungi(m?.id)
     }
@@ -64,7 +68,12 @@ export function materialiImballoConfezionamento(
   return ids
     .map((id) => leggi.get(id) as { id: number; nome: string; categoria: string } | undefined)
     .filter((m): m is { id: number; nome: string; categoria: string } => m !== undefined)
-    .map((m) => ({ materiale_id: m.id, nome: m.nome, categoria: m.categoria, carichi: carichiDi(db, m.id) }))
+    .map((m) => ({
+      materiale_id: m.id,
+      nome: m.nome,
+      categoria: m.categoria,
+      carichi: carichiDi(db, m.id)
+    }))
 }
 
 export function lottiImballiCotta(db: Db, cottaId: number): LottoImballoRiga[] {
@@ -85,21 +94,27 @@ export function lottiImballiCotta(db: Db, cottaId: number): LottoImballoRiga[] {
 
 /** Inserisce i collegamenti (senza transazione propria: va chiamata dentro una). */
 export function inserisciLottiImballi(db: Db, cottaId: number, movimentoIds: number[]): void {
-  const leggi = db.prepare(`SELECT id, materiale_id, tipo_movimento FROM movimenti_confezionamento WHERE id = ?`)
+  const leggi = db.prepare(
+    `SELECT id, materiale_id, tipo_movimento FROM movimenti_confezionamento WHERE id = ?`
+  )
   const ins = db.prepare(
     `INSERT OR IGNORE INTO confezionamento_lotti_imballi (cotta_id, materiale_id, movimento_id) VALUES (?, ?, ?)`
   )
   for (const id of [...new Set(movimentoIds.map(Number))]) {
-    const m = leggi.get(id) as { id: number; materiale_id: number; tipo_movimento: string } | undefined
+    const m = leggi.get(id) as
+      | { id: number; materiale_id: number; tipo_movimento: string }
+      | undefined
     if (!m) throw new ErroreUtente('Lotto di imballo non trovato.')
-    if (m.tipo_movimento !== 'carico') throw new ErroreUtente('Si possono indicare solo i carichi (lotti ricevuti).')
+    if (m.tipo_movimento !== 'carico')
+      throw new ErroreUtente('Si possono indicare solo i carichi (lotti ricevuti).')
     ins.run(cottaId, m.materiale_id, m.id)
   }
 }
 
 /** Sostituisce l'insieme dei lotti imballi collegati a una cotta. */
 export function salvaLottiImballi(db: Db, cottaId: number, movimentoIds: number[]): void {
-  if (!db.prepare(`SELECT id FROM cotte WHERE id = ?`).get(cottaId)) throw new ErroreUtente('Cotta non trovata.')
+  if (!db.prepare(`SELECT id FROM cotte WHERE id = ?`).get(cottaId))
+    throw new ErroreUtente('Cotta non trovata.')
   db.transaction(() => {
     db.prepare(`DELETE FROM confezionamento_lotti_imballi WHERE cotta_id = ?`).run(cottaId)
     inserisciLottiImballi(db, cottaId, Array.isArray(movimentoIds) ? movimentoIds : [])

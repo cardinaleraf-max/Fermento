@@ -29,7 +29,9 @@ export function frazioniDefault(db: Db): FrazioneDefault[] {
       const lista = parsed
         .filter(
           (f): f is { nome: string; scarto: unknown } =>
-            typeof f === 'object' && f !== null && typeof (f as { nome?: unknown }).nome === 'string'
+            typeof f === 'object' &&
+            f !== null &&
+            typeof (f as { nome?: unknown }).nome === 'string'
         )
         .map((f) => ({ nome: f.nome.trim(), scarto: f.scarto === true }))
         .filter((f) => f.nome)
@@ -61,7 +63,11 @@ export function elencoStagioni(db: Db): string[] {
 }
 
 export function statoModulo(db: Db): StatoModuloAgricolo {
-  return { attivo: moduloAttivo(db), stagione_corrente: stagioneCorrente(db), stagioni: elencoStagioni(db) }
+  return {
+    attivo: moduloAttivo(db),
+    stagione_corrente: stagioneCorrente(db),
+    stagioni: elencoStagioni(db)
+  }
 }
 
 export type ImpostazioniAgricolePayload = {
@@ -76,7 +82,9 @@ export function salvaImpostazioniAgricole(db: Db, p: ImpostazioniAgricolePayload
   if (p.stagione_corrente !== undefined) {
     const s = typeof p.stagione_corrente === 'string' ? p.stagione_corrente.trim() : ''
     if (!stagioneValida(s)) {
-      throw new ErroreUtente('Stagione non valida: usa il formato "2026/2027" (anno di inizio e anno successivo).')
+      throw new ErroreUtente(
+        'Stagione non valida: usa il formato "2026/2027" (anno di inizio e anno successivo).'
+      )
     }
     daScrivere.push(['agri_stagione_corrente', s])
   }

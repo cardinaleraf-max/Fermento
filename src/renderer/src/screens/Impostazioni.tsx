@@ -182,11 +182,6 @@ export default function Impostazioni(): React.JSX.Element {
     void caricaConfig()
   }, [caricaConfig])
 
-  // Se il modulo agricolo viene spento mentre si è nella sua tab, torna ai parametri.
-  useEffect(() => {
-    if (tab === 'agricolo' && agricolo.pronto && !agricolo.attivo) setTab('parametri')
-  }, [tab, agricolo.pronto, agricolo.attivo])
-
   const rigaModuloAgricolo = config.find((c) => c.chiave === 'modulo_agricolo_attivo')
 
   const cambiaModuloAgricolo = async (attivo: boolean): Promise<void> => {

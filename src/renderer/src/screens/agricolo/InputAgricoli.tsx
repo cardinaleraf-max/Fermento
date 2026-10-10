@@ -78,7 +78,13 @@ const prodottoVuoto = (categoria: CategoriaInputAgricolo): ProdottoForm => ({
   carenza: ''
 })
 
-type CaricoForm = { codice: string; data_carico: string; scadenza: string; quantita: string; note: string }
+type CaricoForm = {
+  codice: string
+  data_carico: string
+  scadenza: string
+  quantita: string
+  note: string
+}
 type LottoForm = { codice: string; scadenza: string; residuo: string; note: string }
 
 function tonoCategoria(c: string): 'ambra' | 'verde' | 'rosso' | 'grigio' {
@@ -99,19 +105,36 @@ export default function InputAgricoli(): React.JSX.Element {
   const [prodottoDialog, setProdottoDialog] = useState<{ id: number | null } | null>(null)
   const [prodottoForm, setProdottoForm] = useState<ProdottoForm>(prodottoVuoto('semente'))
   const [caricoAperto, setCaricoAperto] = useState(false)
-  const [caricoForm, setCaricoForm] = useState<CaricoForm>({ codice: '', data_carico: oggiIso(), scadenza: '', quantita: '', note: '' })
+  const [caricoForm, setCaricoForm] = useState<CaricoForm>({
+    codice: '',
+    data_carico: oggiIso(),
+    scadenza: '',
+    quantita: '',
+    note: ''
+  })
   const [lottoDialog, setLottoDialog] = useState<Lotto | null>(null)
-  const [lottoForm, setLottoForm] = useState<LottoForm>({ codice: '', scadenza: '', residuo: '', note: '' })
+  const [lottoForm, setLottoForm] = useState<LottoForm>({
+    codice: '',
+    scadenza: '',
+    residuo: '',
+    note: ''
+  })
   const [erroreDialog, setErroreDialog] = useState<string | null>(null)
   const [salvataggio, setSalvataggio] = useState(false)
-  const [conferma, setConferma] = useState<{ tipo: 'prodotto'; p: Prodotto } | { tipo: 'lotto'; l: Lotto } | null>(null)
+  const [conferma, setConferma] = useState<
+    { tipo: 'prodotto'; p: Prodotto } | { tipo: 'lotto'; l: Lotto } | null
+  >(null)
   const [erroreConferma, setErroreConferma] = useState<string | null>(null)
 
   const caricaProdotti = useCallback(async () => {
     try {
-      const lista = (await window.api.mp.lista()).filter((m) => isCategoriaInputAgricolo(m.categoria))
+      const lista = (await window.api.mp.lista()).filter((m) =>
+        isCategoriaInputAgricolo(m.categoria)
+      )
       setProdotti(lista)
-      setSelezionatoId((att) => (att !== null && lista.some((p) => p.id === att) ? att : (lista[0]?.id ?? null)))
+      setSelezionatoId((att) =>
+        att !== null && lista.some((p) => p.id === att) ? att : (lista[0]?.id ?? null)
+      )
     } catch (e) {
       setErrore(messaggioErrore(e, 'Impossibile caricare il magazzino'))
     } finally {
@@ -152,7 +175,9 @@ export default function InputAgricoli(): React.JSX.Element {
       p
         ? {
             nome: p.nome,
-            categoria: (isCategoriaInputAgricolo(p.categoria) ? p.categoria : 'input_altro') as CategoriaInputAgricolo,
+            categoria: (isCategoriaInputAgricolo(p.categoria)
+              ? p.categoria
+              : 'input_altro') as CategoriaInputAgricolo,
             unita: p.unita_misura,
             fornitore: p.fornitore_preferito ?? '',
             soglia: numeroInInput(p.soglia_riordino_fissa),
@@ -226,9 +251,11 @@ export default function InputAgricoli(): React.JSX.Element {
   const salvaCarico = async (): Promise<void> => {
     if (!selezionato) return
     const q = parseNumero(caricoForm.quantita)
-    if (!caricoForm.codice.trim()) return setErroreDialog('Il codice lotto è obbligatorio (quello scritto sulla confezione).')
+    if (!caricoForm.codice.trim())
+      return setErroreDialog('Il codice lotto è obbligatorio (quello scritto sulla confezione).')
     if (!caricoForm.data_carico) return setErroreDialog('La data di carico è obbligatoria.')
-    if (q === null || Number.isNaN(q) || q <= 0) return setErroreDialog('Inserisci una quantità maggiore di zero.')
+    if (q === null || Number.isNaN(q) || q <= 0)
+      return setErroreDialog('Inserisci una quantità maggiore di zero.')
     setSalvataggio(true)
     setErroreDialog(null)
     try {
@@ -265,7 +292,8 @@ export default function InputAgricoli(): React.JSX.Element {
     if (!lottoDialog) return
     const r = parseNumero(lottoForm.residuo)
     if (!lottoForm.codice.trim()) return setErroreDialog('Il codice lotto è obbligatorio.')
-    if (r === null || Number.isNaN(r) || r < 0) return setErroreDialog('Quantità residua non valida.')
+    if (r === null || Number.isNaN(r) || r < 0)
+      return setErroreDialog('Quantità residua non valida.')
     setSalvataggio(true)
     setErroreDialog(null)
     try {
@@ -339,11 +367,14 @@ export default function InputAgricoli(): React.JSX.Element {
         <div className="grid grid-cols-1 gap-4 [&>*]:min-w-0 xl:grid-cols-[minmax(260px,1fr)_1.6fr]">
           <div className={cn(cls.pannello, 'self-start')}>
             {visibili.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-muted-foreground">Nessun prodotto in questa categoria.</p>
+              <p className="px-4 py-6 text-center text-sm text-muted-foreground">
+                Nessun prodotto in questa categoria.
+              </p>
             ) : (
               <ul className="divide-y divide-border/60">
                 {visibili.map((p) => {
-                  const sottoSoglia = p.soglia_riordino_fissa !== null && p.giacenza_totale <= p.soglia_riordino_fissa
+                  const sottoSoglia =
+                    p.soglia_riordino_fissa !== null && p.giacenza_totale <= p.soglia_riordino_fissa
                   return (
                     <li key={p.id}>
                       <button
@@ -355,15 +386,27 @@ export default function InputAgricoli(): React.JSX.Element {
                         )}
                       >
                         <div className="min-w-0">
-                          <p className={cn('truncate text-sm font-medium', p.id === selezionatoId ? 'text-amber-400' : 'text-foreground')}>
+                          <p
+                            className={cn(
+                              'truncate text-sm font-medium',
+                              p.id === selezionatoId ? 'text-amber-400' : 'text-foreground'
+                            )}
+                          >
                             {p.nome}
                           </p>
                           <div className="mt-1">
-                            <BadgeTono tono={tonoCategoria(p.categoria)}>{etichettaCategoria(p.categoria)}</BadgeTono>
+                            <BadgeTono tono={tonoCategoria(p.categoria)}>
+                              {etichettaCategoria(p.categoria)}
+                            </BadgeTono>
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className={cn('text-sm tabular-nums', sottoSoglia ? 'text-red-400' : 'text-foreground')}>
+                          <p
+                            className={cn(
+                              'text-sm tabular-nums',
+                              sottoSoglia ? 'text-red-400' : 'text-foreground'
+                            )}
+                          >
                             {fmtQta(p.giacenza_totale, p.unita_misura)}
                           </p>
                           {sottoSoglia && <p className="text-[11px] text-red-400">sotto soglia</p>}
@@ -386,7 +429,9 @@ export default function InputAgricoli(): React.JSX.Element {
                     <div>
                       <h4 className="text-xl font-semibold text-foreground">{selezionato.nome}</h4>
                       <div className="mt-1">
-                        <BadgeTono tono={tonoCategoria(selezionato.categoria)}>{etichettaCategoria(selezionato.categoria)}</BadgeTono>
+                        <BadgeTono tono={tonoCategoria(selezionato.categoria)}>
+                          {etichettaCategoria(selezionato.categoria)}
+                        </BadgeTono>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -406,22 +451,36 @@ export default function InputAgricoli(): React.JSX.Element {
                     </div>
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                    <Valore etichetta="Giacenza">{fmtQta(selezionato.giacenza_totale, selezionato.unita_misura)}</Valore>
-                    <Valore etichetta="Fornitore abituale">{selezionato.fornitore_preferito || '—'}</Valore>
+                    <Valore etichetta="Giacenza">
+                      {fmtQta(selezionato.giacenza_totale, selezionato.unita_misura)}
+                    </Valore>
+                    <Valore etichetta="Fornitore abituale">
+                      {selezionato.fornitore_preferito || '—'}
+                    </Valore>
                     <Valore etichetta="Soglia di riordino">
-                      {selezionato.soglia_riordino_fissa !== null ? fmtQta(selezionato.soglia_riordino_fissa, unitaSel) : '—'}
+                      {selezionato.soglia_riordino_fissa !== null
+                        ? fmtQta(selezionato.soglia_riordino_fissa, unitaSel)
+                        : '—'}
                     </Valore>
                     {selezionato.categoria === 'fitofarmaco' && (
                       <>
-                        <Valore etichetta="N. registrazione">{selezionato.numero_registrazione || '—'}</Valore>
-                        <Valore etichetta="Principio attivo">{selezionato.principio_attivo || '—'}</Valore>
+                        <Valore etichetta="N. registrazione">
+                          {selezionato.numero_registrazione || '—'}
+                        </Valore>
+                        <Valore etichetta="Principio attivo">
+                          {selezionato.principio_attivo || '—'}
+                        </Valore>
                         <Valore etichetta="Tempo di carenza">
-                          {selezionato.tempo_carenza_giorni !== null ? `${selezionato.tempo_carenza_giorni} giorni` : '—'}
+                          {selezionato.tempo_carenza_giorni !== null
+                            ? `${selezionato.tempo_carenza_giorni} giorni`
+                            : '—'}
                         </Valore>
                       </>
                     )}
                   </div>
-                  {selezionato.note && <p className="mt-3 text-sm text-muted-foreground">{selezionato.note}</p>}
+                  {selezionato.note && (
+                    <p className="mt-3 text-sm text-muted-foreground">{selezionato.note}</p>
+                  )}
                 </div>
 
                 <div className={cls.pannello}>
@@ -455,16 +514,33 @@ export default function InputAgricoli(): React.JSX.Element {
                               <tr key={l.id} className={cn(cls.riga, finito && 'opacity-55')}>
                                 <td className={cls.td}>
                                   {l.lotto_fornitore || '—'}
-                                  {l.note && <div className="text-xs text-muted-foreground">{l.note}</div>}
+                                  {l.note && (
+                                    <div className="text-xs text-muted-foreground">{l.note}</div>
+                                  )}
                                 </td>
-                                <td className={cn(cls.td, 'tabular-nums')}>{fmtData(l.data_carico)}</td>
-                                <td className={cn(cls.td, 'tabular-nums')}>{fmtData(l.data_scadenza)}</td>
-                                <td className={cn(cls.td, 'text-right tabular-nums')}>{fmtQta(l.quantita_iniziale, unitaSel)}</td>
+                                <td className={cn(cls.td, 'tabular-nums')}>
+                                  {fmtData(l.data_carico)}
+                                </td>
+                                <td className={cn(cls.td, 'tabular-nums')}>
+                                  {fmtData(l.data_scadenza)}
+                                </td>
                                 <td className={cn(cls.td, 'text-right tabular-nums')}>
-                                  {finito ? <span className="text-muted-foreground">esaurito</span> : fmtQta(l.quantita_residua, unitaSel)}
+                                  {fmtQta(l.quantita_iniziale, unitaSel)}
+                                </td>
+                                <td className={cn(cls.td, 'text-right tabular-nums')}>
+                                  {finito ? (
+                                    <span className="text-muted-foreground">esaurito</span>
+                                  ) : (
+                                    fmtQta(l.quantita_residua, unitaSel)
+                                  )}
                                 </td>
                                 <td className={cn(cls.td, 'whitespace-nowrap text-right')}>
-                                  <Button variant="ghost" size="sm" title="Modifica lotto" onClick={() => apriLotto(l)}>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Modifica lotto"
+                                    onClick={() => apriLotto(l)}
+                                  >
                                     <Pencil className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button
@@ -494,11 +570,19 @@ export default function InputAgricoli(): React.JSX.Element {
       )}
 
       {/* Dialog prodotto */}
-      <Dialog open={prodottoDialog !== null} onOpenChange={(o) => (!o ? setProdottoDialog(null) : undefined)}>
-        <DialogContent className={cn('max-w-lg', cls.dialogLungo)} onOpenAutoFocus={(e) => e.preventDefault()}>
+      <Dialog
+        open={prodottoDialog !== null}
+        onOpenChange={(o) => (!o ? setProdottoDialog(null) : undefined)}
+      >
+        <DialogContent
+          className={cn('max-w-lg', cls.dialogLungo)}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{prodottoDialog?.id ? 'Modifica prodotto' : 'Nuovo prodotto'}</DialogTitle>
-            <DialogDescription>Un prodotto che usi in campo e che tieni a magazzino.</DialogDescription>
+            <DialogDescription>
+              Un prodotto che usi in campo e che tieni a magazzino.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
             <CampoForm etichetta="Nome" htmlFor="inp-nome" obbligatorio>
@@ -552,16 +636,24 @@ export default function InputAgricoli(): React.JSX.Element {
             </div>
             {prodottoForm.categoria === 'fitofarmaco' && (
               <div className="grid gap-3 rounded-md border border-red-500/20 bg-red-500/5 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-red-300">Dati del fitofarmaco</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-red-300">
+                  Dati del fitofarmaco
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <CampoForm etichetta="N. registrazione" htmlFor="inp-reg">
                     <Input
                       id="inp-reg"
                       value={prodottoForm.numero_registrazione}
-                      onChange={(e) => setProdottoForm((p) => ({ ...p, numero_registrazione: e.target.value }))}
+                      onChange={(e) =>
+                        setProdottoForm((p) => ({ ...p, numero_registrazione: e.target.value }))
+                      }
                     />
                   </CampoForm>
-                  <CampoForm etichetta="Tempo di carenza" htmlFor="inp-car" aiuto="Giorni tra trattamento e raccolta.">
+                  <CampoForm
+                    etichetta="Tempo di carenza"
+                    htmlFor="inp-car"
+                    aiuto="Giorni tra trattamento e raccolta."
+                  >
                     <InputNumero
                       id="inp-car"
                       valore={prodottoForm.carenza}
@@ -574,7 +666,9 @@ export default function InputAgricoli(): React.JSX.Element {
                   <Input
                     id="inp-pa"
                     value={prodottoForm.principio_attivo}
-                    onChange={(e) => setProdottoForm((p) => ({ ...p, principio_attivo: e.target.value }))}
+                    onChange={(e) =>
+                      setProdottoForm((p) => ({ ...p, principio_attivo: e.target.value }))
+                    }
                   />
                 </CampoForm>
               </div>
@@ -587,7 +681,11 @@ export default function InputAgricoli(): React.JSX.Element {
                   onChange={(e) => setProdottoForm((p) => ({ ...p, fornitore: e.target.value }))}
                 />
               </CampoForm>
-              <CampoForm etichetta="Soglia di riordino" htmlFor="inp-soglia" aiuto="Facoltativa: avviso quando scende sotto.">
+              <CampoForm
+                etichetta="Soglia di riordino"
+                htmlFor="inp-soglia"
+                aiuto="Facoltativa: avviso quando scende sotto."
+              >
                 <InputNumero
                   id="inp-soglia"
                   valore={prodottoForm.soglia}
@@ -607,7 +705,11 @@ export default function InputAgricoli(): React.JSX.Element {
             <ErroreBox messaggio={erroreDialog} />
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setProdottoDialog(null)} disabled={salvataggio}>
+            <Button
+              variant="outline"
+              onClick={() => setProdottoDialog(null)}
+              disabled={salvataggio}
+            >
               Annulla
             </Button>
             <Button onClick={() => void salvaProdotto()} disabled={salvataggio}>
@@ -625,22 +727,51 @@ export default function InputAgricoli(): React.JSX.Element {
             <DialogDescription>{selezionato?.nome}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
-            <CampoForm etichetta="Codice lotto" htmlFor="car-cod" obbligatorio aiuto="Quello scritto sulla confezione o sul documento di consegna.">
-              <Input id="car-cod" value={caricoForm.codice} onChange={(e) => setCaricoForm((p) => ({ ...p, codice: e.target.value }))} />
+            <CampoForm
+              etichetta="Codice lotto"
+              htmlFor="car-cod"
+              obbligatorio
+              aiuto="Quello scritto sulla confezione o sul documento di consegna."
+            >
+              <Input
+                id="car-cod"
+                value={caricoForm.codice}
+                onChange={(e) => setCaricoForm((p) => ({ ...p, codice: e.target.value }))}
+              />
             </CampoForm>
             <CampoForm etichetta="Quantità" htmlFor="car-q" obbligatorio>
-              <InputNumero id="car-q" valore={caricoForm.quantita} unita={unitaSel} onChange={(v) => setCaricoForm((p) => ({ ...p, quantita: v }))} />
+              <InputNumero
+                id="car-q"
+                valore={caricoForm.quantita}
+                unita={unitaSel}
+                onChange={(v) => setCaricoForm((p) => ({ ...p, quantita: v }))}
+              />
             </CampoForm>
             <div className="grid gap-3 sm:grid-cols-2">
               <CampoForm etichetta="Data di carico" htmlFor="car-data" obbligatorio>
-                <Input id="car-data" type="date" value={caricoForm.data_carico} onChange={(e) => setCaricoForm((p) => ({ ...p, data_carico: e.target.value }))} />
+                <Input
+                  id="car-data"
+                  type="date"
+                  value={caricoForm.data_carico}
+                  onChange={(e) => setCaricoForm((p) => ({ ...p, data_carico: e.target.value }))}
+                />
               </CampoForm>
               <CampoForm etichetta="Scadenza" htmlFor="car-scad" aiuto="Se prevista.">
-                <Input id="car-scad" type="date" value={caricoForm.scadenza} onChange={(e) => setCaricoForm((p) => ({ ...p, scadenza: e.target.value }))} />
+                <Input
+                  id="car-scad"
+                  type="date"
+                  value={caricoForm.scadenza}
+                  onChange={(e) => setCaricoForm((p) => ({ ...p, scadenza: e.target.value }))}
+                />
               </CampoForm>
             </div>
             <CampoForm etichetta="Note" htmlFor="car-note">
-              <Input id="car-note" value={caricoForm.note} placeholder="es. fornitore, documento di trasporto" onChange={(e) => setCaricoForm((p) => ({ ...p, note: e.target.value }))} />
+              <Input
+                id="car-note"
+                value={caricoForm.note}
+                placeholder="es. fornitore, documento di trasporto"
+                onChange={(e) => setCaricoForm((p) => ({ ...p, note: e.target.value }))}
+              />
             </CampoForm>
             <ErroreBox messaggio={erroreDialog} />
           </div>
@@ -656,29 +787,51 @@ export default function InputAgricoli(): React.JSX.Element {
       </Dialog>
 
       {/* Dialog modifica lotto */}
-      <Dialog open={lottoDialog !== null} onOpenChange={(o) => (!o ? setLottoDialog(null) : undefined)}>
+      <Dialog
+        open={lottoDialog !== null}
+        onOpenChange={(o) => (!o ? setLottoDialog(null) : undefined)}
+      >
         <DialogContent className="max-w-md" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Modifica lotto</DialogTitle>
             <DialogDescription>
-              Iniziale {fmtNum(lottoDialog?.quantita_iniziale)} {unitaSel}. Correggi la giacenza solo per allinearla a un
-              inventario: gli scarichi di semine e operazioni sono automatici.
+              Iniziale {fmtNum(lottoDialog?.quantita_iniziale)} {unitaSel}. Correggi la giacenza
+              solo per allinearla a un inventario: gli scarichi di semine e operazioni sono
+              automatici.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3">
             <CampoForm etichetta="Codice lotto" htmlFor="lot-cod" obbligatorio>
-              <Input id="lot-cod" value={lottoForm.codice} onChange={(e) => setLottoForm((p) => ({ ...p, codice: e.target.value }))} />
+              <Input
+                id="lot-cod"
+                value={lottoForm.codice}
+                onChange={(e) => setLottoForm((p) => ({ ...p, codice: e.target.value }))}
+              />
             </CampoForm>
             <div className="grid gap-3 sm:grid-cols-2">
               <CampoForm etichetta="Quantità residua" htmlFor="lot-res" obbligatorio>
-                <InputNumero id="lot-res" valore={lottoForm.residuo} unita={unitaSel} onChange={(v) => setLottoForm((p) => ({ ...p, residuo: v }))} />
+                <InputNumero
+                  id="lot-res"
+                  valore={lottoForm.residuo}
+                  unita={unitaSel}
+                  onChange={(v) => setLottoForm((p) => ({ ...p, residuo: v }))}
+                />
               </CampoForm>
               <CampoForm etichetta="Scadenza" htmlFor="lot-scad">
-                <Input id="lot-scad" type="date" value={lottoForm.scadenza} onChange={(e) => setLottoForm((p) => ({ ...p, scadenza: e.target.value }))} />
+                <Input
+                  id="lot-scad"
+                  type="date"
+                  value={lottoForm.scadenza}
+                  onChange={(e) => setLottoForm((p) => ({ ...p, scadenza: e.target.value }))}
+                />
               </CampoForm>
             </div>
             <CampoForm etichetta="Note" htmlFor="lot-note">
-              <Input id="lot-note" value={lottoForm.note} onChange={(e) => setLottoForm((p) => ({ ...p, note: e.target.value }))} />
+              <Input
+                id="lot-note"
+                value={lottoForm.note}
+                onChange={(e) => setLottoForm((p) => ({ ...p, note: e.target.value }))}
+              />
             </CampoForm>
             <ErroreBox messaggio={erroreDialog} />
           </div>

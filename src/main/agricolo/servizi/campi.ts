@@ -1,5 +1,11 @@
 import type BetterSqlite3 from 'better-sqlite3'
-import type { CampoPayload, CampoRiga, Coltura, SeminaPayload, SeminaRiga } from '../../../shared/agricolo'
+import type {
+  CampoPayload,
+  CampoRiga,
+  Coltura,
+  SeminaPayload,
+  SeminaRiga
+} from '../../../shared/agricolo'
 import { ErroreUtente } from '../errori'
 import { annullaConsumi, consumiDi, registraConsumi, scaricaPerMateria } from './magazzino'
 import {
@@ -35,7 +41,13 @@ export function salvaCampo(db: Db, id: number | null, p: CampoPayload): number {
     .prepare(`SELECT id FROM agri_campi WHERE nome = ? COLLATE NOCASE AND id IS NOT ?`)
     .get(nome, id) as { id: number } | undefined
   if (doppio) throw new ErroreUtente(`Esiste già un campo chiamato "${nome}".`)
-  const valori = [nome, superficie, testoOpzionale(p.localita), testoOpzionale(p.rif_catastale), testoOpzionale(p.note)]
+  const valori = [
+    nome,
+    superficie,
+    testoOpzionale(p.localita),
+    testoOpzionale(p.rif_catastale),
+    testoOpzionale(p.note)
+  ]
   if (id === null) {
     return Number(
       db
@@ -56,14 +68,15 @@ export function salvaCampo(db: Db, id: number | null, p: CampoPayload): number {
 }
 
 export function archiviaCampo(db: Db, id: number, attivo: boolean): void {
-  db.prepare(`UPDATE agri_campi SET attivo = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`).run(
-    attivo ? 1 : 0,
-    id
-  )
+  db.prepare(
+    `UPDATE agri_campi SET attivo = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(attivo ? 1 : 0, id)
 }
 
 export function eliminaCampo(db: Db, id: number): void {
-  const n = (db.prepare(`SELECT COUNT(*) AS c FROM agri_semine WHERE campo_id = ?`).get(id) as { c: number }).c
+  const n = (
+    db.prepare(`SELECT COUNT(*) AS c FROM agri_semine WHERE campo_id = ?`).get(id) as { c: number }
+  ).c
   if (n > 0) {
     throw new ErroreUtente(
       'Il campo ha semine registrate: non si può eliminare (perderesti la tracciabilità). Puoi archiviarlo.'
@@ -110,7 +123,16 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
   const coltura = colturaValida(p.coltura)
   const data = dataObbligatoria(p.data, 'Data di semina')
   const superficie = numeroOpzionale(p.superficie_ha, 'Superficie seminata', { min: 0 })
-  const valori = [campoId, stagione, coltura, testoOpzionale(p.varieta), data, superficie, testoOpzionale(p.semente_testo), testoOpzionale(p.note)]
+  const valori = [
+    campoId,
+    stagione,
+    coltura,
+    testoOpzionale(p.varieta),
+    data,
+    superficie,
+    testoOpzionale(p.semente_testo),
+    testoOpzionale(p.note)
+  ]
 
   let semente: { materia_prima_id: number; quantita: number; lotto_id: number | null } | null = null
   if (p.semente) {
@@ -119,7 +141,9 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
       | { categoria: string }
       | undefined
     if (!mp || mp.categoria !== 'semente') {
-      throw new ErroreUtente('La semente dal magazzino deve essere un prodotto della categoria "Semente".')
+      throw new ErroreUtente(
+        'La semente dal magazzino deve essere un prodotto della categoria "Semente".'
+      )
     }
     semente = {
       materia_prima_id: mpId,
@@ -131,7 +155,12 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
   const applicaSemente = (seminaId: number): void => {
     annullaConsumi(db, 'semina', seminaId)
     if (semente) {
-      const righe = scaricaPerMateria(db, semente.materia_prima_id, semente.quantita, semente.lotto_id)
+      const righe = scaricaPerMateria(
+        db,
+        semente.materia_prima_id,
+        semente.quantita,
+        semente.lotto_id
+      )
       registraConsumi(db, 'semina', seminaId, semente.materia_prima_id, righe)
     }
   }
@@ -156,11 +185,15 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
     if (attuale.coltura !== coltura) {
       const raccolte = (
         db
-          .prepare(`SELECT COUNT(*) AS c FROM agri_lavorazioni WHERE tipo = 'raccolta' AND semina_id = ?`)
+          .prepare(
+            `SELECT COUNT(*) AS c FROM agri_lavorazioni WHERE tipo = 'raccolta' AND semina_id = ?`
+          )
           .get(id) as { c: number }
       ).c
       if (raccolte > 0) {
-        throw new ErroreUtente('Questa semina ha già delle raccolte: non puoi cambiarne la coltura.')
+        throw new ErroreUtente(
+          'Questa semina ha già delle raccolte: non puoi cambiarne la coltura.'
+        )
       }
     }
     db.prepare(
@@ -174,9 +207,17 @@ export function salvaSemina(db: Db, id: number | null, p: SeminaPayload): number
 }
 
 export function eliminaSemina(db: Db, id: number): void {
-  const operazioni = (db.prepare(`SELECT COUNT(*) AS c FROM agri_operazioni WHERE semina_id = ?`).get(id) as { c: number }).c
+  const operazioni = (
+    db.prepare(`SELECT COUNT(*) AS c FROM agri_operazioni WHERE semina_id = ?`).get(id) as {
+      c: number
+    }
+  ).c
   const raccolte = (
-    db.prepare(`SELECT COUNT(*) AS c FROM agri_lavorazioni WHERE tipo = 'raccolta' AND semina_id = ?`).get(id) as {
+    db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM agri_lavorazioni WHERE tipo = 'raccolta' AND semina_id = ?`
+      )
+      .get(id) as {
       c: number
     }
   ).c

@@ -23,7 +23,13 @@ export function generaAvvisiCarenza(db: Db): void {
        JOIN agri_campi c ON c.id = s.campo_id
        WHERE lv.tipo = 'raccolta' AND lv.stagione = ?`
     )
-    .all(stagioneCorrente(db)) as Array<{ id: number; codice: string | null; data_inizio: string; semina_id: number; campo: string }>
+    .all(stagioneCorrente(db)) as Array<{
+    id: number
+    codice: string | null
+    data_inizio: string
+    semina_id: number
+    campo: string
+  }>
   const ins = db.prepare(
     `INSERT INTO avvisi (tipo, riferimento_tabella, riferimento_id, messaggio, data_generazione, letto, risolto, priorita)
      VALUES ('carenza_raccolta', 'agri_lavorazioni', ?, ?, CURRENT_TIMESTAMP, 0, 0, 'alta')`

@@ -48,9 +48,21 @@ import {
   type SeminaRiga
 } from '@/lib/agricolo'
 
-type CampoForm = { nome: string; superficie: string; localita: string; rif_catastale: string; note: string }
+type CampoForm = {
+  nome: string
+  superficie: string
+  localita: string
+  rif_catastale: string
+  note: string
+}
 
-const campoVuoto: CampoForm = { nome: '', superficie: '', localita: '', rif_catastale: '', note: '' }
+const campoVuoto: CampoForm = {
+  nome: '',
+  superficie: '',
+  localita: '',
+  rif_catastale: '',
+  note: ''
+}
 
 type SeminaForm = {
   campo_id: string
@@ -79,7 +91,11 @@ const COLTURE: Array<{ valore: Coltura; etichetta: string }> = [
 ]
 
 export function BadgeColtura({ coltura }: { coltura: Coltura }): React.JSX.Element {
-  return coltura === 'orzo' ? <BadgeTono tono="ambra">Orzo</BadgeTono> : <BadgeTono tono="verde">Luppolo</BadgeTono>
+  return coltura === 'orzo' ? (
+    <BadgeTono tono="ambra">Orzo</BadgeTono>
+  ) : (
+    <BadgeTono tono="verde">Luppolo</BadgeTono>
+  )
 }
 
 export default function Campi(): React.JSX.Element {
@@ -127,7 +143,9 @@ export default function Campi(): React.JSX.Element {
       return
     }
     try {
-      setSemine(await window.api.agri.semineLista({ campo_id: selezionatoId, stagione: stagione || null }))
+      setSemine(
+        await window.api.agri.semineLista({ campo_id: selezionatoId, stagione: stagione || null })
+      )
     } catch (e) {
       setErrore(messaggioErrore(e, 'Impossibile caricare le semine'))
     }
@@ -286,7 +304,8 @@ export default function Campi(): React.JSX.Element {
         data: seminaForm.data,
         superficie_ha: superficie,
         semente_testo: seminaForm.fonte_semente === 'testo' ? seminaForm.semente_testo : null,
-        semente: seminaForm.fonte_semente === 'magazzino' ? prodottoInPayload(seminaForm.semente) : null,
+        semente:
+          seminaForm.fonte_semente === 'magazzino' ? prodottoInPayload(seminaForm.semente) : null,
         note: seminaForm.note
       })
       const err = erroreDa(r)
@@ -394,11 +413,19 @@ export default function Campi(): React.JSX.Element {
                     )}
                   >
                     <div className="min-w-0">
-                      <p className={cn('truncate text-sm font-medium', c.id === selezionatoId ? 'text-amber-400' : 'text-foreground')}>
+                      <p
+                        className={cn(
+                          'truncate text-sm font-medium',
+                          c.id === selezionatoId ? 'text-amber-400' : 'text-foreground'
+                        )}
+                      >
                         {c.nome}
                       </p>
                       <p className="truncate text-xs text-muted-foreground">
-                        {[c.superficie_ha !== null ? `${fmtNum(c.superficie_ha)} ha` : null, c.localita]
+                        {[
+                          c.superficie_ha !== null ? `${fmtNum(c.superficie_ha)} ha` : null,
+                          c.localita
+                        ]
                           .filter(Boolean)
                           .join(' · ') || 'Nessun dettaglio'}
                       </p>
@@ -422,7 +449,11 @@ export default function Campi(): React.JSX.Element {
 
           <div className="space-y-4">
             {!selezionato ? (
-              <StatoVuoto icona={Sprout} titolo="Seleziona un campo" testo="Scegli un campo a sinistra per vederne le semine." />
+              <StatoVuoto
+                icona={Sprout}
+                titolo="Seleziona un campo"
+                testo="Scegli un campo a sinistra per vederne le semine."
+              />
             ) : (
               <>
                 <div className={cn(cls.pannello, 'p-5')}>
@@ -440,11 +471,19 @@ export default function Campi(): React.JSX.Element {
                         <Pencil className="mr-1.5 h-3.5 w-3.5" /> Modifica
                       </Button>
                       {selezionato.attivo === 1 ? (
-                        <Button variant="outline" size="sm" onClick={() => void archivia(selezionato, false)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void archivia(selezionato, false)}
+                        >
                           <Archive className="mr-1.5 h-3.5 w-3.5" /> Archivia
                         </Button>
                       ) : (
-                        <Button variant="outline" size="sm" onClick={() => void archivia(selezionato, true)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void archivia(selezionato, true)}
+                        >
                           <ArchiveRestore className="mr-1.5 h-3.5 w-3.5" /> Riattiva
                         </Button>
                       )}
@@ -464,12 +503,18 @@ export default function Campi(): React.JSX.Element {
                   </div>
                   <div className="mt-4 grid gap-4 sm:grid-cols-3">
                     <Valore etichetta="Superficie">
-                      {selezionato.superficie_ha !== null ? `${fmtNum(selezionato.superficie_ha)} ha` : '—'}
+                      {selezionato.superficie_ha !== null
+                        ? `${fmtNum(selezionato.superficie_ha)} ha`
+                        : '—'}
                     </Valore>
                     <Valore etichetta="Località">{selezionato.localita || '—'}</Valore>
-                    <Valore etichetta="Riferimento catastale">{selezionato.rif_catastale || '—'}</Valore>
+                    <Valore etichetta="Riferimento catastale">
+                      {selezionato.rif_catastale || '—'}
+                    </Valore>
                   </div>
-                  {selezionato.note && <p className="mt-3 text-sm text-muted-foreground">{selezionato.note}</p>}
+                  {selezionato.note && (
+                    <p className="mt-3 text-sm text-muted-foreground">{selezionato.note}</p>
+                  )}
                 </div>
 
                 <div className={cls.pannello}>
@@ -477,13 +522,18 @@ export default function Campi(): React.JSX.Element {
                     <h4 className="text-sm font-semibold text-foreground">
                       Semine {stagione ? `· stagione ${stagione}` : '· tutte le stagioni'}
                     </h4>
-                    <Button size="sm" onClick={() => apriSemina(null)} disabled={selezionato.attivo !== 1}>
+                    <Button
+                      size="sm"
+                      onClick={() => apriSemina(null)}
+                      disabled={selezionato.attivo !== 1}
+                    >
                       <Plus className="mr-1.5 h-4 w-4" /> Nuova semina
                     </Button>
                   </div>
                   {semine.length === 0 ? (
                     <p className="px-4 py-6 text-center text-sm text-muted-foreground">
-                      Nessuna semina {stagione ? 'in questa stagione' : 'registrata'} su questo campo.
+                      Nessuna semina {stagione ? 'in questa stagione' : 'registrata'} su questo
+                      campo.
                     </p>
                   ) : (
                     <div className="overflow-x-auto">
@@ -505,7 +555,11 @@ export default function Campi(): React.JSX.Element {
                               <tr key={s.id} className={cls.riga}>
                                 <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>
                                   {fmtData(s.data)}
-                                  {!stagione && <div className="text-xs text-muted-foreground">{s.stagione}</div>}
+                                  {!stagione && (
+                                    <div className="text-xs text-muted-foreground">
+                                      {s.stagione}
+                                    </div>
+                                  )}
                                 </td>
                                 <td className={cls.td}>
                                   <div className="flex flex-wrap items-center gap-2">
@@ -513,29 +567,52 @@ export default function Campi(): React.JSX.Element {
                                     <span>{s.varieta || ''}</span>
                                   </div>
                                 </td>
-                                <td className={cn(cls.td, 'whitespace-nowrap text-right tabular-nums')}>
+                                <td
+                                  className={cn(
+                                    cls.td,
+                                    'whitespace-nowrap text-right tabular-nums'
+                                  )}
+                                >
                                   {s.superficie_ha !== null ? `${fmtNum(s.superficie_ha)} ha` : '—'}
                                 </td>
                                 <td className={cn(cls.td, 'max-w-[220px]')}>
                                   {s.semente.length > 0 ? (
                                     s.semente.map((l) => (
-                                      <div key={l.lotto_id} className="truncate" title={l.materia_prima_nome}>
-                                        Lotto {l.lotto_codice || '—'} · {fmtQta(l.quantita, l.unita_misura)}
+                                      <div
+                                        key={l.lotto_id}
+                                        className="truncate"
+                                        title={l.materia_prima_nome}
+                                      >
+                                        Lotto {l.lotto_codice || '—'} ·{' '}
+                                        {fmtQta(l.quantita, l.unita_misura)}
                                       </div>
                                     ))
                                   ) : (
-                                    <div className="truncate text-muted-foreground" title={s.semente_testo ?? undefined}>
+                                    <div
+                                      className="truncate text-muted-foreground"
+                                      title={s.semente_testo ?? undefined}
+                                    >
                                       {s.semente_testo || '—'}
                                     </div>
                                   )}
                                 </td>
-                                <td className={cn(cls.td, 'whitespace-nowrap text-xs text-muted-foreground')}>
+                                <td
+                                  className={cn(
+                                    cls.td,
+                                    'whitespace-nowrap text-xs text-muted-foreground'
+                                  )}
+                                >
                                   {s.operazioni} {s.operazioni === 1 ? 'operazione' : 'operazioni'}
                                   <br />
                                   {s.raccolte} {s.raccolte === 1 ? 'raccolta' : 'raccolte'}
                                 </td>
                                 <td className={cn(cls.td, 'whitespace-nowrap text-right')}>
-                                  <Button variant="ghost" size="sm" title="Modifica semina" onClick={() => apriSemina(s)}>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Modifica semina"
+                                    onClick={() => apriSemina(s)}
+                                  >
                                     <Pencil className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button
@@ -570,8 +647,14 @@ export default function Campi(): React.JSX.Element {
       )}
 
       {/* Dialog campo */}
-      <Dialog open={campoDialog !== null} onOpenChange={(o) => (!o ? setCampoDialog(null) : undefined)}>
-        <DialogContent className={cn('max-w-lg', cls.dialogLungo)} onOpenAutoFocus={(e) => e.preventDefault()}>
+      <Dialog
+        open={campoDialog !== null}
+        onOpenChange={(o) => (!o ? setCampoDialog(null) : undefined)}
+      >
+        <DialogContent
+          className={cn('max-w-lg', cls.dialogLungo)}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{campoDialog?.id ? 'Modifica campo' : 'Nuovo campo'}</DialogTitle>
             <DialogDescription>Un appezzamento della tua azienda agricola.</DialogDescription>
@@ -602,7 +685,11 @@ export default function Campi(): React.JSX.Element {
                 />
               </CampoForm>
             </div>
-            <CampoForm etichetta="Riferimento catastale" htmlFor="campo-cat" aiuto="Testo libero, es. Foglio 12, particella 34.">
+            <CampoForm
+              etichetta="Riferimento catastale"
+              htmlFor="campo-cat"
+              aiuto="Testo libero, es. Foglio 12, particella 34."
+            >
               <Input
                 id="campo-cat"
                 value={campoForm.rif_catastale}
@@ -631,8 +718,14 @@ export default function Campi(): React.JSX.Element {
       </Dialog>
 
       {/* Dialog semina */}
-      <Dialog open={seminaDialog !== null} onOpenChange={(o) => (!o ? setSeminaDialog(null) : undefined)}>
-        <DialogContent className={cn('max-w-lg', cls.dialogLungo)} onOpenAutoFocus={(e) => e.preventDefault()}>
+      <Dialog
+        open={seminaDialog !== null}
+        onOpenChange={(o) => (!o ? setSeminaDialog(null) : undefined)}
+      >
+        <DialogContent
+          className={cn('max-w-lg', cls.dialogLungo)}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>{seminaDialog?.id ? 'Modifica semina' : 'Nuova semina'}</DialogTitle>
             <DialogDescription>Cosa hai seminato, dove e quando.</DialogDescription>
@@ -656,14 +749,20 @@ export default function Campi(): React.JSX.Element {
                 </select>
               </CampoForm>
               <CampoForm etichetta="Coltura" obbligatorio>
-                <SceltaPulsanti opzioni={COLTURE} valore={seminaForm.coltura} onChange={(v) => aggiornaSemina({ coltura: v })} />
+                <SceltaPulsanti
+                  opzioni={COLTURE}
+                  valore={seminaForm.coltura}
+                  onChange={(v) => aggiornaSemina({ coltura: v })}
+                />
               </CampoForm>
               <div className="grid gap-3 sm:grid-cols-2">
                 <CampoForm etichetta="Varietà" htmlFor="semina-var">
                   <Input
                     id="semina-var"
                     value={seminaForm.varieta}
-                    placeholder={seminaForm.coltura === 'orzo' ? 'es. Concerto, Planet' : 'es. Cascade'}
+                    placeholder={
+                      seminaForm.coltura === 'orzo' ? 'es. Concerto, Planet' : 'es. Cascade'
+                    }
                     onChange={(e) => aggiornaSemina({ varieta: e.target.value })}
                   />
                 </CampoForm>
@@ -685,13 +784,20 @@ export default function Campi(): React.JSX.Element {
                     onChange={(v) => aggiornaSemina({ superficie: v })}
                   />
                 </CampoForm>
-                <CampoForm etichetta="Stagione" htmlFor="semina-stag" obbligatorio aiuto="Proposta in base alla data.">
+                <CampoForm
+                  etichetta="Stagione"
+                  htmlFor="semina-stag"
+                  obbligatorio
+                  aiuto="Proposta in base alla data."
+                >
                   <Input
                     id="semina-stag"
                     list="semina-stagioni"
                     value={seminaForm.stagione}
                     placeholder="2026/2027"
-                    onChange={(e) => aggiornaSemina({ stagione: e.target.value, stagioneToccata: true })}
+                    onChange={(e) =>
+                      aggiornaSemina({ stagione: e.target.value, stagioneToccata: true })
+                    }
                   />
                   <datalist id="semina-stagioni">
                     {agricolo.stagioni.map((s) => (

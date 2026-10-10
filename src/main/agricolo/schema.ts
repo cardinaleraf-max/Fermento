@@ -181,8 +181,17 @@ export const FRAZIONI_DEFAULT_SEED = [
   { nome: '>5 mm', scarto: false }
 ]
 
-type ParametroSeed = [nome: string, unita: string | null, tipo: 'numero' | 'testo' | 'scala' | 'si_no']
-type GruppoSeed = { fase: 'raccolta' | 'calibratura' | 'maltazione'; nome: string; con_data: boolean; parametri: ParametroSeed[] }
+type ParametroSeed = [
+  nome: string,
+  unita: string | null,
+  tipo: 'numero' | 'testo' | 'scala' | 'si_no'
+]
+type GruppoSeed = {
+  fase: 'raccolta' | 'calibratura' | 'maltazione'
+  nome: string
+  con_data: boolean
+  parametri: ParametroSeed[]
+}
 
 /** Replica il foglio di lavoro della malteria Marduk (integrazioni, punto 6). */
 const GRUPPI_SEED: GruppoSeed[] = [
@@ -277,7 +286,9 @@ export function aggiungiColonnaSeAssente(
   colonna: string,
   definizione: string
 ): boolean {
-  const presenti = database.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{ name: string }>
+  const presenti = database.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{
+    name: string
+  }>
   if (presenti.length === 0) return false // tabella inesistente: niente da fare
   if (presenti.some((c) => c.name === colonna)) return false
   database.exec(`ALTER TABLE ${tabella} ADD COLUMN ${colonna} ${definizione}`)
@@ -289,7 +300,13 @@ function seedConfigurazioni(database: BetterSqlite3.Database): void {
     `INSERT OR IGNORE INTO configurazioni (chiave, valore, tipo, etichetta, categoria) VALUES (?, ?, ?, ?, ?)`
   )
   ins.run('modulo_agricolo_attivo', '0', 'bool', 'Filiera agricola (campo → malto)', 'moduli')
-  ins.run('agri_stagione_corrente', stagioneDaData(oggiIso()), 'string', 'Stagione corrente', 'agricolo')
+  ins.run(
+    'agri_stagione_corrente',
+    stagioneDaData(oggiIso()),
+    'string',
+    'Stagione corrente',
+    'agricolo'
+  )
   ins.run(
     'agri_frazioni_default',
     JSON.stringify(FRAZIONI_DEFAULT_SEED),
@@ -297,8 +314,20 @@ function seedConfigurazioni(database: BetterSqlite3.Database): void {
     'Frazioni di calibratura predefinite',
     'agricolo'
   )
-  ins.run('agri_shelf_life_malto_mesi', '12', 'int', 'Scadenza proposta per il malto (mesi)', 'agricolo')
-  ins.run('agri_parametri_inizializzati', '0', 'bool', 'Parametri di fase predefiniti creati', 'agricolo')
+  ins.run(
+    'agri_shelf_life_malto_mesi',
+    '12',
+    'int',
+    'Scadenza proposta per il malto (mesi)',
+    'agricolo'
+  )
+  ins.run(
+    'agri_parametri_inizializzati',
+    '0',
+    'bool',
+    'Parametri di fase predefiniti creati',
+    'agricolo'
+  )
 }
 
 /** Crea i parametri predefiniti una sola volta (se l'utente poi li cancella, non tornano). */
@@ -318,7 +347,9 @@ function seedParametri(database: BetterSqlite3.Database): void {
   for (const g of GRUPPI_SEED) {
     const ordine = (ordinePerFase.get(g.fase) ?? 0) + 1
     ordinePerFase.set(g.fase, ordine)
-    const gruppoId = Number(insGruppo.run(g.fase, g.nome, ordine, g.con_data ? 1 : 0).lastInsertRowid)
+    const gruppoId = Number(
+      insGruppo.run(g.fase, g.nome, ordine, g.con_data ? 1 : 0).lastInsertRowid
+    )
     g.parametri.forEach(([nome, unita, tipo], i) => {
       insParam.run(gruppoId, nome, unita, tipo, i + 1)
     })

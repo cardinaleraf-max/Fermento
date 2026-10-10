@@ -9,7 +9,13 @@ type SwitchProps = {
 }
 
 /** Interruttore acceso/spento accessibile (role="switch"). */
-export function Switch({ checked, onCheckedChange, disabled, id, ...rest }: SwitchProps): React.JSX.Element {
+export function Switch({
+  checked,
+  onCheckedChange,
+  disabled,
+  id,
+  ...rest
+}: SwitchProps): React.JSX.Element {
   return (
     <button
       id={id}

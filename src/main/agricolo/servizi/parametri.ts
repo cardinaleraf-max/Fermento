@@ -32,7 +32,13 @@ export function configParametri(db: Db, fase: FaseLavorazione): GruppoParametri[
       `SELECT id, fase, nome, ordine, con_data FROM agri_gruppi_parametri
        WHERE fase = ? AND attivo = 1 ORDER BY ordine, id`
     )
-    .all(fase) as Array<{ id: number; fase: FaseLavorazione; nome: string; ordine: number; con_data: number }>
+    .all(fase) as Array<{
+    id: number
+    fase: FaseLavorazione
+    nome: string
+    ordine: number
+    con_data: number
+  }>
   const parametri = db
     .prepare(
       `SELECT p.id, p.gruppo_id, p.nome, p.unita, p.tipo, p.ordine FROM agri_parametri p
@@ -58,13 +64,19 @@ export function salvaGruppo(db: Db, id: number | null, p: GruppoPayload): number
   if (doppio) throw new ErroreUtente(`Esiste già un gruppo "${nome}" in questa fase.`)
   if (id === null) {
     const ordine = (
-      db.prepare(`SELECT COALESCE(MAX(ordine), 0) + 1 AS o FROM agri_gruppi_parametri WHERE fase = ?`).get(fase) as {
+      db
+        .prepare(
+          `SELECT COALESCE(MAX(ordine), 0) + 1 AS o FROM agri_gruppi_parametri WHERE fase = ?`
+        )
+        .get(fase) as {
         o: number
       }
     ).o
     return Number(
       db
-        .prepare(`INSERT INTO agri_gruppi_parametri (fase, nome, ordine, con_data, attivo) VALUES (?, ?, ?, ?, 1)`)
+        .prepare(
+          `INSERT INTO agri_gruppi_parametri (fase, nome, ordine, con_data, attivo) VALUES (?, ?, ?, ?, 1)`
+        )
         .run(fase, nome, ordine, p.con_data ? 1 : 0).lastInsertRowid
     )
   }
@@ -81,7 +93,9 @@ function haValoriGruppo(db: Db, gruppoId: number): boolean {
       `SELECT 1 FROM agri_valori_parametri v JOIN agri_parametri p ON p.id = v.parametro_id WHERE p.gruppo_id = ? LIMIT 1`
     )
     .get(gruppoId)
-  const date = db.prepare(`SELECT 1 FROM agri_date_gruppi WHERE gruppo_id = ? LIMIT 1`).get(gruppoId)
+  const date = db
+    .prepare(`SELECT 1 FROM agri_date_gruppi WHERE gruppo_id = ? LIMIT 1`)
+    .get(gruppoId)
   return !!valori || !!date
 }
 
@@ -104,42 +118,51 @@ export function eliminaGruppo(db: Db, id: number): 'nascosto' | 'eliminato' {
 
 export function salvaParametro(db: Db, id: number | null, p: ParametroPayload): number {
   const gruppoId = idObbligatorio(p.gruppo_id, 'Gruppo')
-  if (!db.prepare(`SELECT id FROM agri_gruppi_parametri WHERE id = ? AND attivo = 1`).get(gruppoId)) {
+  if (
+    !db.prepare(`SELECT id FROM agri_gruppi_parametri WHERE id = ? AND attivo = 1`).get(gruppoId)
+  ) {
     throw new ErroreUtente('Gruppo non trovato.')
   }
   const nome = testoObbligatorio(p.nome, 'Nome del parametro')
   if (!TIPI.includes(p.tipo)) throw new ErroreUtente('Tipo di parametro non valido.')
   const unita = p.tipo === 'numero' ? testoOpzionale(p.unita) : null
   const doppio = db
-    .prepare(`SELECT id FROM agri_parametri WHERE gruppo_id = ? AND attivo = 1 AND nome = ? COLLATE NOCASE AND id IS NOT ?`)
+    .prepare(
+      `SELECT id FROM agri_parametri WHERE gruppo_id = ? AND attivo = 1 AND nome = ? COLLATE NOCASE AND id IS NOT ?`
+    )
     .get(gruppoId, nome, id)
   if (doppio) throw new ErroreUtente(`Esiste già un parametro "${nome}" in questo gruppo.`)
   if (id === null) {
     const ordine = (
-      db.prepare(`SELECT COALESCE(MAX(ordine), 0) + 1 AS o FROM agri_parametri WHERE gruppo_id = ?`).get(gruppoId) as {
+      db
+        .prepare(`SELECT COALESCE(MAX(ordine), 0) + 1 AS o FROM agri_parametri WHERE gruppo_id = ?`)
+        .get(gruppoId) as {
         o: number
       }
     ).o
     return Number(
       db
-        .prepare(`INSERT INTO agri_parametri (gruppo_id, nome, unita, tipo, ordine, attivo) VALUES (?, ?, ?, ?, ?, 1)`)
+        .prepare(
+          `INSERT INTO agri_parametri (gruppo_id, nome, unita, tipo, ordine, attivo) VALUES (?, ?, ?, ?, ?, 1)`
+        )
         .run(gruppoId, nome, unita, p.tipo, ordine).lastInsertRowid
     )
   }
-  const attuale = db.prepare(`SELECT tipo FROM agri_parametri WHERE id = ?`).get(id) as { tipo: TipoParametro } | undefined
+  const attuale = db.prepare(`SELECT tipo FROM agri_parametri WHERE id = ?`).get(id) as
+    | { tipo: TipoParametro }
+    | undefined
   if (!attuale) throw new ErroreUtente('Parametro non trovato.')
-  if (attuale.tipo !== p.tipo && db.prepare(`SELECT 1 FROM agri_valori_parametri WHERE parametro_id = ? LIMIT 1`).get(id)) {
+  if (
+    attuale.tipo !== p.tipo &&
+    db.prepare(`SELECT 1 FROM agri_valori_parametri WHERE parametro_id = ? LIMIT 1`).get(id)
+  ) {
     throw new ErroreUtente(
       'Questo parametro ha già dei valori registrati: non puoi cambiarne il tipo. Puoi crearne uno nuovo e nascondere questo.'
     )
   }
-  db.prepare(`UPDATE agri_parametri SET gruppo_id = ?, nome = ?, unita = ?, tipo = ? WHERE id = ?`).run(
-    gruppoId,
-    nome,
-    unita,
-    p.tipo,
-    id
-  )
+  db.prepare(
+    `UPDATE agri_parametri SET gruppo_id = ?, nome = ?, unita = ?, tipo = ? WHERE id = ?`
+  ).run(gruppoId, nome, unita, p.tipo, id)
   return id
 }
 
@@ -153,7 +176,12 @@ export function eliminaParametro(db: Db, id: number): 'nascosto' | 'eliminato' {
 }
 
 /** Scambia la posizione con il vicino (tra gli elementi attivi dello stesso livello). */
-export function sposta(db: Db, cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu'): void {
+export function sposta(
+  db: Db,
+  cosa: 'gruppo' | 'parametro',
+  id: number,
+  direzione: 'su' | 'giu'
+): void {
   db.transaction(() => {
     const fratelli =
       cosa === 'gruppo'
@@ -216,7 +244,14 @@ export function valoriStorici(db: Db, lavorazioneId: number): ValoreStorico[] {
 export function valoriLeggibili(
   db: Db,
   lavorazioneId: number
-): Array<{ gruppo: string; data_gruppo: string | null; parametro: string; unita: string | null; tipo: TipoParametro; valore: string }> {
+): Array<{
+  gruppo: string
+  data_gruppo: string | null
+  parametro: string
+  unita: string | null
+  tipo: TipoParametro
+  valore: string
+}> {
   return db
     .prepare(
       `SELECT g.nome AS gruppo, dg.data AS data_gruppo, p.nome AS parametro, p.unita, p.tipo, v.valore
@@ -247,7 +282,8 @@ function normalizzaValore(tipo: TipoParametro, nome: string, grezzo: string): st
     }
     case 'scala': {
       const n = Number(v)
-      if (!Number.isInteger(n) || n < 1 || n > 10) throw new ErroreUtente(`"${nome}": scegli un valore da 1 a 10.`)
+      if (!Number.isInteger(n) || n < 1 || n > 10)
+        throw new ErroreUtente(`"${nome}": scegli un valore da 1 a 10.`)
       return String(n)
     }
     case 'si_no':
@@ -277,12 +313,16 @@ export function salvaValori(
     `INSERT INTO agri_valori_parametri (lavorazione_id, parametro_id, valore) VALUES (?, ?, ?)
      ON CONFLICT(lavorazione_id, parametro_id) DO UPDATE SET valore = excluded.valore`
   )
-  const cancella = db.prepare(`DELETE FROM agri_valori_parametri WHERE lavorazione_id = ? AND parametro_id = ?`)
+  const cancella = db.prepare(
+    `DELETE FROM agri_valori_parametri WHERE lavorazione_id = ? AND parametro_id = ?`
+  )
   const upsertData = db.prepare(
     `INSERT INTO agri_date_gruppi (lavorazione_id, gruppo_id, data) VALUES (?, ?, ?)
      ON CONFLICT(lavorazione_id, gruppo_id) DO UPDATE SET data = excluded.data`
   )
-  const cancellaData = db.prepare(`DELETE FROM agri_date_gruppi WHERE lavorazione_id = ? AND gruppo_id = ?`)
+  const cancellaData = db.prepare(
+    `DELETE FROM agri_date_gruppi WHERE lavorazione_id = ? AND gruppo_id = ?`
+  )
 
   db.transaction(() => {
     for (const [chiave, grezzo] of Object.entries(valori ?? {})) {
@@ -303,7 +343,9 @@ export function salvaValori(
         continue
       }
       if (!dataIsoValida(data)) throw new ErroreUtente('Data del gruppo non valida.')
-      if (!db.prepare(`SELECT id FROM agri_gruppi_parametri WHERE id = ? AND con_data = 1`).get(gid)) {
+      if (
+        !db.prepare(`SELECT id FROM agri_gruppi_parametri WHERE id = ? AND con_data = 1`).get(gid)
+      ) {
         throw new ErroreUtente('Questo gruppo non prevede una data.')
       }
       upsertData.run(lavorazioneId, gid, data)

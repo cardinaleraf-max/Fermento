@@ -73,7 +73,10 @@ export default function Raccolte(): React.JSX.Element {
   const [caricamento, setCaricamento] = useState(true)
   const [errore, setErrore] = useState<string | null>(null)
 
-  const [dialog, setDialog] = useState<{ id: number | null; dettaglio: LavorazioneDettaglio | null } | null>(null)
+  const [dialog, setDialog] = useState<{
+    id: number | null
+    dettaglio: LavorazioneDettaglio | null
+  } | null>(null)
   const [form, setForm] = useState<Form | null>(null)
   const [bozza, setBozza] = useState<BozzaParametri>(bozzaVuota)
   const [salvati, setSalvati] = useState<ValoriParametri>({ valori: {}, date: {} })
@@ -128,7 +131,10 @@ export default function Raccolte(): React.JSX.Element {
     }
   }, [form?.semina_id, form?.data])
 
-  const semineOrdinate = useMemo(() => [...semine].sort((a, b) => (a.data < b.data ? 1 : -1)), [semine])
+  const semineOrdinate = useMemo(
+    () => [...semine].sort((a, b) => (a.data < b.data ? 1 : -1)),
+    [semine]
+  )
 
   const apri = async (riga: LavorazioneRiga | null): Promise<void> => {
     setErroreDialog(null)
@@ -181,8 +187,10 @@ export default function Raccolte(): React.JSX.Element {
       if (!bloccata) {
         const q = parseNumero(form.quantita)
         if (!form.semina_id) return setErroreDialog('Scegli la semina da cui viene il raccolto.')
-        if (!form.materia_prima_id) return setErroreDialog('Scegli la materia prima in cui caricare il raccolto.')
-        if (q === null || Number.isNaN(q) || q <= 0) return setErroreDialog('Inserisci la quantità raccolta.')
+        if (!form.materia_prima_id)
+          return setErroreDialog('Scegli la materia prima in cui caricare il raccolto.')
+        if (q === null || Number.isNaN(q) || q <= 0)
+          return setErroreDialog('Inserisci la quantità raccolta.')
         const r = await window.api.agri.raccoltaSalva(dialog.id, {
           semina_id: Number(form.semina_id),
           data: form.data,
@@ -197,7 +205,10 @@ export default function Raccolte(): React.JSX.Element {
         if (err) return setErroreDialog(err)
         if (r.ok) id = r.id
       }
-      if (id !== null && (Object.keys(parametri.valori).length > 0 || Object.keys(parametri.date).length > 0)) {
+      if (
+        id !== null &&
+        (Object.keys(parametri.valori).length > 0 || Object.keys(parametri.date).length > 0)
+      ) {
         const rp = await window.api.agri.salvaParametri(id, parametri.valori, parametri.date)
         const errp = erroreDa(rp)
         if (errp) return setErroreDialog(`Raccolta salvata, ma i parametri no: ${errp}`)
@@ -250,11 +261,17 @@ export default function Raccolte(): React.JSX.Element {
       {caricamento ? (
         <p className="text-sm text-muted-foreground">Caricamento…</p>
       ) : semine.length === 0 ? (
-        <StatoVuoto icona={Wheat} titolo="Nessuna semina registrata" testo="Le raccolte partono da una semina: registrala prima in “Campi e semine”." />
+        <StatoVuoto
+          icona={Wheat}
+          titolo="Nessuna semina registrata"
+          testo="Le raccolte partono da una semina: registrala prima in “Campi e semine”."
+        />
       ) : righe.length === 0 ? (
         <StatoVuoto
           icona={Wheat}
-          titolo={stagione ? `Nessuna raccolta nella stagione ${stagione}` : 'Nessuna raccolta registrata'}
+          titolo={
+            stagione ? `Nessuna raccolta nella stagione ${stagione}` : 'Nessuna raccolta registrata'
+          }
           testo="Registra il raccolto di orzo o luppolo: verrà creato il lotto in magazzino con il codice che scegli tu."
           azione={
             <Button size="sm" onClick={() => void apri(null)}>
@@ -278,7 +295,9 @@ export default function Raccolte(): React.JSX.Element {
             <tbody>
               {righe.map((r) => (
                 <tr key={r.id} className={cls.rigaCliccabile} onClick={() => void apri(r)}>
-                  <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>{fmtData(r.data_inizio)}</td>
+                  <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>
+                    {fmtData(r.data_inizio)}
+                  </td>
                   <td className={cls.td}>
                     <span className="font-medium text-foreground">{r.codice}</span>
                     {r.carenza.length > 0 && (
@@ -288,7 +307,9 @@ export default function Raccolte(): React.JSX.Element {
                         </BadgeTono>
                       </div>
                     )}
-                    {r.riepilogo_parametri && <div className="text-xs text-muted-foreground">{r.riepilogo_parametri}</div>}
+                    {r.riepilogo_parametri && (
+                      <div className="text-xs text-muted-foreground">{r.riepilogo_parametri}</div>
+                    )}
                   </td>
                   <td className={cls.td}>
                     <div>{r.campo_nome}</div>
@@ -301,7 +322,9 @@ export default function Raccolte(): React.JSX.Element {
                   <td className={cn(cls.td, 'whitespace-nowrap text-right tabular-nums')}>
                     <div>{r.output_descrizione.replace(`${r.codice} `, '')}</div>
                     {r.unita_misura !== 'kg' && r.output_kg !== null && (
-                      <div className="text-xs text-muted-foreground">{fmtNum(r.output_kg, 0)} kg</div>
+                      <div className="text-xs text-muted-foreground">
+                        {fmtNum(r.output_kg, 0)} kg
+                      </div>
                     )}
                   </td>
                   <td className={cn(cls.td, 'text-right')} onClick={(e) => e.stopPropagation()}>
@@ -325,10 +348,17 @@ export default function Raccolte(): React.JSX.Element {
       )}
 
       <Dialog open={dialog !== null} onOpenChange={(o) => (!o ? setDialog(null) : undefined)}>
-        <DialogContent className={cn('max-w-2xl', cls.dialogLungo)} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent
+          className={cn('max-w-2xl', cls.dialogLungo)}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
-            <DialogTitle>{dialog?.id ? `Raccolta ${form?.codice ?? ''}` : 'Nuova raccolta'}</DialogTitle>
-            <DialogDescription>Il raccolto entra in magazzino come lotto di materia prima grezza.</DialogDescription>
+            <DialogTitle>
+              {dialog?.id ? `Raccolta ${form?.codice ?? ''}` : 'Nuova raccolta'}
+            </DialogTitle>
+            <DialogDescription>
+              Il raccolto entra in magazzino come lotto di materia prima grezza.
+            </DialogDescription>
           </DialogHeader>
           {form && (
             <div className="grid gap-3">
@@ -347,7 +377,12 @@ export default function Raccolte(): React.JSX.Element {
                   disabled={!!bloccata}
                   onChange={(e) => {
                     const s = semine.find((x) => String(x.id) === e.target.value)
-                    setForm({ ...form, semina_id: e.target.value, stagione: s?.stagione ?? form.stagione, materia_prima_id: '' })
+                    setForm({
+                      ...form,
+                      semina_id: e.target.value,
+                      stagione: s?.stagione ?? form.stagione,
+                      materia_prima_id: ''
+                    })
                   }}
                 >
                   <option value="">Scegli…</option>
@@ -360,21 +395,39 @@ export default function Raccolte(): React.JSX.Element {
               </CampoForm>
               <div className="grid gap-3 sm:grid-cols-2">
                 <CampoForm etichetta="Data di raccolta" htmlFor="rac-data" obbligatorio>
-                  <Input id="rac-data" type="date" value={form.data} disabled={!!bloccata} onChange={(e) => setForm({ ...form, data: e.target.value })} />
+                  <Input
+                    id="rac-data"
+                    type="date"
+                    value={form.data}
+                    disabled={!!bloccata}
+                    onChange={(e) => setForm({ ...form, data: e.target.value })}
+                  />
                 </CampoForm>
-                <CampoForm etichetta="Stagione" htmlFor="rac-stag" obbligatorio aiuto="Di norma quella della semina.">
-                  <Input id="rac-stag" value={form.stagione} disabled={!!bloccata} onChange={(e) => setForm({ ...form, stagione: e.target.value })} />
+                <CampoForm
+                  etichetta="Stagione"
+                  htmlFor="rac-stag"
+                  obbligatorio
+                  aiuto="Di norma quella della semina."
+                >
+                  <Input
+                    id="rac-stag"
+                    value={form.stagione}
+                    disabled={!!bloccata}
+                    onChange={(e) => setForm({ ...form, stagione: e.target.value })}
+                  />
                 </CampoForm>
               </div>
               {carenza.length > 0 && (
                 <AvvisoBox tono="attenzione" titolo="Raccolta dentro il tempo di carenza">
                   {carenza.map((c, i) => (
                     <p key={i}>
-                      {c.prodotto}: trattamento del {fmtData(c.data)}, carenza di {c.giorni} giorni fino al{' '}
-                      <strong>{fmtData(c.fine_carenza)}</strong>.
+                      {c.prodotto}: trattamento del {fmtData(c.data)}, carenza di {c.giorni} giorni
+                      fino al <strong>{fmtData(c.fine_carenza)}</strong>.
                     </p>
                   ))}
-                  <p className="mt-1 text-xs">Puoi registrarla comunque: comparirà anche tra gli avvisi.</p>
+                  <p className="mt-1 text-xs">
+                    Puoi registrarla comunque: comparirà anche tra gli avvisi.
+                  </p>
                 </AvvisoBox>
               )}
               <SceltaMateriaPrima
@@ -392,24 +445,59 @@ export default function Raccolte(): React.JSX.Element {
               />
               <div className="grid gap-3 sm:grid-cols-2">
                 <CampoForm etichetta="Quantità raccolta" htmlFor="rac-q" obbligatorio>
-                  <InputNumero id="rac-q" valore={form.quantita} unita={unita} disabled={!!bloccata} onChange={(v) => setForm({ ...form, quantita: v })} />
+                  <InputNumero
+                    id="rac-q"
+                    valore={form.quantita}
+                    unita={unita}
+                    disabled={!!bloccata}
+                    onChange={(v) => setForm({ ...form, quantita: v })}
+                  />
                 </CampoForm>
-                <CampoForm etichetta="Codice lotto" htmlFor="rac-cod" obbligatorio aiuto="Con il tuo formato, es. 1A/2026.">
-                  <Input id="rac-cod" value={form.codice} disabled={!!bloccata} onChange={(e) => setForm({ ...form, codice: e.target.value })} />
+                <CampoForm
+                  etichetta="Codice lotto"
+                  htmlFor="rac-cod"
+                  obbligatorio
+                  aiuto="Con il tuo formato, es. 1A/2026."
+                >
+                  <Input
+                    id="rac-cod"
+                    value={form.codice}
+                    disabled={!!bloccata}
+                    onChange={(e) => setForm({ ...form, codice: e.target.value })}
+                  />
                 </CampoForm>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <CampoForm etichetta="Scadenza del lotto" htmlFor="rac-scad">
-                  <Input id="rac-scad" type="date" value={form.scadenza} disabled={!!bloccata} onChange={(e) => setForm({ ...form, scadenza: e.target.value })} />
+                  <Input
+                    id="rac-scad"
+                    type="date"
+                    value={form.scadenza}
+                    disabled={!!bloccata}
+                    onChange={(e) => setForm({ ...form, scadenza: e.target.value })}
+                  />
                 </CampoForm>
                 <CampoForm etichetta="Note" htmlFor="rac-note">
-                  <Input id="rac-note" value={form.note} disabled={!!bloccata} onChange={(e) => setForm({ ...form, note: e.target.value })} />
+                  <Input
+                    id="rac-note"
+                    value={form.note}
+                    disabled={!!bloccata}
+                    onChange={(e) => setForm({ ...form, note: e.target.value })}
+                  />
                 </CampoForm>
               </div>
               {gruppi.length > 0 && (
                 <div className="pt-1">
-                  <p className="mb-2 text-sm font-semibold text-foreground">Parametri della raccolta</p>
-                  <ParametriFase idBase="rac-par" gruppi={gruppi} bozza={bozza} onChange={setBozza} storici={dialog?.dettaglio?.valori_storici} />
+                  <p className="mb-2 text-sm font-semibold text-foreground">
+                    Parametri della raccolta
+                  </p>
+                  <ParametriFase
+                    idBase="rac-par"
+                    gruppi={gruppi}
+                    bozza={bozza}
+                    onChange={setBozza}
+                    storici={dialog?.dettaglio?.valori_storici}
+                  />
                 </div>
               )}
               <ErroreBox messaggio={erroreDialog} />
@@ -429,7 +517,11 @@ export default function Raccolte(): React.JSX.Element {
       <ConfermaDialog
         aperto={daEliminare !== null}
         titolo="Eliminare la raccolta?"
-        testo={daEliminare ? `La raccolta ${daEliminare.codice ?? ''} e il suo lotto in magazzino verranno eliminati.` : ''}
+        testo={
+          daEliminare
+            ? `La raccolta ${daEliminare.codice ?? ''} e il suo lotto in magazzino verranno eliminati.`
+            : ''
+        }
         etichettaConferma="Elimina"
         pericoloso
         inCorso={salvataggio}

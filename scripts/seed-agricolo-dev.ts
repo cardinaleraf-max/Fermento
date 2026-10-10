@@ -36,12 +36,15 @@ function esci(messaggio: string, codice = 1): never {
 }
 
 const percorso = process.argv[2]
-if (!percorso) esci('Indica il percorso del database: npm run seed:agricolo-dev -- "/percorso/fermento.db"')
+if (!percorso)
+  esci('Indica il percorso del database: npm run seed:agricolo-dev -- "/percorso/fermento.db"')
 if (!fs.existsSync(percorso)) esci(`File non trovato: ${percorso}`)
 
 // Controllo in sola lettura prima di toccare qualunque cosa
 const lettura: Db = new Database(percorso, { readonly: true, fileMustExist: true })
-const giaPresente = !!lettura.prepare(`SELECT 1 FROM lotti_materie_prime WHERE lotto_fornitore = '1A/2026'`).get()
+const giaPresente = !!lettura
+  .prepare(`SELECT 1 FROM lotti_materie_prime WHERE lotto_fornitore = '1A/2026'`)
+  .get()
 lettura.close()
 if (giaPresente) esci('I dati di esempio sono già presenti (lotto 1A/2026): nessuna modifica.', 0)
 
@@ -60,12 +63,19 @@ function materia(nome: string, categoria: string, unita: string): number {
     .get(nome, categoria) as { id: number } | undefined
   if (esistente) return esistente.id
   return Number(
-    db.prepare(`INSERT INTO materie_prime (nome, categoria, unita_misura) VALUES (?, ?, ?)`).run(nome, categoria, unita)
-      .lastInsertRowid
+    db
+      .prepare(`INSERT INTO materie_prime (nome, categoria, unita_misura) VALUES (?, ?, ?)`)
+      .run(nome, categoria, unita).lastInsertRowid
   )
 }
 
-function acquisto(materiaPrimaId: number, codice: string, quantita: number, dataCarico: string, scadenza: string | null): void {
+function acquisto(
+  materiaPrimaId: number,
+  codice: string,
+  quantita: number,
+  dataCarico: string,
+  scadenza: string | null
+): void {
   creaLotto(db, {
     materia_prima_id: materiaPrimaId,
     codice,
@@ -91,7 +101,12 @@ function lottoDi(origine: string, origineId: number, calibro: string | null = nu
 }
 
 /** Valori dei parametri per nome ("Gruppo · Parametro" → valore). */
-function parametri(fase: FaseLavorazione, lavorazioneId: number, valori: Record<string, string>, dateGruppi: Record<string, string> = {}): void {
+function parametri(
+  fase: FaseLavorazione,
+  lavorazioneId: number,
+  valori: Record<string, string>,
+  dateGruppi: Record<string, string> = {}
+): void {
   const gruppi = configParametri(db, fase)
   const v: Record<number, string> = {}
   const d: Record<number, string> = {}
@@ -149,18 +164,31 @@ const esegui = db.transaction(() => {
 
   // Operazioni di campo
   salvaOperazione(db, null, {
-    semina_id: semina, tipo: 'lavorazione', data: '2025-11-10', prodotto: null,
-    motivo: 'Erpicatura e preparazione del letto di semina', operatore: 'Mauro', note: null
+    semina_id: semina,
+    tipo: 'lavorazione',
+    data: '2025-11-10',
+    prodotto: null,
+    motivo: 'Erpicatura e preparazione del letto di semina',
+    operatore: 'Mauro',
+    note: null
   })
   salvaOperazione(db, null, {
-    semina_id: semina, tipo: 'concimazione', data: '2026-02-20',
+    semina_id: semina,
+    tipo: 'concimazione',
+    data: '2026-02-20',
     prodotto: { materia_prima_id: concime, quantita: 15, lotto_id: null },
-    motivo: 'Concimazione di copertura', operatore: 'Mauro', note: null
+    motivo: 'Concimazione di copertura',
+    operatore: 'Mauro',
+    note: null
   })
   salvaOperazione(db, null, {
-    semina_id: semina, tipo: 'trattamento', data: '2026-04-15',
+    semina_id: semina,
+    tipo: 'trattamento',
+    data: '2026-04-15',
     prodotto: { materia_prima_id: fungicida, quantita: 2, lotto_id: null },
-    motivo: 'Ruggine', operatore: 'Mauro', note: null
+    motivo: 'Ruggine',
+    operatore: 'Mauro',
+    note: null
   })
 
   // Raccolta: lotto 1A/2026, 300 q
@@ -190,7 +218,10 @@ const esegui = db.transaction(() => {
     ],
     note: null
   })
-  parametri('calibratura', calibratura, { 'Analisi orzo · Umidità': '10', 'Analisi orzo · Proteine': '9' })
+  parametri('calibratura', calibratura, {
+    'Analisi orzo · Umidità': '10',
+    'Analisi orzo · Proteine': '9'
+  })
 
   // Maltazione Pilsner 187/2026PTL: 1100 kg → 920 kg (foglio Marduk)
   const maltazione = avviaMaltazione(db, null, {
@@ -245,7 +276,11 @@ const esegui = db.transaction(() => {
     },
     { 'Test di laboratorio': '2026-09-02' }
   )
-  chiudiMaltazione(db, maltazione, { data_uscita: '2026-08-29', peso_finale_kg: 920, data_scadenza: null })
+  chiudiMaltazione(db, maltazione, {
+    data_uscita: '2026-08-29',
+    peso_finale_kg: 920,
+    data_scadenza: null
+  })
 })
 
 try {

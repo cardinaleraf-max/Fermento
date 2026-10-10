@@ -3,7 +3,13 @@ import type BetterSqlite3 from 'better-sqlite3'
 type Db = BetterSqlite3.Database
 
 /** Crea una materia prima e ritorna l'id. */
-export function materia(db: Db, nome: string, categoria: string, unita: string, extra: { carenza?: number } = {}): number {
+export function materia(
+  db: Db,
+  nome: string,
+  categoria: string,
+  unita: string,
+  extra: { carenza?: number } = {}
+): number {
   return Number(
     db
       .prepare(
@@ -33,7 +39,11 @@ export function lotto(
 }
 
 export function residuo(db: Db, lottoId: number): number {
-  return (db.prepare(`SELECT quantita_residua AS r FROM lotti_materie_prime WHERE id = ?`).get(lottoId) as { r: number }).r
+  return (
+    db
+      .prepare(`SELECT quantita_residua AS r FROM lotti_materie_prime WHERE id = ?`)
+      .get(lottoId) as { r: number }
+  ).r
 }
 
 export function conta(db: Db, tabella: string): number {

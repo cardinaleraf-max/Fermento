@@ -73,7 +73,14 @@ const TIPI_BREVI: Array<{ valore: TipoOperazione; etichetta: string }> = [
 
 export function BadgeTipoOperazione({ tipo }: { tipo: TipoOperazione }): React.JSX.Element {
   const etichetta = TIPI_OPERAZIONE.find((t) => t.valore === tipo)?.etichetta ?? tipo
-  const tono = tipo === 'trattamento' ? 'rosso' : tipo === 'concimazione' ? 'verde' : tipo === 'irrigazione' ? 'blu' : 'grigio'
+  const tono =
+    tipo === 'trattamento'
+      ? 'rosso'
+      : tipo === 'concimazione'
+        ? 'verde'
+        : tipo === 'irrigazione'
+          ? 'blu'
+          : 'grigio'
   return <BadgeTono tono={tono}>{etichetta}</BadgeTono>
 }
 
@@ -206,7 +213,8 @@ export default function OperazioniCampo(): React.JSX.Element {
     if (!form.semina_id) return setErroreDialog('Scegli la semina su cui hai fatto l’operazione.')
     const prodotto = form.conProdotto ? prodottoInPayload(form.prodotto) : null
     if (form.conProdotto && !prodotto) return setErroreDialog('Scegli il prodotto usato.')
-    if (prodotto && !(prodotto.quantita > 0)) return setErroreDialog('Inserisci la quantità totale usata.')
+    if (prodotto && !(prodotto.quantita > 0))
+      return setErroreDialog('Inserisci la quantità totale usata.')
     setSalvataggio(true)
     setErroreDialog(null)
     try {
@@ -256,11 +264,19 @@ export default function OperazioniCampo(): React.JSX.Element {
   const quantitaLive = form ? parseNumero(form.prodotto.quantita) : null
   const superficie = seminaScelta?.superficie_ha ?? null
   const doseLive =
-    form?.conProdotto && info && quantitaLive !== null && !Number.isNaN(quantitaLive) && superficie && superficie > 0
+    form?.conProdotto &&
+    info &&
+    quantitaLive !== null &&
+    !Number.isNaN(quantitaLive) &&
+    superficie &&
+    superficie > 0
       ? quantitaLive / superficie
       : null
   const carenzaLive =
-    form?.tipo === 'trattamento' && info?.tempo_carenza_giorni && info.tempo_carenza_giorni > 0 && form.data
+    form?.tipo === 'trattamento' &&
+    info?.tempo_carenza_giorni &&
+    info.tempo_carenza_giorni > 0 &&
+    form.data
       ? aggiungiGiorniIso(form.data, info.tempo_carenza_giorni)
       : null
 
@@ -283,7 +299,11 @@ export default function OperazioniCampo(): React.JSX.Element {
 
       <div className="flex flex-wrap items-center gap-3">
         <SceltaPulsanti opzioni={FILTRI_TIPO} valore={tipoFiltro} onChange={setTipoFiltro} />
-        <select className={cn(cls.select, 'w-auto')} value={campoFiltro} onChange={(e) => setCampoFiltro(e.target.value)}>
+        <select
+          className={cn(cls.select, 'w-auto')}
+          value={campoFiltro}
+          onChange={(e) => setCampoFiltro(e.target.value)}
+        >
           <option value="">Tutti i campi</option>
           {campi.map((c) => (
             <option key={c.id} value={c.id}>
@@ -330,7 +350,9 @@ export default function OperazioniCampo(): React.JSX.Element {
             <tbody>
               {operazioni.map((o) => (
                 <tr key={o.id} className={cls.riga}>
-                  <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>{fmtData(o.data)}</td>
+                  <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>
+                    {fmtData(o.data)}
+                  </td>
                   <td className={cls.td}>
                     <div className="text-foreground">{o.campo_nome}</div>
                     <div className="text-xs text-muted-foreground">
@@ -341,7 +363,9 @@ export default function OperazioniCampo(): React.JSX.Element {
                   <td className={cls.td}>
                     <BadgeTipoOperazione tipo={o.tipo} />
                     {o.fine_carenza && (
-                      <div className="mt-1 text-xs text-amber-400">Carenza fino al {fmtData(o.fine_carenza)}</div>
+                      <div className="mt-1 text-xs text-amber-400">
+                        Carenza fino al {fmtData(o.fine_carenza)}
+                      </div>
                     )}
                   </td>
                   <td className={cls.td}>
@@ -356,7 +380,9 @@ export default function OperazioniCampo(): React.JSX.Element {
                       <span className="text-muted-foreground">—</span>
                     )}
                   </td>
-                  <td className={cn(cls.td, 'whitespace-nowrap text-right tabular-nums')}>{fmtQta(o.quantita, o.unita_misura)}</td>
+                  <td className={cn(cls.td, 'whitespace-nowrap text-right tabular-nums')}>
+                    {fmtQta(o.quantita, o.unita_misura)}
+                  </td>
                   <td className={cn(cls.td, 'whitespace-nowrap text-right tabular-nums')}>
                     {o.dose_ha !== null ? `${fmtNum(o.dose_ha)} ${o.unita_misura}/ha` : '—'}
                   </td>
@@ -364,7 +390,9 @@ export default function OperazioniCampo(): React.JSX.Element {
                     <div className="truncate" title={o.motivo ?? undefined}>
                       {o.motivo || '—'}
                     </div>
-                    {o.operatore && <div className="text-xs text-muted-foreground">{o.operatore}</div>}
+                    {o.operatore && (
+                      <div className="text-xs text-muted-foreground">{o.operatore}</div>
+                    )}
                   </td>
                   <td className={cn(cls.td, 'whitespace-nowrap text-right')}>
                     <Button variant="ghost" size="sm" title="Modifica" onClick={() => apri(o)}>
@@ -390,10 +418,17 @@ export default function OperazioniCampo(): React.JSX.Element {
       )}
 
       <Dialog open={dialog !== null} onOpenChange={(o) => (!o ? setDialog(null) : undefined)}>
-        <DialogContent className={cn('max-w-xl', cls.dialogLungo)} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent
+          className={cn('max-w-xl', cls.dialogLungo)}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
-            <DialogTitle>{dialog?.id ? 'Modifica operazione' : 'Nuova operazione di campo'}</DialogTitle>
-            <DialogDescription>Cosa hai fatto, dove, quando e con quale prodotto.</DialogDescription>
+            <DialogTitle>
+              {dialog?.id ? 'Modifica operazione' : 'Nuova operazione di campo'}
+            </DialogTitle>
+            <DialogDescription>
+              Cosa hai fatto, dove, quando e con quale prodotto.
+            </DialogDescription>
           </DialogHeader>
           {form && (
             <div className="grid gap-3">
@@ -432,7 +467,9 @@ export default function OperazioniCampo(): React.JSX.Element {
                     type="checkbox"
                     className="h-4 w-4 accent-amber-500"
                     checked={form.conProdotto}
-                    onChange={(e) => setForm((f) => (f ? { ...f, conProdotto: e.target.checked } : f))}
+                    onChange={(e) =>
+                      setForm((f) => (f ? { ...f, conProdotto: e.target.checked } : f))
+                    }
                   />
                   È stato usato un prodotto del magazzino
                 </label>
@@ -441,7 +478,13 @@ export default function OperazioniCampo(): React.JSX.Element {
                 <SelettoreProdotto
                   idBase="op-prodotto"
                   categorie={CATEGORIE_PER_TIPO[form.tipo]}
-                  etichetta={form.tipo === 'trattamento' ? 'Fitofarmaco' : form.tipo === 'concimazione' ? 'Concime' : 'Prodotto'}
+                  etichetta={
+                    form.tipo === 'trattamento'
+                      ? 'Fitofarmaco'
+                      : form.tipo === 'concimazione'
+                        ? 'Concime'
+                        : 'Prodotto'
+                  }
                   obbligatorio
                   valore={form.prodotto}
                   restituibili={form.restituibili}
@@ -460,13 +503,17 @@ export default function OperazioniCampo(): React.JSX.Element {
                 <AvvisoBox tono={carenzaLive ? 'attenzione' : 'info'}>
                   {doseLive !== null && info && (
                     <p>
-                      Dose: <strong>{fmtNum(doseLive)} {info.unita}/ha</strong> su {fmtNum(superficie)} ha seminati.
+                      Dose:{' '}
+                      <strong>
+                        {fmtNum(doseLive)} {info.unita}/ha
+                      </strong>{' '}
+                      su {fmtNum(superficie)} ha seminati.
                     </p>
                   )}
                   {carenzaLive && info && (
                     <p>
-                      Tempo di carenza {info.tempo_carenza_giorni} giorni: la raccolta non dovrebbe avvenire prima del{' '}
-                      <strong>{fmtData(carenzaLive)}</strong>.
+                      Tempo di carenza {info.tempo_carenza_giorni} giorni: la raccolta non dovrebbe
+                      avvenire prima del <strong>{fmtData(carenzaLive)}</strong>.
                     </p>
                   )}
                 </AvvisoBox>

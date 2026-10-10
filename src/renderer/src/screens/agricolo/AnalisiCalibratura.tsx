@@ -103,7 +103,10 @@ export default function AnalisiCalibratura(): React.JSX.Element {
     void carica()
   }, [carica])
 
-  const [editorIniziale, setEditorIniziale] = useState<{ editor: Editor; bozza: BozzaParametri } | null>(null)
+  const [editorIniziale, setEditorIniziale] = useState<{
+    editor: Editor
+    bozza: BozzaParametri
+  } | null>(null)
 
   const nuova = async (): Promise<void> => {
     try {
@@ -117,7 +120,13 @@ export default function AnalisiCalibratura(): React.JSX.Element {
           quantita: '',
           quantitaToccata: false,
           materia_prima_id: '',
-          frazioni: imp.frazioni_default.map((f) => ({ nome: f.nome, perc: '', qta: '', peso: '', scarto: f.scarto })),
+          frazioni: imp.frazioni_default.map((f) => ({
+            nome: f.nome,
+            perc: '',
+            qta: '',
+            peso: '',
+            scarto: f.scarto
+          })),
           note: '',
           restituibile: null
         },
@@ -161,7 +170,13 @@ export default function AnalisiCalibratura(): React.JSX.Element {
         iniziale={editorIniziale.editor}
         bozzaIniziale={editorIniziale.bozza}
         gruppi={gruppi}
-        onAnnulla={() => setVista(editorIniziale.editor.id ? { tipo: 'dettaglio', id: editorIniziale.editor.id } : { tipo: 'elenco' })}
+        onAnnulla={() =>
+          setVista(
+            editorIniziale.editor.id
+              ? { tipo: 'dettaglio', id: editorIniziale.editor.id }
+              : { tipo: 'elenco' }
+          )
+        }
         onSalvata={(id, stagioneSalvata) => {
           if (stagione && stagioneSalvata !== stagione) setStagione(stagioneSalvata)
           void carica()
@@ -204,7 +219,11 @@ export default function AnalisiCalibratura(): React.JSX.Element {
       ) : righe.length === 0 ? (
         <StatoVuoto
           icona={Microscope}
-          titolo={stagione ? `Nessuna calibratura nella stagione ${stagione}` : 'Nessuna calibratura registrata'}
+          titolo={
+            stagione
+              ? `Nessuna calibratura nella stagione ${stagione}`
+              : 'Nessuna calibratura registrata'
+          }
           testo="Parti da un lotto di orzo grezzo (creato con una raccolta o caricato in magazzino): registri l'analisi e le percentuali delle frazioni."
           azione={
             <Button size="sm" onClick={() => void nuova()}>
@@ -225,12 +244,20 @@ export default function AnalisiCalibratura(): React.JSX.Element {
             </thead>
             <tbody>
               {righe.map((r) => (
-                <tr key={r.id} className={cls.rigaCliccabile} onClick={() => setVista({ tipo: 'dettaglio', id: r.id })}>
-                  <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>{fmtData(r.data_inizio)}</td>
+                <tr
+                  key={r.id}
+                  className={cls.rigaCliccabile}
+                  onClick={() => setVista({ tipo: 'dettaglio', id: r.id })}
+                >
+                  <td className={cn(cls.td, 'whitespace-nowrap tabular-nums')}>
+                    {fmtData(r.data_inizio)}
+                  </td>
                   <td className={cls.td}>
                     <span className="font-medium text-foreground">{r.input_descrizione}</span>
                   </td>
-                  <td className={cn(cls.td, 'text-muted-foreground')}>{r.riepilogo_parametri || '—'}</td>
+                  <td className={cn(cls.td, 'text-muted-foreground')}>
+                    {r.riepilogo_parametri || '—'}
+                  </td>
                   <td className={cls.td}>{r.output_descrizione || '—'}</td>
                 </tr>
               ))}
@@ -286,7 +313,11 @@ function EditorCalibratura({
 
   // Quantità di ogni frazione sempre ricalcolata dalla percentuale
   const frazioni = useMemo(
-    () => ed.frazioni.map((f) => ({ ...f, qtaCalcolata: f.perc.trim() === '' ? null : arrot((Q * n(f.perc)) / 100) })),
+    () =>
+      ed.frazioni.map((f) => ({
+        ...f,
+        qtaCalcolata: f.perc.trim() === '' ? null : arrot((Q * n(f.perc)) / 100)
+      })),
     [ed.frazioni, Q]
   )
   const somma = arrot(
@@ -294,8 +325,12 @@ function EditorCalibratura({
     4
   )
   const calo = Math.max(0, arrot(100 - somma, 4))
-  const utile = arrot(frazioni.filter((f) => !f.scarto).reduce((s, f) => s + (f.qtaCalcolata ?? 0), 0))
-  const scarto = arrot(frazioni.filter((f) => f.scarto).reduce((s, f) => s + (f.qtaCalcolata ?? 0), 0))
+  const utile = arrot(
+    frazioni.filter((f) => !f.scarto).reduce((s, f) => s + (f.qtaCalcolata ?? 0), 0)
+  )
+  const scarto = arrot(
+    frazioni.filter((f) => f.scarto).reduce((s, f) => s + (f.qtaCalcolata ?? 0), 0)
+  )
 
   const aggiornaFrazione = (i: number, patch: Partial<RigaFrazione>): void =>
     setEd((p) => ({ ...p, frazioni: p.frazioni.map((f, j) => (j === i ? { ...f, ...patch } : f)) }))
@@ -325,14 +360,21 @@ function EditorCalibratura({
     if (lotto && Q > lotto.quantita_residua + 1e-9) {
       return setErrore(`Il lotto ha solo ${fmtQta(lotto.quantita_residua, unita)} disponibili.`)
     }
-    if (!ed.materia_prima_id) return setErrore('Scegli la materia prima "Orzo calibrato" in cui caricare le frazioni.')
+    if (!ed.materia_prima_id)
+      return setErrore('Scegli la materia prima "Orzo calibrato" in cui caricare le frazioni.')
     for (const f of ed.frazioni) {
       const p = parseNumero(f.perc)
-      if (f.perc.trim() !== '' && (p === null || Number.isNaN(p))) return setErrore(`Percentuale non valida per "${f.nome}".`)
+      if (f.perc.trim() !== '' && (p === null || Number.isNaN(p)))
+        return setErrore(`Percentuale non valida per "${f.nome}".`)
       const ps = parseNumero(f.peso)
-      if (f.peso.trim() !== '' && (ps === null || Number.isNaN(ps))) return setErrore(`Peso specifico non valido per "${f.nome}".`)
+      if (f.peso.trim() !== '' && (ps === null || Number.isNaN(ps)))
+        return setErrore(`Peso specifico non valido per "${f.nome}".`)
     }
-    const parametri = payloadDaBozza(gruppi, bozza, iniziale.id ? undefined : { valori: {}, date: {} })
+    const parametri = payloadDaBozza(
+      gruppi,
+      bozza,
+      iniziale.id ? undefined : { valori: {}, date: {} }
+    )
     if (!parametri.ok) return setErrore(parametri.errore)
     setSalvataggio(true)
     setErrore(null)
@@ -357,7 +399,9 @@ function EditorCalibratura({
       if (err) return setErrore(err)
       if (!r.ok) return
       // Analisi: in modifica si inviano anche i campi svuotati
-      const salvati = iniziale.id ? (await window.api.agri.lavorazioneDettaglio(r.id)).valori : { valori: {}, date: {} }
+      const salvati = iniziale.id
+        ? (await window.api.agri.lavorazioneDettaglio(r.id)).valori
+        : { valori: {}, date: {} }
       const par = payloadDaBozza(gruppi, bozza, salvati)
       if (par.ok && (Object.keys(par.valori).length > 0 || Object.keys(par.date).length > 0)) {
         const rp = await window.api.agri.salvaParametri(r.id, par.valori, par.date)
@@ -389,17 +433,30 @@ function EditorCalibratura({
         <h4 className="text-sm font-semibold text-foreground">1. Lotto di orzo grezzo</h4>
         <div className="grid gap-3 lg:grid-cols-[2fr_1fr_1fr_1fr]">
           <CampoForm etichetta="Lotto" htmlFor="cal-lotto" obbligatorio>
-            <select id="cal-lotto" className={cls.select} value={ed.lotto_id} onChange={(e) => scegliLotto(e.target.value)}>
-              <option value="">{lotti.length === 0 ? 'Nessun lotto di orzo grezzo disponibile' : 'Scegli…'}</option>
+            <select
+              id="cal-lotto"
+              className={cls.select}
+              value={ed.lotto_id}
+              onChange={(e) => scegliLotto(e.target.value)}
+            >
+              <option value="">
+                {lotti.length === 0 ? 'Nessun lotto di orzo grezzo disponibile' : 'Scegli…'}
+              </option>
               {lotti.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.codice || `#${l.id}`} — {l.materia_prima_nome} · {fmtQta(l.quantita_residua, l.unita_misura)}
+                  {l.codice || `#${l.id}`} — {l.materia_prima_nome} ·{' '}
+                  {fmtQta(l.quantita_residua, l.unita_misura)}
                   {l.stagione ? ` · ${l.stagione}` : ''}
                 </option>
               ))}
             </select>
           </CampoForm>
-          <CampoForm etichetta="Quantità lavorata" htmlFor="cal-q" obbligatorio aiuto={lotto ? `Disponibili ${fmtQta(lotto.quantita_residua, unita)}` : undefined}>
+          <CampoForm
+            etichetta="Quantità lavorata"
+            htmlFor="cal-q"
+            obbligatorio
+            aiuto={lotto ? `Disponibili ${fmtQta(lotto.quantita_residua, unita)}` : undefined}
+          >
             <InputNumero
               id="cal-q"
               valore={ed.quantita}
@@ -416,16 +473,25 @@ function EditorCalibratura({
             />
           </CampoForm>
           <CampoForm etichetta="Data" htmlFor="cal-data" obbligatorio>
-            <Input id="cal-data" type="date" value={ed.data} onChange={(e) => setEd((p) => ({ ...p, data: e.target.value }))} />
+            <Input
+              id="cal-data"
+              type="date"
+              value={ed.data}
+              onChange={(e) => setEd((p) => ({ ...p, data: e.target.value }))}
+            />
           </CampoForm>
           <CampoForm etichetta="Stagione" htmlFor="cal-stag" obbligatorio>
-            <Input id="cal-stag" value={ed.stagione} onChange={(e) => setEd((p) => ({ ...p, stagione: e.target.value }))} />
+            <Input
+              id="cal-stag"
+              value={ed.stagione}
+              onChange={(e) => setEd((p) => ({ ...p, stagione: e.target.value }))}
+            />
           </CampoForm>
         </div>
         {lotti.length === 0 && (
           <AvvisoBox>
-            Per calibrare serve un lotto di orzo grezzo: registralo con una raccolta, oppure caricalo nel Magazzino materie
-            prime con la categoria “Orzo grezzo”.
+            Per calibrare serve un lotto di orzo grezzo: registralo con una raccolta, oppure
+            caricalo nel Magazzino materie prime con la categoria “Orzo grezzo”.
           </AvvisoBox>
         )}
       </section>
@@ -438,7 +504,9 @@ function EditorCalibratura({
       <section className={cn(cls.pannello, 'grid gap-3 p-5')}>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <h4 className="text-sm font-semibold text-foreground">3. Calibratura</h4>
-          <p className="text-xs text-muted-foreground">Inserisci la percentuale oppure la quantità: l&apos;altra si calcola da sola.</p>
+          <p className="text-xs text-muted-foreground">
+            Inserisci la percentuale oppure la quantità: l&apos;altra si calcola da sola.
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className={cn(cls.tabella, 'min-w-[680px]')}>
@@ -456,21 +524,39 @@ function EditorCalibratura({
               {frazioni.map((f, i) => (
                 <tr key={i} className={cn(cls.riga, f.scarto && 'bg-red-500/5')}>
                   <td className="px-2 py-1.5">
-                    <Input aria-label="Frazione" value={f.nome} onChange={(e) => aggiornaFrazione(i, { nome: e.target.value })} />
+                    <Input
+                      aria-label="Frazione"
+                      value={f.nome}
+                      onChange={(e) => aggiornaFrazione(i, { nome: e.target.value })}
+                    />
                   </td>
                   <td className="w-32 px-2 py-1.5">
-                    <InputNumero valore={f.perc} unita="%" onChange={(v) => aggiornaFrazione(i, { perc: v, qta: '' })} />
+                    <InputNumero
+                      valore={f.perc}
+                      unita="%"
+                      onChange={(v) => aggiornaFrazione(i, { perc: v, qta: '' })}
+                    />
                   </td>
                   <td className="w-40 px-2 py-1.5">
                     <InputNumero
-                      valore={f.qta !== '' ? f.qta : f.qtaCalcolata !== null ? numeroInInput(f.qtaCalcolata) : ''}
+                      valore={
+                        f.qta !== ''
+                          ? f.qta
+                          : f.qtaCalcolata !== null
+                            ? numeroInInput(f.qtaCalcolata)
+                            : ''
+                      }
                       unita={unita || null}
                       disabled={!(Q > 0)}
                       onChange={(v) => daQuantita(i, v)}
                     />
                   </td>
                   <td className="w-36 px-2 py-1.5">
-                    <InputNumero valore={f.peso} unita="g/L" onChange={(v) => aggiornaFrazione(i, { peso: v })} />
+                    <InputNumero
+                      valore={f.peso}
+                      unita="g/L"
+                      onChange={(v) => aggiornaFrazione(i, { peso: v })}
+                    />
                   </td>
                   <td className="px-2 py-1.5">
                     <label className="flex items-center gap-2 text-sm">
@@ -480,7 +566,11 @@ function EditorCalibratura({
                         checked={f.scarto}
                         onChange={(e) => aggiornaFrazione(i, { scarto: e.target.checked })}
                       />
-                      {f.scarto ? <span className="text-red-400">scarto</span> : <span className="text-muted-foreground">no</span>}
+                      {f.scarto ? (
+                        <span className="text-red-400">scarto</span>
+                      ) : (
+                        <span className="text-muted-foreground">no</span>
+                      )}
                     </label>
                   </td>
                   <td className="px-2 py-1.5 text-right">
@@ -489,7 +579,9 @@ function EditorCalibratura({
                       size="sm"
                       title="Rimuovi frazione"
                       disabled={ed.frazioni.length <= 1}
-                      onClick={() => setEd((p) => ({ ...p, frazioni: p.frazioni.filter((_, j) => j !== i) }))}
+                      onClick={() =>
+                        setEd((p) => ({ ...p, frazioni: p.frazioni.filter((_, j) => j !== i) }))
+                      }
                     >
                       <X className="h-3.5 w-3.5" />
                     </Button>
@@ -503,22 +595,32 @@ function EditorCalibratura({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setEd((p) => ({ ...p, frazioni: [...p.frazioni, { nome: '', perc: '', qta: '', peso: '', scarto: false }] }))}
+            onClick={() =>
+              setEd((p) => ({
+                ...p,
+                frazioni: [...p.frazioni, { nome: '', perc: '', qta: '', peso: '', scarto: false }]
+              }))
+            }
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Aggiungi frazione
           </Button>
           <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-            <span className={cn(somma > 100 + 1e-6 ? 'font-semibold text-red-400' : 'text-foreground')}>
+            <span
+              className={cn(somma > 100 + 1e-6 ? 'font-semibold text-red-400' : 'text-foreground')}
+            >
               Totale {fmtNum(somma)}%
             </span>
             <span className="text-muted-foreground">
-              Calo non attribuito {fmtNum(calo)}%{Q > 0 ? ` (${fmtQta(arrot((Q * calo) / 100), unita)})` : ''}
+              Calo non attribuito {fmtNum(calo)}%
+              {Q > 0 ? ` (${fmtQta(arrot((Q * calo) / 100), unita)})` : ''}
             </span>
             <span className="text-emerald-400">Utile {fmtQta(utile, unita)}</span>
             <span className="text-red-400">Scarto {fmtQta(scarto, unita)}</span>
           </div>
         </div>
-        {somma > 100 + 1e-6 && <ErroreBox messaggio="Le percentuali superano il 100%: correggile prima di salvare." />}
+        {somma > 100 + 1e-6 && (
+          <ErroreBox messaggio="Le percentuali superano il 100%: correggile prima di salvare." />
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <SceltaMateriaPrima
             id="cal-dest"
@@ -532,23 +634,35 @@ function EditorCalibratura({
             onUnita={setUnitaDest}
           />
           <CampoForm etichetta="Note" htmlFor="cal-note">
-            <Input id="cal-note" value={ed.note} onChange={(e) => setEd((p) => ({ ...p, note: e.target.value }))} />
+            <Input
+              id="cal-note"
+              value={ed.note}
+              onChange={(e) => setEd((p) => ({ ...p, note: e.target.value }))}
+            />
           </CampoForm>
         </div>
       </section>
 
       <section className={cn(cls.pannello, 'grid gap-2 p-5')}>
-        <h4 className="text-sm font-semibold text-foreground">4. Lotti che verranno creati in magazzino</h4>
+        <h4 className="text-sm font-semibold text-foreground">
+          4. Lotti che verranno creati in magazzino
+        </h4>
         {!lotto || !(Q > 0) ? (
-          <p className="text-sm text-muted-foreground">Scegli il lotto e la quantità per vedere l&apos;anteprima.</p>
+          <p className="text-sm text-muted-foreground">
+            Scegli il lotto e la quantità per vedere l&apos;anteprima.
+          </p>
         ) : !frazioni.some((f) => !f.scarto && (f.qtaCalcolata ?? 0) > 0) ? (
-          <p className="text-sm text-muted-foreground">Inserisci le percentuali delle frazioni per vedere i lotti.</p>
+          <p className="text-sm text-muted-foreground">
+            Inserisci le percentuali delle frazioni per vedere i lotti.
+          </p>
         ) : (
           <ul className="grid gap-1 text-sm">
             {frazioni
               .filter((f) => !f.scarto && (f.qtaCalcolata ?? 0) > 0)
               .map((f, i) => {
-                const qDest = unitaDest ? convertiUnita(f.qtaCalcolata ?? 0, unita, unitaDest) : null
+                const qDest = unitaDest
+                  ? convertiUnita(f.qtaCalcolata ?? 0, unita, unitaDest)
+                  : null
                 return (
                   <li key={i} className="flex flex-wrap items-center gap-2">
                     <BadgeTono tono="ambra">Calibro {f.nome}</BadgeTono>
@@ -556,7 +670,9 @@ function EditorCalibratura({
                       {codiceGrezzo} {f.nome}
                     </span>
                     <span className="text-muted-foreground">
-                      {qDest !== null && unitaDest ? fmtQta(qDest, unitaDest) : fmtQta(f.qtaCalcolata, unita)}
+                      {qDest !== null && unitaDest
+                        ? fmtQta(qDest, unitaDest)
+                        : fmtQta(f.qtaCalcolata, unita)}
                     </span>
                   </li>
                 )
@@ -670,15 +786,21 @@ function DettaglioCalibratura({
           <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={onIndietro}>
             <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Tutte le calibrature
           </Button>
-          <h3 className="text-lg font-semibold text-foreground">Analisi e calibratura · lotto {d.codice}</h3>
+          <h3 className="text-lg font-semibold text-foreground">
+            Analisi e calibratura · lotto {d.codice}
+          </h3>
           <p className="text-sm text-muted-foreground">
             {fmtData(d.data_inizio)} · stagione {d.stagione}
           </p>
         </div>
         <div className="flex gap-2">
           {d.bloccata ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" title={d.bloccata}>
-              <Lock className="h-3.5 w-3.5" /> Frazioni già usate: si possono modificare solo le analisi
+            <span
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+              title={d.bloccata}
+            >
+              <Lock className="h-3.5 w-3.5" /> Frazioni già usate: si possono modificare solo le
+              analisi
             </span>
           ) : (
             <>
@@ -701,13 +823,19 @@ function DettaglioCalibratura({
       </div>
 
       <div className={cn(cls.pannello, 'grid gap-4 p-5 sm:grid-cols-4')}>
-        <Valore etichetta="Lotto grezzo">{ingresso ? `${ingresso.codice} · ${ingresso.materia_prima_nome}` : '—'}</Valore>
+        <Valore etichetta="Lotto grezzo">
+          {ingresso ? `${ingresso.codice} · ${ingresso.materia_prima_nome}` : '—'}
+        </Valore>
         <Valore etichetta="Quantità lavorata">
           {ingresso ? fmtQta(ingresso.quantita, unitaIn) : '—'}
-          {kgIn !== null && unitaIn !== 'kg' && <span className="text-muted-foreground"> ({fmtNum(kgIn, 0)} kg)</span>}
+          {kgIn !== null && unitaIn !== 'kg' && (
+            <span className="text-muted-foreground"> ({fmtNum(kgIn, 0)} kg)</span>
+          )}
         </Valore>
         <Valore etichetta="Scarto di calibratura">{kgIn ? fmtPerc(kgScarto / kgIn) : '—'}</Valore>
-        <Valore etichetta="Calo non attribuito">{kgIn ? fmtPerc(Math.max(0, kgIn - kgUtile - kgScarto) / kgIn) : '—'}</Valore>
+        <Valore etichetta="Calo non attribuito">
+          {kgIn ? fmtPerc(Math.max(0, kgIn - kgUtile - kgScarto) / kgIn) : '—'}
+        </Valore>
       </div>
 
       <section className={cn(cls.pannello, 'grid gap-3 p-5')}>
@@ -715,10 +843,16 @@ function DettaglioCalibratura({
           <h4 className="text-sm font-semibold text-foreground">Analisi</h4>
           {modificata && <span className="text-xs text-amber-400">Modifiche non salvate</span>}
         </div>
-        <ParametriFase idBase="dcal-par" gruppi={d.gruppi} bozza={bozza} onChange={(b) => {
-          setMessaggio(null)
-          setBozza(b)
-        }} storici={d.valori_storici} />
+        <ParametriFase
+          idBase="dcal-par"
+          gruppi={d.gruppi}
+          bozza={bozza}
+          onChange={(b) => {
+            setMessaggio(null)
+            setBozza(b)
+          }}
+          storici={d.valori_storici}
+        />
         <ErroreBox messaggio={errore} />
         <div className="flex items-center justify-end gap-3">
           {messaggio && <span className="text-sm text-emerald-400">{messaggio}</span>}
@@ -749,8 +883,12 @@ function DettaglioCalibratura({
                   <td className={cls.td}>
                     {o.nome} {o.scarto && <BadgeTono tono="rosso">scarto</BadgeTono>}
                   </td>
-                  <td className={cn(cls.td, 'text-right tabular-nums')}>{fmtNum(o.percentuale)}%</td>
-                  <td className={cn(cls.td, 'text-right tabular-nums')}>{fmtQta(o.quantita, o.unita_misura)}</td>
+                  <td className={cn(cls.td, 'text-right tabular-nums')}>
+                    {fmtNum(o.percentuale)}%
+                  </td>
+                  <td className={cn(cls.td, 'text-right tabular-nums')}>
+                    {fmtQta(o.quantita, o.unita_misura)}
+                  </td>
                   <td className={cn(cls.td, 'text-right tabular-nums')}>
                     {o.peso_specifico_gl !== null ? `${fmtNum(o.peso_specifico_gl)} g/L` : '—'}
                   </td>
@@ -758,11 +896,18 @@ function DettaglioCalibratura({
                     {o.lotto_id ? (
                       <>
                         <span className="font-medium text-foreground">{o.lotto_codice}</span>
-                        <span className="text-muted-foreground"> · residuo {fmtQta(o.lotto_residuo, o.unita_misura)}</span>
-                        {o.uso_a_valle && <div className="text-xs text-amber-400">{o.uso_a_valle}</div>}
+                        <span className="text-muted-foreground">
+                          {' '}
+                          · residuo {fmtQta(o.lotto_residuo, o.unita_misura)}
+                        </span>
+                        {o.uso_a_valle && (
+                          <div className="text-xs text-amber-400">{o.uso_a_valle}</div>
+                        )}
                       </>
                     ) : (
-                      <span className="text-muted-foreground">{o.scarto ? 'non a magazzino' : '—'}</span>
+                      <span className="text-muted-foreground">
+                        {o.scarto ? 'non a magazzino' : '—'}
+                      </span>
                     )}
                   </td>
                 </tr>

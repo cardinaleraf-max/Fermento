@@ -14,10 +14,21 @@ const Database = require('better-sqlite3') as typeof import('better-sqlite3')
 type Db = BetterSqlite3.Database
 
 function materiale(db: Db, nome: string, categoria: string): number {
-  return Number(db.prepare(`INSERT INTO materiali_confezionamento (nome, categoria, attivo) VALUES (?, ?, 1)`).run(nome, categoria).lastInsertRowid)
+  return Number(
+    db
+      .prepare(`INSERT INTO materiali_confezionamento (nome, categoria, attivo) VALUES (?, ?, 1)`)
+      .run(nome, categoria).lastInsertRowid
+  )
 }
 
-function carico(db: Db, materialeId: number, q: number, lotto: string | null, fornitore: string | null, data = '2026-09-01 10:00:00'): number {
+function carico(
+  db: Db,
+  materialeId: number,
+  q: number,
+  lotto: string | null,
+  fornitore: string | null,
+  data = '2026-09-01 10:00:00'
+): number {
   return Number(
     db
       .prepare(
@@ -30,7 +41,13 @@ function carico(db: Db, materialeId: number, q: number, lotto: string | null, fo
 
 function cotta(db: Db, numero = 'L-2026-40'): number {
   const birra = Number(db.prepare(`INSERT INTO birre (nome) VALUES ('Pils')`).run().lastInsertRowid)
-  return Number(db.prepare(`INSERT INTO cotte (numero_lotto, birra_id, data_inizio, litri_teorici) VALUES (?, ?, '2026-09-10', 500)`).run(numero, birra).lastInsertRowid)
+  return Number(
+    db
+      .prepare(
+        `INSERT INTO cotte (numero_lotto, birra_id, data_inizio, litri_teorici) VALUES (?, ?, '2026-09-10', 500)`
+      )
+      .run(numero, birra).lastInsertRowid
+  )
 }
 
 test('materiali da proporre al confezionamento: bottiglia e tappo come li sceglie il confezionamento, piu i fusti', () => {
@@ -44,8 +61,14 @@ test('materiali da proporre al confezionamento: bottiglia e tappo come li scegli
   carico(db, bott, 3000, 'VER-456', 'Verallia', '2026-09-01 10:00:00')
   const c = cotta(db)
   const m = materialiImballoConfezionamento(db, c, { bottiglie: true, fusti: [fusto] })
-  assert.deepEqual(m.map((x) => x.materiale_id), [bott, tappo, fusto])
-  assert.deepEqual(m[0].carichi.map((x) => x.lotto_fornitore), ['VER-456', 'VER-123'])
+  assert.deepEqual(
+    m.map((x) => x.materiale_id),
+    [bott, tappo, fusto]
+  )
+  assert.deepEqual(
+    m[0].carichi.map((x) => x.lotto_fornitore),
+    ['VER-456', 'VER-123']
+  )
   assert.equal(m[0].carichi[0].fornitore, 'Verallia')
   assert.deepEqual(materialiImballoConfezionamento(db, c, { bottiglie: false, fusti: [] }), [])
 })
@@ -59,12 +82,18 @@ test('collega i lotti imballi a una cotta, li rilegge, sostituisce l insieme', (
   const c = cotta(db)
   salvaLottiImballi(db, c, [cb, ct, cb])
   const righe = lottiImballiCotta(db, c)
-  assert.deepEqual(righe.map((r) => [r.materiale_nome, r.lotto_fornitore, r.fornitore]), [
-    ['Bottiglia 33 cl', 'VER-123', 'Verallia'],
-    ['Tappo corona', 'TAP-9', 'Pelliconi']
-  ])
+  assert.deepEqual(
+    righe.map((r) => [r.materiale_nome, r.lotto_fornitore, r.fornitore]),
+    [
+      ['Bottiglia 33 cl', 'VER-123', 'Verallia'],
+      ['Tappo corona', 'TAP-9', 'Pelliconi']
+    ]
+  )
   salvaLottiImballi(db, c, [ct])
-  assert.deepEqual(lottiImballiCotta(db, c).map((r) => r.movimento_id), [ct])
+  assert.deepEqual(
+    lottiImballiCotta(db, c).map((r) => r.movimento_id),
+    [ct]
+  )
   salvaLottiImballi(db, c, [])
   assert.deepEqual(lottiImballiCotta(db, c), [])
 })
@@ -73,7 +102,11 @@ test('solo movimenti di carico si possono collegare', () => {
   const db = creaDbTest()
   const bott = materiale(db, 'Bottiglia 33 cl', 'bottiglia')
   const scarico = Number(
-    db.prepare(`INSERT INTO movimenti_confezionamento (materiale_id, tipo_movimento, quantita, causale) VALUES (?, 'scarico', 10, 'produzione')`).run(bott).lastInsertRowid
+    db
+      .prepare(
+        `INSERT INTO movimenti_confezionamento (materiale_id, tipo_movimento, quantita, causale) VALUES (?, 'scarico', 10, 'produzione')`
+      )
+      .run(bott).lastInsertRowid
   )
   const c = cotta(db)
   assert.throws(() => salvaLottiImballi(db, c, [scarico]), ErroreUtente)

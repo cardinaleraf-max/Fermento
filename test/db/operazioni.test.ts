@@ -14,7 +14,13 @@ import type BetterSqlite3 from 'better-sqlite3'
 import type { OperazionePayload } from '../../src/shared/agricolo'
 
 function preparaSemina(db: BetterSqlite3.Database, superficie = 10): number {
-  const campo = salvaCampo(db, null, { nome: 'Campo 1A', superficie_ha: superficie, localita: null, rif_catastale: null, note: null })
+  const campo = salvaCampo(db, null, {
+    nome: 'Campo 1A',
+    superficie_ha: superficie,
+    localita: null,
+    rif_catastale: null,
+    note: null
+  })
   return salvaSemina(db, null, {
     campo_id: campo,
     stagione: '2025/2026',
@@ -44,7 +50,11 @@ test('concimazione con prodotto: scarica il lotto, calcola la dose per ettaro', 
   const semina = preparaSemina(db, 10)
   const npk = materia(db, 'Nitrato ammonico 27%', 'concime', 'q')
   const l = lotto(db, npk, 'NA-1', 30)
-  salvaOperazione(db, null, base(semina, { prodotto: { materia_prima_id: npk, quantita: 15, lotto_id: null } }))
+  salvaOperazione(
+    db,
+    null,
+    base(semina, { prodotto: { materia_prima_id: npk, quantita: 15, lotto_id: null } })
+  )
   assert.equal(residuo(db, l), 15)
   const [op] = listaOperazioni(db, { stagione: '2025/2026' })
   assert.equal(op.tipo, 'concimazione')
@@ -63,20 +73,38 @@ test('trattamento: prodotto obbligatorio, deve essere un fitofarmaco; fine caren
   const npk = materia(db, 'NPK', 'concime', 'q')
   lotto(db, fungicida, 'F1', 10)
   lotto(db, npk, 'N1', 10)
-  assert.throws(() => salvaOperazione(db, null, base(semina, { tipo: 'trattamento' })), ErroreUtente)
   assert.throws(
-    () => salvaOperazione(db, null, base(semina, { tipo: 'trattamento', prodotto: { materia_prima_id: npk, quantita: 1, lotto_id: null } })),
+    () => salvaOperazione(db, null, base(semina, { tipo: 'trattamento' })),
+    ErroreUtente
+  )
+  assert.throws(
+    () =>
+      salvaOperazione(
+        db,
+        null,
+        base(semina, {
+          tipo: 'trattamento',
+          prodotto: { materia_prima_id: npk, quantita: 1, lotto_id: null }
+        })
+      ),
     ErroreUtente
   )
   salvaOperazione(
     db,
     null,
-    base(semina, { tipo: 'trattamento', data: '2026-05-20', motivo: 'Ruggine', prodotto: { materia_prima_id: fungicida, quantita: 2, lotto_id: null } })
+    base(semina, {
+      tipo: 'trattamento',
+      data: '2026-05-20',
+      motivo: 'Ruggine',
+      prodotto: { materia_prima_id: fungicida, quantita: 2, lotto_id: null }
+    })
   )
   const [op] = listaOperazioni(db, { tipo: 'trattamento' })
   assert.equal(op.fine_carenza, '2026-06-19')
   assert.equal(op.tempo_carenza_giorni, 30)
-  assert.deepEqual(trattamentiConCarenza(db, semina), [{ data: '2026-05-20', giorni: 30, prodotto: 'Fungicida X' }])
+  assert.deepEqual(trattamentiConCarenza(db, semina), [
+    { data: '2026-05-20', giorni: 30, prodotto: 'Fungicida X' }
+  ])
 })
 
 test('lavorazione e irrigazione senza prodotto sono valide', () => {
@@ -97,14 +125,34 @@ test('modifica quantita e cambio prodotto ripristinano e riapplicano gli scarich
   const b = materia(db, 'Concime B', 'concime', 'kg')
   const la = lotto(db, a, 'A1', 20)
   const lb = lotto(db, b, 'B1', 500)
-  const id = salvaOperazione(db, null, base(semina, { prodotto: { materia_prima_id: a, quantita: 10, lotto_id: null } }))
-  salvaOperazione(db, id, base(semina, { prodotto: { materia_prima_id: a, quantita: 12, lotto_id: null } }))
+  const id = salvaOperazione(
+    db,
+    null,
+    base(semina, { prodotto: { materia_prima_id: a, quantita: 10, lotto_id: null } })
+  )
+  salvaOperazione(
+    db,
+    id,
+    base(semina, { prodotto: { materia_prima_id: a, quantita: 12, lotto_id: null } })
+  )
   assert.equal(residuo(db, la), 8)
-  salvaOperazione(db, id, base(semina, { prodotto: { materia_prima_id: b, quantita: 100, lotto_id: lb } }))
+  salvaOperazione(
+    db,
+    id,
+    base(semina, { prodotto: { materia_prima_id: b, quantita: 100, lotto_id: lb } })
+  )
   assert.equal(residuo(db, la), 20)
   assert.equal(residuo(db, lb), 400)
   // una modifica che fallisce non cambia nulla
-  assert.throws(() => salvaOperazione(db, id, base(semina, { prodotto: { materia_prima_id: b, quantita: 501, lotto_id: null } })), ErroreUtente)
+  assert.throws(
+    () =>
+      salvaOperazione(
+        db,
+        id,
+        base(semina, { prodotto: { materia_prima_id: b, quantita: 501, lotto_id: null } })
+      ),
+    ErroreUtente
+  )
   assert.equal(residuo(db, lb), 400)
   eliminaOperazione(db, id)
   assert.equal(residuo(db, lb), 500)
@@ -126,6 +174,12 @@ test('validazioni: semina inesistente, tipo non valido, data errata', () => {
   const db = creaDbTest()
   const semina = preparaSemina(db)
   assert.throws(() => salvaOperazione(db, null, base(999)), ErroreUtente)
-  assert.throws(() => salvaOperazione(db, null, base(semina, { tipo: 'potatura' as unknown as 'altro' })), ErroreUtente)
-  assert.throws(() => salvaOperazione(db, null, base(semina, { tipo: 'lavorazione', data: '10/02/2026' })), ErroreUtente)
+  assert.throws(
+    () => salvaOperazione(db, null, base(semina, { tipo: 'potatura' as unknown as 'altro' })),
+    ErroreUtente
+  )
+  assert.throws(
+    () => salvaOperazione(db, null, base(semina, { tipo: 'lavorazione', data: '10/02/2026' })),
+    ErroreUtente
+  )
 })

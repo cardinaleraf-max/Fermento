@@ -60,7 +60,10 @@ export type EsitoFrazioni = {
   quantita_scarto: number
 }
 
-export function calcolaFrazioni(quantitaLavorata: number, frazioni: FrazioneInput[]): EsitoFrazioni {
+export function calcolaFrazioni(
+  quantitaLavorata: number,
+  frazioni: FrazioneInput[]
+): EsitoFrazioni {
   const righe = frazioni.map((f) => ({
     ...f,
     quantita: arrotonda((quantitaLavorata * f.percentuale) / 100)
@@ -99,7 +102,10 @@ export function erroriFrazioni(frazioni: FrazioneInput[]): string[] {
     if (!Number.isFinite(f.percentuale) || f.percentuale < 0 || f.percentuale > 100) {
       errori.push(`Percentuale non valida per la frazione "${nome}".`)
     }
-    if (f.peso_specifico_gl !== null && (!Number.isFinite(f.peso_specifico_gl) || f.peso_specifico_gl < 0)) {
+    if (
+      f.peso_specifico_gl !== null &&
+      (!Number.isFinite(f.peso_specifico_gl) || f.peso_specifico_gl < 0)
+    ) {
       errori.push(`Peso specifico non valido per la frazione "${nome}".`)
     }
   }
@@ -108,7 +114,9 @@ export function erroriFrazioni(frazioni: FrazioneInput[]): string[] {
     4
   )
   if (somma > 100 + 1e-6) {
-    errori.push(`Le percentuali sommano ${somma.toLocaleString('it-IT')}%: non possono superare il 100%.`)
+    errori.push(
+      `Le percentuali sommano ${somma.toLocaleString('it-IT')}%: non possono superare il 100%.`
+    )
   }
   if (!frazioni.some((f) => !f.scarto && f.percentuale > 0)) {
     errori.push('Serve almeno una frazione non di scarto con una percentuale maggiore di zero.')
@@ -181,10 +189,12 @@ export function calcolaRese(
   }
   const haFinale = pesoFinaleKg !== null && pesoFinaleKg > 0
   return {
-    resa_maltazione: haFinale && pesoInizialeKg > 0 ? arrotonda(pesoFinaleKg / pesoInizialeKg, 6) : null,
+    resa_maltazione:
+      haFinale && pesoInizialeKg > 0 ? arrotonda(pesoFinaleKg / pesoInizialeKg, 6) : null,
     resa_complessiva: haFinale && equivalenti > 0 ? arrotonda(pesoFinaleKg / equivalenti, 6) : null,
     kg_grezzo_equivalenti: input.length > 0 ? arrotonda(equivalenti) : null,
-    perc_scarto_calibratura: equivalentiConScarto > 0 ? arrotonda(scartoPesato / equivalentiConScarto, 6) : null,
+    perc_scarto_calibratura:
+      equivalentiConScarto > 0 ? arrotonda(scartoPesato / equivalentiConScarto, 6) : null,
     parziale
   }
 }

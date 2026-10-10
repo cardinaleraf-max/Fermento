@@ -8,7 +8,12 @@
 /** Materie prime agricole: stanno nel Magazzino materie prime. */
 export const CATEGORIE_MP_AGRICOLE = ['orzo_grezzo', 'orzo_calibrato', 'luppolo_grezzo'] as const
 /** Input agricoli: stanno nel Magazzino input agricoli. */
-export const CATEGORIE_INPUT_AGRICOLI = ['semente', 'concime', 'fitofarmaco', 'input_altro'] as const
+export const CATEGORIE_INPUT_AGRICOLI = [
+  'semente',
+  'concime',
+  'fitofarmaco',
+  'input_altro'
+] as const
 
 export type CategoriaMpAgricola = (typeof CATEGORIE_MP_AGRICOLE)[number]
 export type CategoriaInputAgricolo = (typeof CATEGORIE_INPUT_AGRICOLI)[number]
@@ -165,7 +170,12 @@ export type LottoDisponibile = {
 
 // ── Operazioni di campo ──────────────────────────────────────────────────────
 
-export type TipoOperazione = 'concimazione' | 'trattamento' | 'lavorazione' | 'irrigazione' | 'altro'
+export type TipoOperazione =
+  | 'concimazione'
+  | 'trattamento'
+  | 'lavorazione'
+  | 'irrigazione'
+  | 'altro'
 
 export const TIPI_OPERAZIONE: Array<{ valore: TipoOperazione; etichetta: string }> = [
   { valore: 'concimazione', etichetta: 'Concimazione' },
@@ -271,7 +281,12 @@ export type GruppoParametri = {
 }
 
 export type GruppoPayload = { fase: FaseLavorazione; nome: string; con_data: boolean }
-export type ParametroPayload = { gruppo_id: number; nome: string; unita: string | null; tipo: TipoParametro }
+export type ParametroPayload = {
+  gruppo_id: number
+  nome: string
+  unita: string | null
+  tipo: TipoParametro
+}
 
 export type ValoriParametri = {
   /** parametro_id → valore (stringa; numeri con il punto decimale) */

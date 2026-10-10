@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react'
 import { Beer, Download, MapPin, Package, Route, Search, Sprout, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AvvisoBox, ErroreBox, Intestazione, SceltaPulsanti, StatoVuoto, cls } from '@/components/agricolo/common'
+import {
+  AvvisoBox,
+  ErroreBox,
+  Intestazione,
+  SceltaPulsanti,
+  StatoVuoto,
+  cls
+} from '@/components/agricolo/common'
 import { AlberoTracciabilita, tutteLeChiavi } from '@/components/agricolo/AlberoTracciabilita'
 import { cn } from '@/lib/utils'
 import {
@@ -118,7 +125,9 @@ export default function Tracciabilita(): React.JSX.Element {
           <p className="text-sm text-muted-foreground">Nessun risultato.</p>
         ) : (
           <div>
-            {!testo && <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Recenti</p>}
+            {!testo && (
+              <p className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">Recenti</p>
+            )}
             <div className="flex flex-wrap gap-2">
               {risultati.map((r) => {
                 const Icona = ICONA_PARTENZA[r.tipo]
@@ -166,10 +175,19 @@ export default function Tracciabilita(): React.JSX.Element {
               <Button variant="ghost" size="sm" onClick={() => setChiusi(new Set())}>
                 Espandi tutto
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setChiusi(new Set(tutteLeChiavi(albero)))}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setChiusi(new Set(tutteLeChiavi(albero)))}
+              >
                 Comprimi tutto
               </Button>
-              <Button size="sm" variant="outline" disabled={albero.length === 0} onClick={() => void esporta()}>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={albero.length === 0}
+                onClick={() => void esporta()}
+              >
                 <Download className="mr-1.5 h-3.5 w-3.5" /> Esporta CSV
               </Button>
             </div>

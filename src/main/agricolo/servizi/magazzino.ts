@@ -69,9 +69,9 @@ export function scaricaPerMateria(
   lottoId: number | null
 ): Array<{ lotto_id: number; quantita: number }> {
   if (!(quantita > 0)) throw new ErroreUtente('Inserisci una quantità maggiore di zero.')
-  const mp = db.prepare(`SELECT nome, unita_misura FROM materie_prime WHERE id = ?`).get(materiaPrimaId) as
-    | { nome: string; unita_misura: string }
-    | undefined
+  const mp = db
+    .prepare(`SELECT nome, unita_misura FROM materie_prime WHERE id = ?`)
+    .get(materiaPrimaId) as { nome: string; unita_misura: string } | undefined
   if (!mp) throw new ErroreUtente('Prodotto non trovato.')
 
   if (lottoId !== null) {
@@ -239,12 +239,17 @@ export function lottoUsatoAValle(db: Db, lottoId: number): string | null {
     )
     .get(lottoId) as { tipo: string; codice: string | null; data_inizio: string } | undefined
   if (lav) {
-    const nome = lav.tipo === 'maltazione' ? 'nella maltazione' : lav.tipo === 'calibratura' ? "nell'analisi e calibratura" : 'nella raccolta'
+    const nome =
+      lav.tipo === 'maltazione'
+        ? 'nella maltazione'
+        : lav.tipo === 'calibratura'
+          ? "nell'analisi e calibratura"
+          : 'nella raccolta'
     return `il lotto ${codice} è già stato usato ${nome} ${lav.codice ?? 'del ' + lav.data_inizio}`
   }
-  const consumo = db.prepare(`SELECT rif_tipo FROM agri_consumi WHERE lotto_id = ? LIMIT 1`).get(lottoId) as
-    | { rif_tipo: string }
-    | undefined
+  const consumo = db
+    .prepare(`SELECT rif_tipo FROM agri_consumi WHERE lotto_id = ? LIMIT 1`)
+    .get(lottoId) as { rif_tipo: string } | undefined
   if (consumo) {
     return `il lotto ${codice} è già stato usato in ${consumo.rif_tipo === 'semina' ? 'una semina' : "un'operazione di campo"}`
   }
@@ -264,7 +269,8 @@ export type DatiFitofarmaco = {
 export function colonneFitofarmaco(p: DatiFitofarmaco): Array<[string, string | number | null]> {
   const colonne: Array<[string, string | number | null]> = []
   const testo = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
-  if ('numero_registrazione' in p) colonne.push(['numero_registrazione', testo(p.numero_registrazione)])
+  if ('numero_registrazione' in p)
+    colonne.push(['numero_registrazione', testo(p.numero_registrazione)])
   if ('principio_attivo' in p) colonne.push(['principio_attivo', testo(p.principio_attivo)])
   if ('tempo_carenza_giorni' in p) {
     const v = p.tempo_carenza_giorni
@@ -273,7 +279,9 @@ export function colonneFitofarmaco(p: DatiFitofarmaco): Array<[string, string | 
     } else {
       const n = Number(v)
       if (!Number.isInteger(n) || n < 0 || n > 3650) {
-        throw new ErroreUtente('Tempo di carenza: inserisci un numero intero di giorni (0 se non previsto).')
+        throw new ErroreUtente(
+          'Tempo di carenza: inserisci un numero intero di giorni (0 se non previsto).'
+        )
       }
       colonne.push(['tempo_carenza_giorni', n])
     }
@@ -301,7 +309,9 @@ function tabellaPresente(db: Db, nome: string): boolean {
 }
 
 function colonnaPresente(db: Db, tabella: string, colonna: string): boolean {
-  return (db.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{ name: string }>).some((c) => c.name === colonna)
+  return (db.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{ name: string }>).some(
+    (c) => c.name === colonna
+  )
 }
 
 const NOMI_ORIGINE: Record<string, string> = {
@@ -317,9 +327,9 @@ const NOMI_ORIGINE: Record<string, string> = {
  */
 export function motivoBloccoEliminazioneLotto(db: Db, lottoId: number): string | null {
   if (colonnaPresente(db, 'lotti_materie_prime', 'origine_tipo')) {
-    const l = db.prepare(`SELECT origine_tipo FROM lotti_materie_prime WHERE id = ?`).get(lottoId) as
-      | { origine_tipo: string | null }
-      | undefined
+    const l = db
+      .prepare(`SELECT origine_tipo FROM lotti_materie_prime WHERE id = ?`)
+      .get(lottoId) as { origine_tipo: string | null } | undefined
     if (l?.origine_tipo && l.origine_tipo !== 'acquisto') {
       return `Questo lotto è stato creato da ${NOMI_ORIGINE[l.origine_tipo] ?? 'una lavorazione'}: per toglierlo elimina quella lavorazione.`
     }
@@ -331,7 +341,7 @@ export function motivoBloccoEliminazioneLotto(db: Db, lottoId: number): string |
   ]
   for (const [tabella, sql] of usi) {
     if (tabellaPresente(db, tabella) && db.prepare(sql).get(lottoId)) {
-      return "Lotto usato nella filiera agricola (semina, operazione di campo o lavorazione): non si può eliminare."
+      return 'Lotto usato nella filiera agricola (semina, operazione di campo o lavorazione): non si può eliminare.'
     }
   }
   return null
@@ -341,7 +351,9 @@ export function motivoBloccoEliminazioneLotto(db: Db, lottoId: number): string |
 export function motivoBloccoEliminazioneMateria(db: Db, materiaPrimaId: number): string | null {
   if (
     tabellaPresente(db, 'agri_operazioni') &&
-    db.prepare(`SELECT 1 FROM agri_operazioni WHERE materia_prima_id = ? LIMIT 1`).get(materiaPrimaId)
+    db
+      .prepare(`SELECT 1 FROM agri_operazioni WHERE materia_prima_id = ? LIMIT 1`)
+      .get(materiaPrimaId)
   ) {
     return 'Prodotto usato in operazioni di campo: non si può eliminare.'
   }
@@ -350,7 +362,12 @@ export function motivoBloccoEliminazioneMateria(db: Db, materiaPrimaId: number):
       .prepare(`SELECT tipo FROM agri_lavorazioni WHERE materia_prima_id = ? LIMIT 1`)
       .get(materiaPrimaId) as { tipo: string } | undefined
     if (lav) {
-      const nome = lav.tipo === 'raccolta' ? 'raccolte' : lav.tipo === 'calibratura' ? 'calibrature' : 'maltazioni'
+      const nome =
+        lav.tipo === 'raccolta'
+          ? 'raccolte'
+          : lav.tipo === 'calibratura'
+            ? 'calibrature'
+            : 'maltazioni'
       return `Materia prima usata in ${nome}: non si può eliminare.`
     }
   }

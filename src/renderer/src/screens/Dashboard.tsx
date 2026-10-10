@@ -42,10 +42,7 @@ export default function Dashboard({ onVaiAvvisi, onVaiMaltazioni }: DashboardPro
   const mostraMaltazioni = onVaiMaltazioni !== undefined
 
   useEffect(() => {
-    if (!mostraMaltazioni) {
-      setMaltazioni([])
-      return
-    }
+    if (!mostraMaltazioni) return
     window.api.agri
       .maltazioniInCorso()
       .then(setMaltazioni)

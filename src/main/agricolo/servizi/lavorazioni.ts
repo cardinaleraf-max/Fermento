@@ -14,7 +14,13 @@ import type {
   StatoLavorazione,
   ViolazioneCarenzaRiga
 } from '../../../shared/agricolo'
-import { aggiungiMesi, calcolaFrazioni, calcolaRese, erroriFrazioni, violazioniCarenza } from '../calcoli'
+import {
+  aggiungiMesi,
+  calcolaFrazioni,
+  calcolaRese,
+  erroriFrazioni,
+  violazioniCarenza
+} from '../calcoli'
 import { ErroreUtente } from '../errori'
 import { EPS, aKg, arrotonda, converti, daKg } from '../unita'
 import { creaLotto, leggiLotto, lottoUsatoAValle, ripristinaLotto, scaricaLotto } from './magazzino'
@@ -43,10 +49,13 @@ function fmt(n: number): string {
   return arrotonda(n).toLocaleString('it-IT')
 }
 
-function materiaPrima(db: Db, id: number): { id: number; nome: string; categoria: string; unita_misura: string } {
-  const mp = db.prepare(`SELECT id, nome, categoria, unita_misura FROM materie_prime WHERE id = ?`).get(id) as
-    | { id: number; nome: string; categoria: string; unita_misura: string }
-    | undefined
+function materiaPrima(
+  db: Db,
+  id: number
+): { id: number; nome: string; categoria: string; unita_misura: string } {
+  const mp = db
+    .prepare(`SELECT id, nome, categoria, unita_misura FROM materie_prime WHERE id = ?`)
+    .get(id) as { id: number; nome: string; categoria: string; unita_misura: string } | undefined
   if (!mp) throw new ErroreUtente('Materia prima non trovata.')
   return mp
 }
@@ -56,7 +65,9 @@ function materiaPrima(db: Db, id: number): { id: number; nome: string; categoria
 /** Perché una lavorazione non si può più modificare o eliminare (lotti prodotti già usati). */
 export function bloccoLavorazione(db: Db, id: number): string | null {
   const uscite = db
-    .prepare(`SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`)
+    .prepare(
+      `SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`
+    )
     .all(id) as Array<{ lotto_id: number }>
   for (const u of uscite) {
     const motivo = lottoUsatoAValle(db, u.lotto_id)
@@ -73,7 +84,9 @@ function annullaEffetti(db: Db, id: number): void {
   for (const i of ingressi) ripristinaLotto(db, i.lotto_id, i.quantita)
   db.prepare(`DELETE FROM agri_lavorazione_input WHERE lavorazione_id = ?`).run(id)
   const lotti = db
-    .prepare(`SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`)
+    .prepare(
+      `SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`
+    )
     .all(id) as Array<{ lotto_id: number }>
   db.prepare(`DELETE FROM agri_lavorazione_output WHERE lavorazione_id = ?`).run(id)
   const del = db.prepare(`DELETE FROM lotti_materie_prime WHERE id = ?`)
@@ -81,17 +94,25 @@ function annullaEffetti(db: Db, id: number): void {
 }
 
 function verificaModificabile(db: Db, id: number, tipo: FaseLavorazione): void {
-  const lav = db.prepare(`SELECT tipo FROM agri_lavorazioni WHERE id = ?`).get(id) as { tipo: string } | undefined
+  const lav = db.prepare(`SELECT tipo FROM agri_lavorazioni WHERE id = ?`).get(id) as
+    | { tipo: string }
+    | undefined
   if (!lav || lav.tipo !== tipo) throw new ErroreUtente('Lavorazione non trovata.')
   const blocco = bloccoLavorazione(db, id)
-  if (blocco) throw new ErroreUtente(`Non si può modificare: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`)
+  if (blocco)
+    throw new ErroreUtente(
+      `Non si può modificare: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`
+    )
 }
 
 export function eliminaLavorazione(db: Db, id: number): void {
   const lav = db.prepare(`SELECT tipo FROM agri_lavorazioni WHERE id = ?`).get(id)
   if (!lav) throw new ErroreUtente('Lavorazione non trovata.')
   const blocco = bloccoLavorazione(db, id)
-  if (blocco) throw new ErroreUtente(`Non si può eliminare: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`)
+  if (blocco)
+    throw new ErroreUtente(
+      `Non si può eliminare: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`
+    )
   db.transaction(() => {
     annullaEffetti(db, id)
     db.prepare(`DELETE FROM agri_valori_parametri WHERE lavorazione_id = ?`).run(id)
@@ -100,9 +121,16 @@ export function eliminaLavorazione(db: Db, id: number): void {
   })()
 }
 
-function codiceLottoLibero(db: Db, materiaPrimaId: number, codice: string, escludiLotto: number | null = null): boolean {
+function codiceLottoLibero(
+  db: Db,
+  materiaPrimaId: number,
+  codice: string,
+  escludiLotto: number | null = null
+): boolean {
   return !db
-    .prepare(`SELECT 1 FROM lotti_materie_prime WHERE materia_prima_id = ? AND lotto_fornitore = ? COLLATE NOCASE AND id IS NOT ?`)
+    .prepare(
+      `SELECT 1 FROM lotti_materie_prime WHERE materia_prima_id = ? AND lotto_fornitore = ? COLLATE NOCASE AND id IS NOT ?`
+    )
     .get(materiaPrimaId, codice, escludiLotto)
 }
 
@@ -134,12 +162,13 @@ export function verificaCarenza(db: Db, seminaId: number, data: string): Violazi
 
 export function salvaRaccolta(db: Db, id: number | null, p: RaccoltaPayload): number {
   const seminaId = idObbligatorio(p.semina_id, 'Semina')
-  const semina = db.prepare(`SELECT id, coltura, data FROM agri_semine WHERE id = ?`).get(seminaId) as
-    | { id: number; coltura: Coltura; data: string }
-    | undefined
+  const semina = db
+    .prepare(`SELECT id, coltura, data FROM agri_semine WHERE id = ?`)
+    .get(seminaId) as { id: number; coltura: Coltura; data: string } | undefined
   if (!semina) throw new ErroreUtente('Semina non trovata.')
   const data = dataObbligatoria(p.data, 'Data di raccolta')
-  if (data < semina.data) throw new ErroreUtente('La data di raccolta è precedente alla data di semina.')
+  if (data < semina.data)
+    throw new ErroreUtente('La data di raccolta è precedente alla data di semina.')
   const stagione = stagioneObbligatoria(p.stagione)
   const mp = materiaPrima(db, idObbligatorio(p.materia_prima_id, 'Materia prima'))
   if (!CATEGORIE_RACCOLTA[semina.coltura].includes(mp.categoria)) {
@@ -175,7 +204,9 @@ export function salvaRaccolta(db: Db, id: number | null, p: RaccoltaPayload): nu
       lavId = id
     }
     if (!codiceLottoLibero(db, mp.id, codice)) {
-      throw new ErroreUtente(`Esiste già un lotto "${codice}" di ${mp.nome}: usa un codice diverso.`)
+      throw new ErroreUtente(
+        `Esiste già un lotto "${codice}" di ${mp.nome}: usa un codice diverso.`
+      )
     }
     const lottoId = creaLotto(db, {
       materia_prima_id: mp.id,
@@ -206,14 +237,18 @@ export function salvaCalibratura(db: Db, id: number | null, p: CalibraturaPayloa
   const quantita = numeroPositivo(p.quantita, 'Quantità lavorata')
   const dest = materiaPrima(db, idObbligatorio(p.materia_prima_id, 'Materia prima di destinazione'))
   if (dest.categoria !== 'orzo_calibrato') {
-    throw new ErroreUtente('Le frazioni calibrate vanno caricate su una materia prima di categoria "Orzo calibrato".')
+    throw new ErroreUtente(
+      'Le frazioni calibrate vanno caricate su una materia prima di categoria "Orzo calibrato".'
+    )
   }
   const frazioni = (Array.isArray(p.frazioni) ? p.frazioni : []).map((f) => ({
     nome: typeof f.nome === 'string' ? f.nome.trim() : '',
     percentuale: Number(f.percentuale),
     scarto: f.scarto === true,
     peso_specifico_gl:
-      f.peso_specifico_gl === null || f.peso_specifico_gl === undefined ? null : Number(f.peso_specifico_gl)
+      f.peso_specifico_gl === null || f.peso_specifico_gl === undefined
+        ? null
+        : Number(f.peso_specifico_gl)
   }))
   const errori = erroriFrazioni(frazioni)
   if (errori.length > 0) throw new ErroreUtente(errori.join(' '))
@@ -265,16 +300,21 @@ export function salvaCalibratura(db: Db, id: number | null, p: CalibraturaPayloa
     ).run(lavId, lottoId, quantita, aKg(quantita, mpGrezzo.unita_misura))
 
     const esito = calcolaFrazioni(quantita, frazioni)
-    const scadenza = (db.prepare(`SELECT data_scadenza FROM lotti_materie_prime WHERE id = ?`).get(lottoId) as {
-      data_scadenza: string | null
-    }).data_scadenza
+    const scadenza = (
+      db.prepare(`SELECT data_scadenza FROM lotti_materie_prime WHERE id = ?`).get(lottoId) as {
+        data_scadenza: string | null
+      }
+    ).data_scadenza
     const insOut = db.prepare(
       `INSERT INTO agri_lavorazione_output
          (lavorazione_id, ordine, nome, percentuale, quantita, quantita_kg, scarto, peso_specifico_gl, lotto_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     esito.righe.forEach((r, i) => {
-      const qDest = arrotonda(converti(r.quantita, mpGrezzo.unita_misura, dest.unita_misura) ?? 0, 6)
+      const qDest = arrotonda(
+        converti(r.quantita, mpGrezzo.unita_misura, dest.unita_misura) ?? 0,
+        6
+      )
       let lottoOut: number | null = null
       if (!r.scarto && qDest > EPS) {
         lottoOut = creaLotto(db, {
@@ -378,7 +418,9 @@ function descriviIngressi(inp: InputDettaglio[]): string {
 function descriviUscite(tipo: FaseLavorazione, out: OutputDettaglio[]): string {
   if (tipo === 'calibratura') {
     const utili = out.filter((o) => !o.scarto && o.quantita > EPS)
-    return utili.map((o) => `${o.nome} ${fmt(o.quantita)} ${o.unita_misura ?? ''}`.trim()).join(' · ')
+    return utili
+      .map((o) => `${o.nome} ${fmt(o.quantita)} ${o.unita_misura ?? ''}`.trim())
+      .join(' · ')
   }
   return out
     .filter((o) => o.lotto_id !== null)
@@ -391,7 +433,13 @@ function riepilogoParametri(db: Db, id: number): string {
     .slice(0, 3)
     .map((v) => {
       const valore =
-        v.tipo === 'si_no' ? (v.valore === 'si' ? 'sì' : 'no') : v.tipo === 'numero' ? v.valore.replace('.', ',') : v.valore
+        v.tipo === 'si_no'
+          ? v.valore === 'si'
+            ? 'sì'
+            : 'no'
+          : v.tipo === 'numero'
+            ? v.valore.replace('.', ',')
+            : v.valore
       return `${v.parametro} ${valore}${v.tipo === 'numero' && v.unita ? (v.unita === '%' ? '%' : ` ${v.unita}`) : ''}`
     })
     .join(' · ')
@@ -411,7 +459,11 @@ export function reseMaltazione(db: Db, id: number): Rese {
       `SELECT i.quantita_kg, l.origine_tipo, l.origine_id FROM agri_lavorazione_input i
        JOIN lotti_materie_prime l ON l.id = i.lotto_id WHERE i.lavorazione_id = ?`
     )
-    .all(id) as Array<{ quantita_kg: number | null; origine_tipo: string; origine_id: number | null }>
+    .all(id) as Array<{
+    quantita_kg: number | null
+    origine_tipo: string
+    origine_id: number | null
+  }>
   const quote = db.prepare(
     `SELECT
        (SELECT SUM(quantita_kg) FROM agri_lavorazione_input WHERE lavorazione_id = ?) AS grezzo,
@@ -443,7 +495,10 @@ export function reseMaltazione(db: Db, id: number): Rese {
   return calcolaRese(pesoIniziale, finale.kg ?? null, input)
 }
 
-function componiRiga(db: Db, t: TestataDb): LavorazioneRiga & { _in: InputDettaglio[]; _out: OutputDettaglio[] } {
+function componiRiga(
+  db: Db,
+  t: TestataDb
+): LavorazioneRiga & { _in: InputDettaglio[]; _out: OutputDettaglio[] } {
   const inp = ingressi(db, t.id)
   const out = uscite(db, t.id, false)
   const sommaKg = (xs: Array<{ quantita_kg: number | null }>): number | null =>
@@ -457,7 +512,10 @@ function componiRiga(db: Db, t: TestataDb): LavorazioneRiga & { _in: InputDettag
     input_descrizione: descriviIngressi(inp),
     output_descrizione: descriviUscite(t.tipo, out),
     riepilogo_parametri: riepilogoParametri(db, t.id),
-    carenza: t.tipo === 'raccolta' && t.semina_id !== null ? verificaCarenza(db, t.semina_id, t.data_inizio) : [],
+    carenza:
+      t.tipo === 'raccolta' && t.semina_id !== null
+        ? verificaCarenza(db, t.semina_id, t.data_inizio)
+        : [],
     rese: t.tipo === 'maltazione' ? reseMaltazione(db, t.id) : null,
     _in: inp,
     _out: out
@@ -492,9 +550,13 @@ export function dettaglioLavorazione(db: Db, id: number): LavorazioneDettaglio {
   const out = uscite(db, id, true)
   const primoLotto = out.find((o) => o.lotto_id !== null)
   const scadenza = primoLotto
-    ? ((db.prepare(`SELECT data_scadenza FROM lotti_materie_prime WHERE id = ?`).get(primoLotto.lotto_id) as {
-        data_scadenza: string | null
-      }).data_scadenza ?? null)
+    ? ((
+        db
+          .prepare(`SELECT data_scadenza FROM lotti_materie_prime WHERE id = ?`)
+          .get(primoLotto.lotto_id) as {
+          data_scadenza: string | null
+        }
+      ).data_scadenza ?? null)
     : null
   return {
     ...riga,
@@ -529,24 +591,36 @@ function chiusuraAttuale(db: Db, id: number): Chiusura | null {
     )
     .get(id) as { quantita_kg: number | null; data_scadenza: string | null } | undefined
   if (!out || out.quantita_kg === null) return null
-  return { data_uscita: lav.data_fine, peso_finale_kg: out.quantita_kg, data_scadenza: out.data_scadenza }
+  return {
+    data_uscita: lav.data_fine,
+    peso_finale_kg: out.quantita_kg,
+    data_scadenza: out.data_scadenza
+  }
 }
 
 /** Crea il lotto di malto e chiude la maltazione (da chiamare in transazione). */
 function applicaChiusura(db: Db, id: number, c: Chiusura): number {
   const lav = db
-    .prepare(`SELECT codice, stagione, materia_prima_id, data_inizio FROM agri_lavorazioni WHERE id = ?`)
+    .prepare(
+      `SELECT codice, stagione, materia_prima_id, data_inizio FROM agri_lavorazioni WHERE id = ?`
+    )
     .get(id) as { codice: string; stagione: string; materia_prima_id: number; data_inizio: string }
   if (c.data_uscita < lav.data_inizio) {
-    throw new ErroreUtente("La data di uscita non può essere precedente all'inizio della maltazione.")
+    throw new ErroreUtente(
+      "La data di uscita non può essere precedente all'inizio della maltazione."
+    )
   }
   const malto = materiaPrima(db, lav.materia_prima_id)
   const quantita = daKg(c.peso_finale_kg, malto.unita_misura)
   if (quantita === null) {
-    throw new ErroreUtente(`L'unità del malto "${malto.nome}" (${malto.unita_misura}) non è un peso: usa kg o q.`)
+    throw new ErroreUtente(
+      `L'unità del malto "${malto.nome}" (${malto.unita_misura}) non è un peso: usa kg o q.`
+    )
   }
   if (!codiceLottoLibero(db, malto.id, lav.codice)) {
-    throw new ErroreUtente(`Esiste già un lotto "${lav.codice}" di ${malto.nome}: cambia il codice della maltazione.`)
+    throw new ErroreUtente(
+      `Esiste già un lotto "${lav.codice}" di ${malto.nome}: cambia il codice della maltazione.`
+    )
   }
   const lottoId = creaLotto(db, {
     materia_prima_id: malto.id,
@@ -573,7 +647,9 @@ function applicaChiusura(db: Db, id: number, c: Chiusura): number {
 /** Toglie il lotto di malto e riporta la maltazione "in corso" (da chiamare in transazione). */
 function togliChiusura(db: Db, id: number): void {
   const lotti = db
-    .prepare(`SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`)
+    .prepare(
+      `SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`
+    )
     .all(id) as Array<{ lotto_id: number }>
   db.prepare(`DELETE FROM agri_lavorazione_output WHERE lavorazione_id = ?`).run(id)
   const del = db.prepare(`DELETE FROM lotti_materie_prime WHERE id = ?`)
@@ -595,13 +671,17 @@ export function avviaMaltazione(db: Db, id: number | null, p: MaltazioneAvviaPay
   const codice = testoObbligatorio(p.codice, 'Codice lotto')
   const malto = materiaPrima(db, idObbligatorio(p.materia_prima_id, 'Tipo di malto'))
   if (malto.categoria !== 'malto') {
-    throw new ErroreUtente('Il tipo di malto deve essere una materia prima della categoria "malto".')
+    throw new ErroreUtente(
+      'Il tipo di malto deve essere una materia prima della categoria "malto".'
+    )
   }
   if (daKg(1, malto.unita_misura) === null) {
-    throw new ErroreUtente(`L'unità del malto "${malto.nome}" (${malto.unita_misura}) non è un peso: usa kg o q.`)
+    throw new ErroreUtente(
+      `L'unità del malto "${malto.nome}" (${malto.unita_misura}) non è un peso: usa kg o q.`
+    )
   }
   const ingressi = Array.isArray(p.input) ? p.input : []
-  if (ingressi.length === 0) throw new ErroreUtente("Aggiungi almeno un lotto di orzo calibrato.")
+  if (ingressi.length === 0) throw new ErroreUtente('Aggiungi almeno un lotto di orzo calibrato.')
   const perLotto = new Map<number, number>()
   for (const i of ingressi) {
     const lottoId = idObbligatorio(i.lotto_id, 'Lotto di orzo calibrato')
@@ -610,7 +690,9 @@ export function avviaMaltazione(db: Db, id: number | null, p: MaltazioneAvviaPay
   }
   const note = testoOpzionale(p.note)
   const doppio = db
-    .prepare(`SELECT id FROM agri_lavorazioni WHERE tipo = 'maltazione' AND codice = ? COLLATE NOCASE AND id IS NOT ?`)
+    .prepare(
+      `SELECT id FROM agri_lavorazioni WHERE tipo = 'maltazione' AND codice = ? COLLATE NOCASE AND id IS NOT ?`
+    )
     .get(codice, id)
   if (doppio) throw new ErroreUtente(`Esiste già una maltazione con codice "${codice}".`)
 
@@ -684,7 +766,10 @@ export function riapriMaltazione(db: Db, id: number): void {
   if (!lav || lav.tipo !== 'maltazione') throw new ErroreUtente('Maltazione non trovata.')
   if (lav.stato !== 'chiusa') return
   const blocco = bloccoLavorazione(db, id)
-  if (blocco) throw new ErroreUtente(`Non si può riaprire: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`)
+  if (blocco)
+    throw new ErroreUtente(
+      `Non si può riaprire: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`
+    )
   db.transaction(() => togliChiusura(db, id))()
 }
 

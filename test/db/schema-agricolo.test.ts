@@ -46,7 +46,9 @@ test('un lotto gia esistente prima della migrazione diventa origine acquisto e n
   const db = new Database(':memory:')
   db.pragma('foreign_keys = ON')
   // schema "vecchio" della tabella lotti (come nel DB di Luca prima del modulo)
-  db.exec(`CREATE TABLE lotti_materie_prime (id INTEGER PRIMARY KEY, materia_prima_id INTEGER, fornitore_id INTEGER, lotto_fornitore TEXT, data_carico DATE, data_scadenza DATE, quantita_iniziale REAL, quantita_residua REAL, note TEXT, creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP, aggiornato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`)
+  db.exec(
+    `CREATE TABLE lotti_materie_prime (id INTEGER PRIMARY KEY, materia_prima_id INTEGER, fornitore_id INTEGER, lotto_fornitore TEXT, data_carico DATE, data_scadenza DATE, quantita_iniziale REAL, quantita_residua REAL, note TEXT, creato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP, aggiornato_il TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
+  )
   db.prepare(
     `INSERT INTO lotti_materie_prime (materia_prima_id, lotto_fornitore, data_carico, data_scadenza, quantita_iniziale, quantita_residua) VALUES (1, 'L-OLD', '2026-01-10', '2027-01-10', 25, 12.5)`
   ).run()
@@ -71,7 +73,10 @@ test('configurazioni del modulo: spento di default, stagione valida, frazioni pr
   assert.match(get('agri_stagione_corrente').valore, /^\d{4}\/\d{4}$/)
   assert.equal(get('agri_stagione_corrente').categoria, 'agricolo')
   assert.equal(get('agri_shelf_life_malto_mesi').valore, '12')
-  const frazioni = JSON.parse(get('agri_frazioni_default').valore) as Array<{ nome: string; scarto: boolean }>
+  const frazioni = JSON.parse(get('agri_frazioni_default').valore) as Array<{
+    nome: string
+    scarto: boolean
+  }>
   assert.deepEqual(frazioni, [
     { nome: '<3 mm', scarto: true },
     { nome: '3-4 mm', scarto: false },
@@ -83,10 +88,13 @@ test('configurazioni del modulo: spento di default, stagione valida, frazioni pr
 test('una configurazione modificata dall utente non viene sovrascritta dalla migrazione', () => {
   const db = creaDbTest()
   db.prepare(`UPDATE configurazioni SET valore = '1' WHERE chiave = 'modulo_agricolo_attivo'`).run()
-  db.prepare(`UPDATE configurazioni SET valore = '2030/2031' WHERE chiave = 'agri_stagione_corrente'`).run()
+  db.prepare(
+    `UPDATE configurazioni SET valore = '2030/2031' WHERE chiave = 'agri_stagione_corrente'`
+  ).run()
   applicaSchema(db)
   const v = (k: string): string =>
-    (db.prepare(`SELECT valore FROM configurazioni WHERE chiave = ?`).get(k) as { valore: string }).valore
+    (db.prepare(`SELECT valore FROM configurazioni WHERE chiave = ?`).get(k) as { valore: string })
+      .valore
   assert.equal(v('modulo_agricolo_attivo'), '1')
   assert.equal(v('agri_stagione_corrente'), '2030/2031')
 })
@@ -118,7 +126,9 @@ test('parametri di fase predefiniti: 6 gruppi e 40 parametri nell ordine del pro
     [2, 2, 11, 10, 5, 10]
   )
   const tipi = db
-    .prepare(`SELECT nome, tipo, unita FROM agri_parametri WHERE nome IN ('Punta radichetta', 'Dolcezza', 'Aspetto visivo', 'Umidità')`)
+    .prepare(
+      `SELECT nome, tipo, unita FROM agri_parametri WHERE nome IN ('Punta radichetta', 'Dolcezza', 'Aspetto visivo', 'Umidità')`
+    )
     .all() as Array<{ nome: string; tipo: string; unita: string | null }>
   const perNome = Object.fromEntries(tipi.map((t) => [t.nome, t]))
   assert.equal(perNome['Punta radichetta'].tipo, 'si_no')

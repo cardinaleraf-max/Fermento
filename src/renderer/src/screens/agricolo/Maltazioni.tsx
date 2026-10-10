@@ -1,5 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, Flame, Lock, PackageCheck, Pencil, Plus, RotateCcw, Save, Trash2, X } from 'lucide-react'
+import {
+  ArrowLeft,
+  Flame,
+  Lock,
+  PackageCheck,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Save,
+  Trash2,
+  X
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -68,7 +79,11 @@ export function giorniDa(iso: string): number {
   return Math.max(0, Math.round(ms / 86400000))
 }
 
-export function BadgeStatoMaltazione({ r }: { r: Pick<LavorazioneRiga, 'stato' | 'data_inizio'> }): React.JSX.Element {
+export function BadgeStatoMaltazione({
+  r
+}: {
+  r: Pick<LavorazioneRiga, 'stato' | 'data_inizio'>
+}): React.JSX.Element {
   if (r.stato === 'chiusa') return <BadgeTono tono="verde">Chiusa</BadgeTono>
   const g = giorniDa(r.data_inizio)
   return <BadgeTono tono="ambra">In corso · {g === 1 ? '1 giorno' : `${g} giorni`}</BadgeTono>
@@ -88,7 +103,10 @@ type Editor = {
   restituibili: Record<number, number>
 }
 
-type Vista = { tipo: 'elenco' } | { tipo: 'editor'; editor: Editor } | { tipo: 'dettaglio'; id: number }
+type Vista =
+  | { tipo: 'elenco' }
+  | { tipo: 'editor'; editor: Editor }
+  | { tipo: 'dettaglio'; id: number }
 
 export default function Maltazioni(): React.JSX.Element {
   const agricolo = useAgricolo()
@@ -140,7 +158,8 @@ export default function Maltazioni(): React.JSX.Element {
 
   const modifica = (d: LavorazioneDettaglio): void => {
     const restituibili: Record<number, number> = {}
-    for (const i of d.input) restituibili[i.lotto_id] = (restituibili[i.lotto_id] ?? 0) + (i.quantita_kg ?? 0)
+    for (const i of d.input)
+      restituibili[i.lotto_id] = (restituibili[i.lotto_id] ?? 0) + (i.quantita_kg ?? 0)
     setVista({
       tipo: 'editor',
       editor: {
@@ -149,7 +168,10 @@ export default function Maltazioni(): React.JSX.Element {
         stagione: d.stagione,
         materia_prima_id: d.materia_prima_id !== null ? String(d.materia_prima_id) : '',
         codice: d.codice ?? '',
-        righe: d.input.map((i) => ({ lotto_id: String(i.lotto_id), kg: numeroInInput(i.quantita_kg) })),
+        righe: d.input.map((i) => ({
+          lotto_id: String(i.lotto_id),
+          kg: numeroInInput(i.quantita_kg)
+        })),
         note: d.note ?? '',
         restituibili
       }
@@ -160,7 +182,11 @@ export default function Maltazioni(): React.JSX.Element {
     return (
       <EditorMaltazione
         iniziale={vista.editor}
-        onAnnulla={() => setVista(vista.editor.id ? { tipo: 'dettaglio', id: vista.editor.id } : { tipo: 'elenco' })}
+        onAnnulla={() =>
+          setVista(
+            vista.editor.id ? { tipo: 'dettaglio', id: vista.editor.id } : { tipo: 'elenco' }
+          )
+        }
         onSalvata={(id, stagioneSalvata) => {
           if (stagione && stagioneSalvata !== stagione) setStagione(stagioneSalvata)
           void carica()
@@ -229,16 +255,24 @@ export default function Maltazioni(): React.JSX.Element {
             </thead>
             <tbody>
               {righe.map((r) => (
-                <tr key={r.id} className={cls.rigaCliccabile} onClick={() => setVista({ tipo: 'dettaglio', id: r.id })}>
+                <tr
+                  key={r.id}
+                  className={cls.rigaCliccabile}
+                  onClick={() => setVista({ tipo: 'dettaglio', id: r.id })}
+                >
                   <td className={cn(cls.td, 'font-medium text-foreground')}>{r.codice}</td>
                   <td className={cls.td}>{r.materia_prima_nome}</td>
                   <td className={cn(cls.td, 'tabular-nums')}>{fmtData(r.data_inizio)}</td>
                   <td className={cn(cls.td, 'tabular-nums')}>{fmtData(r.data_fine)}</td>
-                  <td className={cn(cls.td, 'text-right tabular-nums')}>{fmtQta(r.input_kg, 'kg', 1)}</td>
+                  <td className={cn(cls.td, 'text-right tabular-nums')}>
+                    {fmtQta(r.input_kg, 'kg', 1)}
+                  </td>
                   <td className={cn(cls.td, 'text-right tabular-nums')}>
                     {r.stato === 'chiusa' ? fmtQta(r.output_kg, 'kg', 1) : '—'}
                   </td>
-                  <td className={cn(cls.td, 'text-right tabular-nums')}>{fmtPerc(r.rese?.resa_maltazione)}</td>
+                  <td className={cn(cls.td, 'text-right tabular-nums')}>
+                    {fmtPerc(r.rese?.resa_maltazione)}
+                  </td>
                   <td className={cls.td}>
                     <BadgeStatoMaltazione r={r} />
                   </td>
@@ -284,7 +318,8 @@ function EditorMaltazione({
       .catch(() => setLotti([]))
   }, [iniziale.restituibili])
 
-  const kgDisponibili = (l: LottoDisponibile): number | null => convertiUnita(l.quantita_residua, l.unita_misura, 'kg')
+  const kgDisponibili = (l: LottoDisponibile): number | null =>
+    convertiUnita(l.quantita_residua, l.unita_misura, 'kg')
   const pesoIniziale = ed.righe.reduce((s, r) => {
     const v = parseNumero(r.kg)
     return s + (v !== null && !Number.isNaN(v) ? v : 0)
@@ -294,14 +329,16 @@ function EditorMaltazione({
     setEd((p) => ({ ...p, righe: p.righe.map((r, j) => (j === i ? { ...r, ...patch } : r)) }))
 
   const salva = async (): Promise<void> => {
-    if (!ed.materia_prima_id) return setErrore('Scegli il tipo di malto (la materia prima che verrà caricata).')
+    if (!ed.materia_prima_id)
+      return setErrore('Scegli il tipo di malto (la materia prima che verrà caricata).')
     if (!ed.codice.trim()) return setErrore('Inserisci il codice lotto della maltazione.')
     const input: Array<{ lotto_id: number; kg: number }> = []
     for (const r of ed.righe) {
       if (!r.lotto_id && !r.kg.trim()) continue
       const kg = parseNumero(r.kg)
       if (!r.lotto_id) return setErrore('Scegli il lotto di orzo calibrato in ogni riga.')
-      if (kg === null || Number.isNaN(kg) || kg <= 0) return setErrore('Inserisci i kg di orzo per ogni lotto.')
+      if (kg === null || Number.isNaN(kg) || kg <= 0)
+        return setErrore('Inserisci i kg di orzo per ogni lotto.')
       const l = lotti.find((x) => String(x.id) === r.lotto_id)
       const disp = l ? kgDisponibili(l) : null
       if (disp !== null && kg > disp + 1e-6) {
@@ -339,22 +376,43 @@ function EditorMaltazione({
         <Button variant="ghost" size="sm" className="-ml-2 mb-1" onClick={onAnnulla}>
           <ArrowLeft className="mr-1 h-3.5 w-3.5" /> Annulla
         </Button>
-        <h3 className="text-lg font-semibold text-foreground">{ed.id ? 'Modifica maltazione' : 'Nuova maltazione'}</h3>
+        <h3 className="text-lg font-semibold text-foreground">
+          {ed.id ? 'Modifica maltazione' : 'Nuova maltazione'}
+        </h3>
         <p className="text-sm text-muted-foreground">
-          L&apos;orzo scelto viene scaricato dal magazzino alla data di inizio. I parametri si compilano dopo, nella scheda.
+          L&apos;orzo scelto viene scaricato dal magazzino alla data di inizio. I parametri si
+          compilano dopo, nella scheda.
         </p>
       </div>
 
       <section className={cn(cls.pannello, 'grid gap-3 p-5')}>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.6fr]">
           <CampoForm etichetta="Data di inizio" htmlFor="mal-data" obbligatorio>
-            <Input id="mal-data" type="date" value={ed.data_inizio} onChange={(e) => setEd((p) => ({ ...p, data_inizio: e.target.value }))} />
+            <Input
+              id="mal-data"
+              type="date"
+              value={ed.data_inizio}
+              onChange={(e) => setEd((p) => ({ ...p, data_inizio: e.target.value }))}
+            />
           </CampoForm>
-          <CampoForm etichetta="Codice lotto" htmlFor="mal-cod" obbligatorio aiuto="Il tuo formato, es. 187/2026PTL.">
-            <Input id="mal-cod" value={ed.codice} onChange={(e) => setEd((p) => ({ ...p, codice: e.target.value }))} />
+          <CampoForm
+            etichetta="Codice lotto"
+            htmlFor="mal-cod"
+            obbligatorio
+            aiuto="Il tuo formato, es. 187/2026PTL."
+          >
+            <Input
+              id="mal-cod"
+              value={ed.codice}
+              onChange={(e) => setEd((p) => ({ ...p, codice: e.target.value }))}
+            />
           </CampoForm>
           <CampoForm etichetta="Stagione" htmlFor="mal-stag" obbligatorio>
-            <Input id="mal-stag" value={ed.stagione} onChange={(e) => setEd((p) => ({ ...p, stagione: e.target.value }))} />
+            <Input
+              id="mal-stag"
+              value={ed.stagione}
+              onChange={(e) => setEd((p) => ({ ...p, stagione: e.target.value }))}
+            />
           </CampoForm>
           <SceltaMateriaPrima
             id="mal-malto"
@@ -372,7 +430,10 @@ function EditorMaltazione({
       <section className={cn(cls.pannello, 'grid gap-3 p-5')}>
         <h4 className="text-sm font-semibold text-foreground">Orzo calibrato in ingresso</h4>
         {lotti.length === 0 && (
-          <AvvisoBox>Nessun lotto di orzo calibrato disponibile: prima registra un&apos;analisi e calibratura.</AvvisoBox>
+          <AvvisoBox>
+            Nessun lotto di orzo calibrato disponibile: prima registra un&apos;analisi e
+            calibratura.
+          </AvvisoBox>
         )}
         <div className="grid gap-2">
           {ed.righe.map((r, i) => {
@@ -393,13 +454,23 @@ function EditorMaltazione({
                       .map((x) => (
                         <option key={x.id} value={x.id}>
                           {x.codice}
-                          {x.calibro ? ` · calibro ${x.calibro}` : ''} · {fmtQta(kgDisponibili(x), 'kg', 0)} disponibili
+                          {x.calibro ? ` · calibro ${x.calibro}` : ''} ·{' '}
+                          {fmtQta(kgDisponibili(x), 'kg', 0)} disponibili
                         </option>
                       ))}
                   </select>
                 </CampoForm>
-                <CampoForm etichetta={i === 0 ? 'Peso orzo' : ''} htmlFor={`mal-kg-${i}`} aiuto={disp !== null ? `max ${fmtNum(disp, 0)} kg` : undefined}>
-                  <InputNumero id={`mal-kg-${i}`} valore={r.kg} unita="kg" onChange={(v) => aggiornaRiga(i, { kg: v })} />
+                <CampoForm
+                  etichetta={i === 0 ? 'Peso orzo' : ''}
+                  htmlFor={`mal-kg-${i}`}
+                  aiuto={disp !== null ? `max ${fmtNum(disp, 0)} kg` : undefined}
+                >
+                  <InputNumero
+                    id={`mal-kg-${i}`}
+                    valore={r.kg}
+                    unita="kg"
+                    onChange={(v) => aggiornaRiga(i, { kg: v })}
+                  />
                 </CampoForm>
                 <Button
                   variant="ghost"
@@ -425,12 +496,21 @@ function EditorMaltazione({
             <Plus className="mr-1.5 h-3.5 w-3.5" /> Aggiungi un altro lotto
           </Button>
           <div className="text-right">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">Peso iniziale</div>
-            <div className="text-2xl font-semibold tabular-nums text-foreground">{fmtNum(pesoIniziale)} kg</div>
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">
+              Peso iniziale
+            </div>
+            <div className="text-2xl font-semibold tabular-nums text-foreground">
+              {fmtNum(pesoIniziale)} kg
+            </div>
           </div>
         </div>
         <CampoForm etichetta="Note" htmlFor="mal-note">
-          <textarea id="mal-note" className={cls.textarea} value={ed.note} onChange={(e) => setEd((p) => ({ ...p, note: e.target.value }))} />
+          <textarea
+            id="mal-note"
+            className={cls.textarea}
+            value={ed.note}
+            onChange={(e) => setEd((p) => ({ ...p, note: e.target.value }))}
+          />
         </CampoForm>
       </section>
 
@@ -464,7 +544,12 @@ function DettaglioMaltazione({
   const [errore, setErrore] = useState<string | null>(null)
   const [messaggio, setMessaggio] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
-  const [chiusura, setChiusura] = useState<{ data_uscita: string; peso: string; scadenza: string; scadenzaToccata: boolean } | null>(null)
+  const [chiusura, setChiusura] = useState<{
+    data_uscita: string
+    peso: string
+    scadenza: string
+    scadenzaToccata: boolean
+  } | null>(null)
   const [erroreDialog, setErroreDialog] = useState<string | null>(null)
   const [conferma, setConferma] = useState<'elimina' | 'riapri' | null>(null)
 
@@ -484,18 +569,24 @@ function DettaglioMaltazione({
 
   // Scadenza proposta quando cambia la data di uscita (se non scelta a mano)
   useEffect(() => {
-    if (!chiusura || chiusura.scadenzaToccata || !/^\d{4}-\d{2}-\d{2}$/.test(chiusura.data_uscita)) return
+    if (!chiusura || chiusura.scadenzaToccata || !/^\d{4}-\d{2}-\d{2}$/.test(chiusura.data_uscita))
+      return
     let attivo = true
     window.api.agri
       .scadenzaMalto(chiusura.data_uscita)
-      .then((s) => attivo && setChiusura((c) => (c && !c.scadenzaToccata ? { ...c, scadenza: s } : c)))
+      .then(
+        (s) => attivo && setChiusura((c) => (c && !c.scadenzaToccata ? { ...c, scadenza: s } : c))
+      )
       .catch(() => {})
     return () => {
       attivo = false
     }
   }, [chiusura?.data_uscita, chiusura?.scadenzaToccata]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const modificata = useMemo(() => (d ? bozzaModificata(d.gruppi, bozza, d.valori) : false), [d, bozza])
+  const modificata = useMemo(
+    () => (d ? bozzaModificata(d.gruppi, bozza, d.valori) : false),
+    [d, bozza]
+  )
 
   if (!d) return <p className="text-sm text-muted-foreground">{errore ?? 'Caricamento…'}</p>
 
@@ -533,7 +624,8 @@ function DettaglioMaltazione({
   const confermaChiusura = async (): Promise<void> => {
     if (!chiusura) return
     const peso = parseNumero(chiusura.peso)
-    if (peso === null || Number.isNaN(peso) || peso <= 0) return setErroreDialog('Inserisci il peso finale del malto in kg.')
+    if (peso === null || Number.isNaN(peso) || peso <= 0)
+      return setErroreDialog('Inserisci il peso finale del malto in kg.')
     setSalvando(true)
     setErroreDialog(null)
     try {
@@ -558,7 +650,10 @@ function DettaglioMaltazione({
     setSalvando(true)
     setErroreDialog(null)
     try {
-      const r = conferma === 'elimina' ? await window.api.agri.lavorazioneElimina(d.id) : await window.api.agri.maltazioneRiapri(d.id)
+      const r =
+        conferma === 'elimina'
+          ? await window.api.agri.lavorazioneElimina(d.id)
+          : await window.api.agri.maltazioneRiapri(d.id)
       const err = erroreDa(r)
       if (err) return setErroreDialog(err)
       setConferma(null)
@@ -573,7 +668,9 @@ function DettaglioMaltazione({
 
   const pesoFinaleLive = chiusura ? parseNumero(chiusura.peso) : null
   const resaLive =
-    pesoFinaleLive && !Number.isNaN(pesoFinaleLive) && d.input_kg ? pesoFinaleLive / d.input_kg : null
+    pesoFinaleLive && !Number.isNaN(pesoFinaleLive) && d.input_kg
+      ? pesoFinaleLive / d.input_kg
+      : null
 
   return (
     <div className="space-y-4 pb-16">
@@ -597,7 +694,10 @@ function DettaglioMaltazione({
             </Button>
           )}
           {d.bloccata ? (
-            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" title={d.bloccata}>
+            <span
+              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+              title={d.bloccata}
+            >
               <Lock className="h-3.5 w-3.5" /> Malto già usato: si modificano solo i parametri
             </span>
           ) : (
@@ -635,22 +735,33 @@ function DettaglioMaltazione({
       {chiusa && d.rese && (
         <div className={cn(cls.pannello, 'grid gap-4 p-5 sm:grid-cols-3')}>
           <Valore etichetta="Resa di maltazione">
-            <span className="text-xl font-semibold text-emerald-400">{fmtPerc(d.rese.resa_maltazione)}</span>
-            <span className="block text-xs text-muted-foreground">kg malto / kg orzo calibrato</span>
+            <span className="text-xl font-semibold text-emerald-400">
+              {fmtPerc(d.rese.resa_maltazione)}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              kg malto / kg orzo calibrato
+            </span>
           </Valore>
           <Valore etichetta="Resa complessiva">
-            <span className="text-xl font-semibold text-foreground">{fmtPerc(d.rese.resa_complessiva)}</span>
+            <span className="text-xl font-semibold text-foreground">
+              {fmtPerc(d.rese.resa_complessiva)}
+            </span>
             <span className="block text-xs text-muted-foreground">
               kg malto / {fmtNum(d.rese.kg_grezzo_equivalenti, 0)} kg di orzo raccolto
             </span>
           </Valore>
           <Valore etichetta="Scarto di calibratura">
-            <span className="text-xl font-semibold text-foreground">{fmtPerc(d.rese.perc_scarto_calibratura)}</span>
-            <span className="block text-xs text-muted-foreground">dell&apos;orzo grezzo d&apos;origine</span>
+            <span className="text-xl font-semibold text-foreground">
+              {fmtPerc(d.rese.perc_scarto_calibratura)}
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              dell&apos;orzo grezzo d&apos;origine
+            </span>
           </Valore>
           {d.rese.parziale && (
             <p className="text-xs text-amber-400 sm:col-span-3">
-              Resa complessiva parziale: almeno un lotto di orzo calibrato non viene da una calibratura registrata.
+              Resa complessiva parziale: almeno un lotto di orzo calibrato non viene da una
+              calibratura registrata.
             </p>
           )}
         </div>
@@ -658,7 +769,8 @@ function DettaglioMaltazione({
 
       {chiusa && lottoMalto && (
         <AvvisoBox titolo={`Lotto ${lottoMalto.lotto_codice} in magazzino`}>
-          {fmtQta(lottoMalto.quantita, lottoMalto.unita_misura)} di {d.materia_prima_nome}, caricati il {fmtData(d.data_fine)}
+          {fmtQta(lottoMalto.quantita, lottoMalto.unita_misura)} di {d.materia_prima_nome}, caricati
+          il {fmtData(d.data_fine)}
           {d.data_scadenza_output ? `, scadenza ${fmtData(d.data_scadenza_output)}` : ''}. Residuo{' '}
           {fmtQta(lottoMalto.lotto_residuo, lottoMalto.unita_misura)}: è disponibile per le cotte.
         </AvvisoBox>
@@ -683,7 +795,9 @@ function DettaglioMaltazione({
                 <td className={cn(cls.td, 'text-foreground')}>{i.codice}</td>
                 <td className={cls.td}>{i.calibro ?? '—'}</td>
                 <td className={cls.td}>{i.stagione ?? '—'}</td>
-                <td className={cn(cls.td, 'text-right tabular-nums')}>{fmtQta(i.quantita_kg, 'kg')}</td>
+                <td className={cn(cls.td, 'text-right tabular-nums')}>
+                  {fmtQta(i.quantita_kg, 'kg')}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -708,8 +822,12 @@ function DettaglioMaltazione({
       <div className="sticky bottom-0 z-[5] -mx-6 border-t border-border bg-background/95 px-6 py-3 backdrop-blur">
         <div className="flex flex-wrap items-center justify-end gap-3">
           <ErroreBox messaggio={errore} />
-          {messaggio && !modificata && <span className="text-sm text-emerald-400">{messaggio}</span>}
-          {modificata && <span className="text-sm text-amber-400">Modifiche ai parametri non salvate</span>}
+          {messaggio && !modificata && (
+            <span className="text-sm text-emerald-400">{messaggio}</span>
+          )}
+          {modificata && (
+            <span className="text-sm text-amber-400">Modifiche ai parametri non salvate</span>
+          )}
           <Button disabled={!modificata || salvando} onClick={() => void salvaParametri()}>
             <Save className="mr-1.5 h-4 w-4" /> Salva parametri
           </Button>
@@ -721,32 +839,49 @@ function DettaglioMaltazione({
           <DialogHeader>
             <DialogTitle>{chiusa ? 'Correggi uscita' : 'Registra uscita del malto'}</DialogTitle>
             <DialogDescription>
-              Il lotto {d.codice} entra in magazzino con data di carico uguale alla data di uscita e diventa disponibile
-              per le cotte.
+              Il lotto {d.codice} entra in magazzino con data di carico uguale alla data di uscita e
+              diventa disponibile per le cotte.
             </DialogDescription>
           </DialogHeader>
           {chiusura && (
             <div className="grid gap-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <CampoForm etichetta="Data di uscita" htmlFor="chi-data" obbligatorio>
-                  <Input id="chi-data" type="date" value={chiusura.data_uscita} onChange={(e) => setChiusura({ ...chiusura, data_uscita: e.target.value })} />
+                  <Input
+                    id="chi-data"
+                    type="date"
+                    value={chiusura.data_uscita}
+                    onChange={(e) => setChiusura({ ...chiusura, data_uscita: e.target.value })}
+                  />
                 </CampoForm>
                 <CampoForm etichetta="Peso finale" htmlFor="chi-peso" obbligatorio>
-                  <InputNumero id="chi-peso" valore={chiusura.peso} unita="kg" onChange={(v) => setChiusura({ ...chiusura, peso: v })} />
+                  <InputNumero
+                    id="chi-peso"
+                    valore={chiusura.peso}
+                    unita="kg"
+                    onChange={(v) => setChiusura({ ...chiusura, peso: v })}
+                  />
                 </CampoForm>
               </div>
-              <CampoForm etichetta="Scadenza del malto" htmlFor="chi-scad" aiuto="Proposta dalle impostazioni del modulo, modificabile.">
+              <CampoForm
+                etichetta="Scadenza del malto"
+                htmlFor="chi-scad"
+                aiuto="Proposta dalle impostazioni del modulo, modificabile."
+              >
                 <Input
                   id="chi-scad"
                   type="date"
                   value={chiusura.scadenza}
-                  onChange={(e) => setChiusura({ ...chiusura, scadenza: e.target.value, scadenzaToccata: true })}
+                  onChange={(e) =>
+                    setChiusura({ ...chiusura, scadenza: e.target.value, scadenzaToccata: true })
+                  }
                 />
               </CampoForm>
               {resaLive !== null && (
                 <p className="text-sm text-muted-foreground">
-                  Resa di maltazione: <strong className="text-foreground">{fmtPerc(resaLive)}</strong> ({fmtNum(pesoFinaleLive)} su{' '}
-                  {fmtNum(d.input_kg)} kg)
+                  Resa di maltazione:{' '}
+                  <strong className="text-foreground">{fmtPerc(resaLive)}</strong> (
+                  {fmtNum(pesoFinaleLive)} su {fmtNum(d.input_kg)} kg)
                 </p>
               )}
               <ErroreBox messaggio={erroreDialog} />

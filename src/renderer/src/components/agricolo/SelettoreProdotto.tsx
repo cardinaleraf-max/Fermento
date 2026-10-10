@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CampoForm, InputNumero, cls } from './common'
-import { fmtData, fmtQta, parseNumero, type ConsumoLotto, type LottoDisponibile } from '@/lib/agricolo'
+import {
+  fmtData,
+  fmtQta,
+  parseNumero,
+  type ConsumoLotto,
+  type LottoDisponibile
+} from '@/lib/agricolo'
 
 export type ValoreProdotto = { materia_prima_id: string; quantita: string; lotto_id: string }
 
@@ -54,8 +60,11 @@ export function SelettoreProdotto({
         if (!attivo) return
         // In modifica: ciò che questo record ha già scaricato torna disponibile.
         const extra = new Map<number, number>()
-        for (const r of restituibili) extra.set(r.lotto_id, (extra.get(r.lotto_id) ?? 0) + r.quantita)
-        setLotti(l.map((x) => ({ ...x, quantita_residua: x.quantita_residua + (extra.get(x.id) ?? 0) })))
+        for (const r of restituibili)
+          extra.set(r.lotto_id, (extra.get(r.lotto_id) ?? 0) + r.quantita)
+        setLotti(
+          l.map((x) => ({ ...x, quantita_residua: x.quantita_residua + (extra.get(x.id) ?? 0) }))
+        )
         setCaricato(true)
       })
       .catch(() => {
@@ -86,11 +95,14 @@ export function SelettoreProdotto({
   }, [lotti])
 
   const prodotto = prodotti.find((p) => String(p.id) === valore.materia_prima_id) ?? null
-  const lottiProdotto = lotti.filter((l) => String(l.materia_prima_id) === valore.materia_prima_id && l.quantita_residua > 1e-9)
+  const lottiProdotto = lotti.filter(
+    (l) => String(l.materia_prima_id) === valore.materia_prima_id && l.quantita_residua > 1e-9
+  )
   const lottoScelto = lottiProdotto.find((l) => String(l.id) === valore.lotto_id) ?? null
   const quantita = parseNumero(valore.quantita)
   const limite = lottoScelto ? lottoScelto.quantita_residua : (prodotto?.disponibile ?? 0)
-  const supera = quantita !== null && !Number.isNaN(quantita) && prodotto !== null && quantita > limite + 1e-9
+  const supera =
+    quantita !== null && !Number.isNaN(quantita) && prodotto !== null && quantita > limite + 1e-9
 
   useEffect(() => {
     onInfo?.(prodotto)
@@ -100,7 +112,9 @@ export function SelettoreProdotto({
   if (caricato && prodotti.length === 0) {
     return (
       <CampoForm etichetta={etichetta} obbligatorio={obbligatorio}>
-        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">{testoVuoto}</p>
+        <p className="rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground">
+          {testoVuoto}
+        </p>
       </CampoForm>
     )
   }
@@ -125,7 +139,12 @@ export function SelettoreProdotto({
       {prodotto && (
         <div className="grid gap-3 sm:grid-cols-2">
           <CampoForm etichetta="Quantità totale" obbligatorio htmlFor={`${idBase}-quantita`}>
-            <InputNumero id={`${idBase}-quantita`} valore={valore.quantita} unita={prodotto.unita} onChange={(q) => onChange({ ...valore, quantita: q })} />
+            <InputNumero
+              id={`${idBase}-quantita`}
+              valore={valore.quantita}
+              unita={prodotto.unita}
+              onChange={(q) => onChange({ ...valore, quantita: q })}
+            />
           </CampoForm>
           <CampoForm etichetta="Lotto" htmlFor={`${idBase}-lotto`}>
             <select
@@ -147,7 +166,8 @@ export function SelettoreProdotto({
       )}
       {supera && (
         <p className="text-sm text-red-400">
-          Quantità superiore alla giacenza {lottoScelto ? 'del lotto scelto' : 'disponibile'} ({fmtQta(limite, prodotto?.unita)}).
+          Quantità superiore alla giacenza {lottoScelto ? 'del lotto scelto' : 'disponibile'} (
+          {fmtQta(limite, prodotto?.unita)}).
         </p>
       )}
     </div>
@@ -155,7 +175,9 @@ export function SelettoreProdotto({
 }
 
 /** Converte il valore del selettore nel payload per il main (null se non compilato). */
-export function prodottoInPayload(v: ValoreProdotto): { materia_prima_id: number; quantita: number; lotto_id: number | null } | null {
+export function prodottoInPayload(
+  v: ValoreProdotto
+): { materia_prima_id: number; quantita: number; lotto_id: number | null } | null {
   if (!v.materia_prima_id) return null
   const q = parseNumero(v.quantita)
   return {

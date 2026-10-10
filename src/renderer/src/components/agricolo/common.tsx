@@ -21,19 +21,28 @@ export const cls = {
     'min-h-[72px] w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
   tabellaWrap: 'overflow-x-auto rounded-lg border border-border bg-card',
   tabella: 'w-full text-sm',
-  thead: 'border-b border-border bg-secondary/40 text-left text-xs uppercase tracking-wide text-muted-foreground',
+  thead:
+    'border-b border-border bg-secondary/40 text-left text-xs uppercase tracking-wide text-muted-foreground',
   th: 'px-4 py-2 font-medium',
   td: 'px-4 py-2.5',
   riga: 'border-t border-border/50 text-foreground/80',
-  rigaCliccabile: 'cursor-pointer border-t border-border/50 text-foreground/80 hover:bg-secondary/30',
+  rigaCliccabile:
+    'cursor-pointer border-t border-border/50 text-foreground/80 hover:bg-secondary/30',
   pannello: 'rounded-lg border border-border bg-card',
   dialogLungo: 'max-h-[90vh] overflow-y-auto'
 }
 
-export function ErroreBox({ messaggio }: { messaggio: string | null | undefined }): React.JSX.Element | null {
+export function ErroreBox({
+  messaggio
+}: {
+  messaggio: string | null | undefined
+}): React.JSX.Element | null {
   if (!messaggio) return null
   return (
-    <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400" role="alert">
+    <div
+      className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400"
+      role="alert"
+    >
       {messaggio}
     </div>
   )
@@ -59,7 +68,12 @@ export function AvvisoBox({
       )}
       role={tono === 'attenzione' ? 'alert' : undefined}
     >
-      <Icona className={cn('mt-0.5 h-4 w-4 shrink-0', tono === 'attenzione' ? 'text-amber-400' : 'text-sky-400')} />
+      <Icona
+        className={cn(
+          'mt-0.5 h-4 w-4 shrink-0',
+          tono === 'attenzione' ? 'text-amber-400' : 'text-sky-400'
+        )}
+      />
       <div className="min-w-0 space-y-1">
         {titolo && <p className="font-medium text-foreground">{titolo}</p>}
         {children && <div className="text-foreground/80">{children}</div>}
@@ -256,7 +270,13 @@ export function ConfermaDialog({
 }
 
 /** Coppia etichetta/valore per i riepiloghi. */
-export function Valore({ etichetta, children }: { etichetta: string; children: ReactNode }): React.JSX.Element {
+export function Valore({
+  etichetta,
+  children
+}: {
+  etichetta: string
+  children: ReactNode
+}): React.JSX.Element {
   return (
     <div className="min-w-0">
       <div className="text-xs uppercase tracking-wide text-muted-foreground">{etichetta}</div>
@@ -281,7 +301,12 @@ export function BadgeTono({
     viola: 'border-violet-500/30 bg-violet-500/10 text-violet-300'
   }
   return (
-    <span className={cn('inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium', toni[tono])}>
+    <span
+      className={cn(
+        'inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium',
+        toni[tono]
+      )}
+    >
       {children}
     </span>
   )

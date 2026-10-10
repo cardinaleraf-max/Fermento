@@ -15,12 +15,22 @@ import {
 } from '../../src/main/agricolo/servizi/lavorazioni'
 import { generaAvvisiCarenza } from '../../src/main/agricolo/servizi/avvisi'
 import { ErroreUtente } from '../../src/main/agricolo/errori'
-import type { CalibraturaPayload, FrazionePayload, RaccoltaPayload } from '../../src/shared/agricolo'
+import type {
+  CalibraturaPayload,
+  FrazionePayload,
+  RaccoltaPayload
+} from '../../src/shared/agricolo'
 
 type Db = BetterSqlite3.Database
 
 function scenario(db: Db): { semina: number; orzoGrezzo: number; orzoCalibrato: number } {
-  const campo = salvaCampo(db, null, { nome: 'Campo 1A', superficie_ha: 10, localita: 'Irgoli', rif_catastale: null, note: null })
+  const campo = salvaCampo(db, null, {
+    nome: 'Campo 1A',
+    superficie_ha: 10,
+    localita: 'Irgoli',
+    rif_catastale: null,
+    note: null
+  })
   const semina = salvaSemina(db, null, {
     campo_id: campo,
     stagione: '2025/2026',
@@ -39,7 +49,11 @@ function scenario(db: Db): { semina: number; orzoGrezzo: number; orzoCalibrato: 
   }
 }
 
-function raccolta(semina: number, mp: number, extra: Partial<RaccoltaPayload> = {}): RaccoltaPayload {
+function raccolta(
+  semina: number,
+  mp: number,
+  extra: Partial<RaccoltaPayload> = {}
+): RaccoltaPayload {
   return {
     semina_id: semina,
     data: '2026-06-25',
@@ -60,7 +74,11 @@ const FRAZIONI: FrazionePayload[] = [
   { nome: '>5 mm', percentuale: 1, scarto: false, peso_specifico_gl: null }
 ]
 
-function calibratura(lotto_id: number, mp: number, extra: Partial<CalibraturaPayload> = {}): CalibraturaPayload {
+function calibratura(
+  lotto_id: number,
+  mp: number,
+  extra: Partial<CalibraturaPayload> = {}
+): CalibraturaPayload {
   return {
     lotto_id,
     data: '2026-07-10',
@@ -74,14 +92,22 @@ function calibratura(lotto_id: number, mp: number, extra: Partial<CalibraturaPay
 }
 
 function lottoDiRaccolta(db: Db, lavId: number): number {
-  return (db.prepare(`SELECT id FROM lotti_materie_prime WHERE origine_tipo = 'raccolta' AND origine_id = ?`).get(lavId) as { id: number }).id
+  return (
+    db
+      .prepare(
+        `SELECT id FROM lotti_materie_prime WHERE origine_tipo = 'raccolta' AND origine_id = ?`
+      )
+      .get(lavId) as { id: number }
+  ).id
 }
 
 test('raccolta: crea il lotto di orzo grezzo con origine, stagione e scadenza', () => {
   const db = creaDbTest()
   const s = scenario(db)
   const id = salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo))
-  const l = db.prepare(`SELECT * FROM lotti_materie_prime WHERE origine_tipo = 'raccolta'`).get() as Record<string, unknown>
+  const l = db
+    .prepare(`SELECT * FROM lotti_materie_prime WHERE origine_tipo = 'raccolta'`)
+    .get() as Record<string, unknown>
   assert.equal(l.lotto_fornitore, '1A/2026')
   assert.equal(l.quantita_iniziale, 300)
   assert.equal(l.quantita_residua, 300)
@@ -101,8 +127,14 @@ test('raccolta: validazioni (categoria, coltura, codice ripetuto, data prima del
   const luppoloGrezzo = materia(db, 'Luppolo fresco', 'luppolo_grezzo', 'kg')
   assert.throws(() => salvaRaccolta(db, null, raccolta(s.semina, s.orzoCalibrato)), ErroreUtente)
   assert.throws(() => salvaRaccolta(db, null, raccolta(s.semina, luppoloGrezzo)), ErroreUtente)
-  assert.throws(() => salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo, { data: '2025-10-01' })), ErroreUtente)
-  assert.throws(() => salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo, { codice: ' ' })), ErroreUtente)
+  assert.throws(
+    () => salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo, { data: '2025-10-01' })),
+    ErroreUtente
+  )
+  assert.throws(
+    () => salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo, { codice: ' ' })),
+    ErroreUtente
+  )
   salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo))
   assert.throws(() => salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo)), ErroreUtente)
   assert.equal(conta(db, 'agri_lavorazioni'), 1)
@@ -110,15 +142,38 @@ test('raccolta: validazioni (categoria, coltura, codice ripetuto, data prima del
 
 test('raccolta di luppolo: ammessa su luppolo grezzo o su luppolo pronto per le ricette', () => {
   const db = creaDbTest()
-  const campo = salvaCampo(db, null, { nome: 'Luppoleto', superficie_ha: 0.5, localita: null, rif_catastale: null, note: null })
+  const campo = salvaCampo(db, null, {
+    nome: 'Luppoleto',
+    superficie_ha: 0.5,
+    localita: null,
+    rif_catastale: null,
+    note: null
+  })
   const sem = salvaSemina(db, null, {
-    campo_id: campo, stagione: '2025/2026', coltura: 'luppolo', varieta: 'Cascade', data: '2026-03-10',
-    superficie_ha: 0.5, semente_testo: null, semente: null, note: null
+    campo_id: campo,
+    stagione: '2025/2026',
+    coltura: 'luppolo',
+    varieta: 'Cascade',
+    data: '2026-03-10',
+    superficie_ha: 0.5,
+    semente_testo: null,
+    semente: null,
+    note: null
   })
   const grezzo = materia(db, 'Luppolo fresco', 'luppolo_grezzo', 'kg')
   const pronto = materia(db, 'Cascade aziendale', 'luppolo', 'kg')
-  salvaRaccolta(db, null, { ...raccolta(sem, grezzo), quantita: 80, codice: 'LUP-1', data: '2026-09-01' })
-  salvaRaccolta(db, null, { ...raccolta(sem, pronto), quantita: 20, codice: 'LUP-2', data: '2026-09-02' })
+  salvaRaccolta(db, null, {
+    ...raccolta(sem, grezzo),
+    quantita: 80,
+    codice: 'LUP-1',
+    data: '2026-09-01'
+  })
+  salvaRaccolta(db, null, {
+    ...raccolta(sem, pronto),
+    quantita: 20,
+    codice: 'LUP-2',
+    data: '2026-09-02'
+  })
   assert.equal(conta(db, 'agri_lavorazioni'), 2)
 })
 
@@ -128,8 +183,15 @@ test('modifica ed eliminazione della raccolta, bloccate se il lotto e gia stato 
   const id = salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo))
   salvaRaccolta(db, id, raccolta(s.semina, s.orzoGrezzo, { quantita: 310 }))
   assert.equal(residuo(db, lottoDiRaccolta(db, id)), 310)
-  salvaCalibratura(db, null, calibratura(lottoDiRaccolta(db, id), s.orzoCalibrato, { quantita: 310 }))
-  assert.throws(() => salvaRaccolta(db, id, raccolta(s.semina, s.orzoGrezzo, { quantita: 320 })), ErroreUtente)
+  salvaCalibratura(
+    db,
+    null,
+    calibratura(lottoDiRaccolta(db, id), s.orzoCalibrato, { quantita: 310 })
+  )
+  assert.throws(
+    () => salvaRaccolta(db, id, raccolta(s.semina, s.orzoGrezzo, { quantita: 320 })),
+    ErroreUtente
+  )
   assert.throws(() => eliminaLavorazione(db, id), ErroreUtente)
   assert.match(dettaglioLavorazione(db, id).bloccata ?? '', /calibratura/)
 })
@@ -142,7 +204,9 @@ test('calibratura del lotto 1A/2026 di Mauro: frazioni, lotti calibrati, scarto 
   const id = salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato))
   assert.equal(residuo(db, grezzo), 0)
   const lotti = db
-    .prepare(`SELECT lotto_fornitore, quantita_iniziale, calibro, stagione, data_scadenza, origine_id FROM lotti_materie_prime WHERE origine_tipo = 'calibratura' ORDER BY id`)
+    .prepare(
+      `SELECT lotto_fornitore, quantita_iniziale, calibro, stagione, data_scadenza, origine_id FROM lotti_materie_prime WHERE origine_tipo = 'calibratura' ORDER BY id`
+    )
     .all() as Array<Record<string, unknown>>
   assert.deepEqual(
     lotti.map((l) => [l.lotto_fornitore, l.quantita_iniziale, l.calibro]),
@@ -171,7 +235,11 @@ test('calibratura: conversione di unita (grezzo in quintali, calibrato in kg)', 
   const calibratoKg = materia(db, 'Orzo calibrato kg', 'orzo_calibrato', 'kg')
   const grezzo = lottoDiRaccolta(db, salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo)))
   salvaCalibratura(db, null, calibratura(grezzo, calibratoKg))
-  const q = (db.prepare(`SELECT quantita_iniziale q FROM lotti_materie_prime WHERE calibro = '3-4 mm'`).get() as { q: number }).q
+  const q = (
+    db
+      .prepare(`SELECT quantita_iniziale q FROM lotti_materie_prime WHERE calibro = '3-4 mm'`)
+      .get() as { q: number }
+  ).q
   assert.equal(q, 20700)
 })
 
@@ -180,9 +248,15 @@ test('calibratura: errori su frazioni, categoria, giacenza; nessuna modifica par
   const s = scenario(db)
   const grezzo = lottoDiRaccolta(db, salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo)))
   const oltre = FRAZIONI.map((f) => (f.nome === '<3 mm' ? { ...f, percentuale: 21 } : f))
-  assert.throws(() => salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato, { frazioni: oltre })), ErroreUtente)
+  assert.throws(
+    () => salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato, { frazioni: oltre })),
+    ErroreUtente
+  )
   assert.throws(() => salvaCalibratura(db, null, calibratura(grezzo, s.orzoGrezzo)), ErroreUtente)
-  assert.throws(() => salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato, { quantita: 301 })), ErroreUtente)
+  assert.throws(
+    () => salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato, { quantita: 301 })),
+    ErroreUtente
+  )
   const comprato = materia(db, 'Malto comprato', 'malto', 'kg')
   const lm = lotto(db, comprato, 'M1', 100)
   assert.throws(() => salvaCalibratura(db, null, calibratura(lm, s.orzoCalibrato)), ErroreUtente)
@@ -197,7 +271,13 @@ test('calibratura parziale e codici dei lotti senza doppioni', () => {
   salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato, { quantita: 100 }))
   salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato, { quantita: 200 }))
   assert.equal(residuo(db, grezzo), 0)
-  const codici = (db.prepare(`SELECT lotto_fornitore c FROM lotti_materie_prime WHERE calibro = '3-4 mm' ORDER BY id`).all() as Array<{ c: string }>).map((r) => r.c)
+  const codici = (
+    db
+      .prepare(
+        `SELECT lotto_fornitore c FROM lotti_materie_prime WHERE calibro = '3-4 mm' ORDER BY id`
+      )
+      .all() as Array<{ c: string }>
+  ).map((r) => r.c)
   assert.deepEqual(codici, ['1A/2026 3-4 mm', '1A/2026 3-4 mm (2)'])
 })
 
@@ -206,16 +286,47 @@ test('modifica calibratura con lotti non usati: annulla e riapplica, poi elimina
   const s = scenario(db)
   const grezzo = lottoDiRaccolta(db, salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo)))
   const id = salvaCalibratura(db, null, calibratura(grezzo, s.orzoCalibrato))
-  const nuove = FRAZIONI.map((f) => (f.nome === '3-4 mm' ? { ...f, percentuale: 70 } : f.nome === '4-5 mm' ? { ...f, percentuale: 9 } : f))
+  const nuove = FRAZIONI.map((f) =>
+    f.nome === '3-4 mm'
+      ? { ...f, percentuale: 70 }
+      : f.nome === '4-5 mm'
+        ? { ...f, percentuale: 9 }
+        : f
+  )
   salvaCalibratura(db, id, calibratura(grezzo, s.orzoCalibrato, { frazioni: nuove }))
   const usciteDi = (lav: number): number =>
-    (db.prepare(`SELECT COUNT(*) c FROM agri_lavorazione_output WHERE lavorazione_id = ?`).get(lav) as { c: number }).c
-  assert.equal((db.prepare(`SELECT quantita_iniziale q FROM lotti_materie_prime WHERE calibro = '3-4 mm'`).get() as { q: number }).q, 210)
+    (
+      db
+        .prepare(`SELECT COUNT(*) c FROM agri_lavorazione_output WHERE lavorazione_id = ?`)
+        .get(lav) as { c: number }
+    ).c
+  assert.equal(
+    (
+      db
+        .prepare(`SELECT quantita_iniziale q FROM lotti_materie_prime WHERE calibro = '3-4 mm'`)
+        .get() as { q: number }
+    ).q,
+    210
+  )
   assert.equal(usciteDi(id), 4)
-  assert.equal((db.prepare(`SELECT COUNT(*) c FROM lotti_materie_prime WHERE calibro = '3-4 mm'`).get() as { c: number }).c, 1)
+  assert.equal(
+    (
+      db.prepare(`SELECT COUNT(*) c FROM lotti_materie_prime WHERE calibro = '3-4 mm'`).get() as {
+        c: number
+      }
+    ).c,
+    1
+  )
   eliminaLavorazione(db, id)
   assert.equal(residuo(db, grezzo), 300)
-  assert.equal((db.prepare(`SELECT COUNT(*) c FROM lotti_materie_prime WHERE origine_tipo = 'calibratura'`).get() as { c: number }).c, 0)
+  assert.equal(
+    (
+      db
+        .prepare(`SELECT COUNT(*) c FROM lotti_materie_prime WHERE origine_tipo = 'calibratura'`)
+        .get() as { c: number }
+    ).c,
+    0
+  )
   assert.equal(usciteDi(id), 0)
   assert.equal(conta(db, 'agri_lavorazioni'), 1)
 })
@@ -226,8 +337,13 @@ test('tempo di carenza: raccolta dentro la carenza segnalata e avviso generato',
   const fung = materia(db, 'Fungicida X', 'fitofarmaco', 'L', { carenza: 30 })
   lotto(db, fung, 'F1', 10)
   salvaOperazione(db, null, {
-    semina_id: s.semina, tipo: 'trattamento', data: '2026-06-01', prodotto: { materia_prima_id: fung, quantita: 2, lotto_id: null },
-    motivo: 'Ruggine', operatore: null, note: null
+    semina_id: s.semina,
+    tipo: 'trattamento',
+    data: '2026-06-01',
+    prodotto: { materia_prima_id: fung, quantita: 2, lotto_id: null },
+    motivo: 'Ruggine',
+    operatore: null,
+    note: null
   })
   assert.deepEqual(verificaCarenza(db, s.semina, '2026-06-25'), [
     { prodotto: 'Fungicida X', data: '2026-06-01', giorni: 30, fine_carenza: '2026-07-01' }
@@ -236,9 +352,15 @@ test('tempo di carenza: raccolta dentro la carenza segnalata e avviso generato',
   salvaRaccolta(db, null, raccolta(s.semina, s.orzoGrezzo))
   const [r] = listaLavorazioni(db, { tipo: 'raccolta', stagione: null })
   assert.equal(r.carenza.length, 1)
-  db.prepare(`UPDATE configurazioni SET valore = '2025/2026' WHERE chiave = 'agri_stagione_corrente'`).run()
+  db.prepare(
+    `UPDATE configurazioni SET valore = '2025/2026' WHERE chiave = 'agri_stagione_corrente'`
+  ).run()
   generaAvvisiCarenza(db)
-  const avvisi = db.prepare(`SELECT tipo, riferimento_tabella, messaggio FROM avvisi WHERE tipo = 'carenza_raccolta'`).all() as Array<{ messaggio: string }>
+  const avvisi = db
+    .prepare(
+      `SELECT tipo, riferimento_tabella, messaggio FROM avvisi WHERE tipo = 'carenza_raccolta'`
+    )
+    .all() as Array<{ messaggio: string }>
   assert.equal(avvisi.length, 1)
   assert.match(avvisi[0].messaggio, /1A\/2026/)
   assert.match(avvisi[0].messaggio, /Fungicida X/)

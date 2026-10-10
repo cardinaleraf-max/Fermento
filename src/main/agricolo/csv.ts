@@ -10,11 +10,13 @@ export function alberoACsv(radici: NodoTraccia[]): string {
     const elemento =
       '    '.repeat(livello - 1) + nodo.titolo + (nodo.sottotitolo ? ` — ${nodo.sottotitolo}` : '')
     const dettagli = nodo.dettagli.map((d) => `${d.etichetta}: ${d.valore}`).join(' | ')
-    righe.push([String(livello), ETICHETTE_NODO[nodo.tipo], elemento, dettagli].map(cella).join(';'))
+    righe.push(
+      [String(livello), ETICHETTE_NODO[nodo.tipo], elemento, dettagli].map(cella).join(';')
+    )
     for (const figlio of nodo.figli) visita(figlio, livello + 1)
   }
   for (const r of radici) visita(r, 1)
-  return '﻿' + righe.join('\r\n')
+  return '\uFEFF' + righe.join('\r\n')
 }
 
 function cella(valore: string): string {

@@ -25,7 +25,7 @@ const albero: NodoTraccia[] = [
 
 test('alberoACsv: BOM, intestazione, separatore punto e virgola, livelli', () => {
   const csv = alberoACsv(albero)
-  assert.ok(csv.startsWith('﻿'))
+  assert.ok(csv.startsWith('\uFEFF'))
   const righe = csv.slice(1).split('\r\n')
   assert.equal(righe[0], 'Livello;Tipo;Elemento;Dettagli')
   assert.equal(righe[1], '1;Cotta;"Cotta L-2026-01 — Pils; ""Marduk""";Data: 01/09/2026')

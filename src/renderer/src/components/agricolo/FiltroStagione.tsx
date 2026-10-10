@@ -22,7 +22,11 @@ export function FiltroStagione({
     <label className="flex items-center gap-2 text-sm text-muted-foreground">
       <CalendarRange className="h-4 w-4" aria-hidden />
       <span className="sr-only">Stagione</span>
-      <select className={`${cls.select} w-auto`} value={valore} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className={`${cls.select} w-auto`}
+        value={valore}
+        onChange={(e) => onChange(e.target.value)}
+      >
         {elenco.map((s) => (
           <option key={s} value={s}>
             Stagione {s}

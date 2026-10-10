@@ -10,14 +10,24 @@ import {
   DialogTitle
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import { fmtData, messaggioErrore, type LottoImballoRiga, type MaterialeImballo } from '@/lib/agricolo'
+import {
+  fmtData,
+  messaggioErrore,
+  type LottoImballoRiga,
+  type MaterialeImballo
+} from '@/lib/agricolo'
 
 /**
  * Lotti dei materiali di confezionamento (HACCP): facoltativi, per tutti i
  * birrifici. Non toccano le giacenze, sono solo tracciabilità.
  */
 
-function etichettaCarico(c: { lotto_fornitore: string | null; fornitore: string | null; data: string; quantita: number }): string {
+function etichettaCarico(c: {
+  lotto_fornitore: string | null
+  fornitore: string | null
+  data: string
+  quantita: number
+}): string {
   const parti = [
     c.lotto_fornitore ? `Lotto ${c.lotto_fornitore}` : 'Carico senza lotto',
     c.fornitore,
@@ -47,7 +57,10 @@ export function SelettoreLottiImballi({
   useEffect(() => {
     let attivo = true
     window.api.imballi
-      .perConfezionamento(cottaId, { bottiglie, fusti: chiaveFusti ? chiaveFusti.split(',').map(Number) : [] })
+      .perConfezionamento(cottaId, {
+        bottiglie,
+        fusti: chiaveFusti ? chiaveFusti.split(',').map(Number) : []
+      })
       .then((m) => attivo && setMateriali(m))
       .catch(() => attivo && setMateriali([]))
     return () => {
@@ -57,7 +70,11 @@ export function SelettoreLottiImballi({
 
   if (materiali === null) return <p className="text-sm text-muted-foreground">Caricamento…</p>
   if (materiali.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nessun materiale di confezionamento da indicare.</p>
+    return (
+      <p className="text-sm text-muted-foreground">
+        Nessun materiale di confezionamento da indicare.
+      </p>
+    )
   }
 
   const commuta = (id: number): void =>
@@ -69,11 +86,16 @@ export function SelettoreLottiImballi({
         <div key={m.materiale_id} className="space-y-1">
           <p className="text-sm font-medium text-foreground">{m.nome}</p>
           {m.carichi.length === 0 ? (
-            <p className="text-xs text-muted-foreground">Nessun carico registrato per questo materiale.</p>
+            <p className="text-xs text-muted-foreground">
+              Nessun carico registrato per questo materiale.
+            </p>
           ) : (
             <div className="space-y-1">
               {m.carichi.map((c) => (
-                <label key={c.id} className="flex cursor-pointer items-start gap-2 text-sm text-foreground/80">
+                <label
+                  key={c.id}
+                  className="flex cursor-pointer items-start gap-2 text-sm text-foreground/80"
+                >
                   <input
                     type="checkbox"
                     className="mt-0.5 h-4 w-4 accent-amber-500"
@@ -124,7 +146,13 @@ export function SezioneLottiImballi({
       </button>
       {aperta && (
         <div className="border-t border-border px-3 py-3">
-          <SelettoreLottiImballi cottaId={cottaId} bottiglie={bottiglie} fusti={fusti} selezionati={selezionati} onChange={onChange} />
+          <SelettoreLottiImballi
+            cottaId={cottaId}
+            bottiglie={bottiglie}
+            fusti={fusti}
+            selezionati={selezionati}
+            onChange={onChange}
+          />
         </div>
       )}
     </div>
@@ -183,7 +211,9 @@ export function RiquadroLottiImballi({
       <div className="mb-3 flex items-center justify-between gap-4">
         <div>
           <h3 className="font-semibold text-foreground">Lotti imballi (HACCP)</h3>
-          <p className="text-xs text-muted-foreground">Facoltativo: da quali lotti vengono bottiglie, tappi e fusti di questa cotta.</p>
+          <p className="text-xs text-muted-foreground">
+            Facoltativo: da quali lotti vengono bottiglie, tappi e fusti di questa cotta.
+          </p>
         </div>
         <Button
           variant="outline"
@@ -205,19 +235,31 @@ export function RiquadroLottiImballi({
         <ul className="space-y-1 text-sm">
           {righe.map((r) => (
             <li key={r.movimento_id} className="text-foreground/80">
-              <span className="font-medium text-foreground">{r.materiale_nome}</span> — {etichettaCarico(r)}
+              <span className="font-medium text-foreground">{r.materiale_nome}</span> —{' '}
+              {etichettaCarico(r)}
             </li>
           ))}
         </ul>
       )}
 
       <Dialog open={aperto} onOpenChange={setAperto}>
-        <DialogContent className={cn('max-w-lg', 'max-h-[90vh] overflow-y-auto')} onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent
+          className={cn('max-w-lg', 'max-h-[90vh] overflow-y-auto')}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Lotti imballi usati</DialogTitle>
-            <DialogDescription>Spunta i lotti da cui hai preso bottiglie, tappi e fusti per questa cotta.</DialogDescription>
+            <DialogDescription>
+              Spunta i lotti da cui hai preso bottiglie, tappi e fusti per questa cotta.
+            </DialogDescription>
           </DialogHeader>
-          <SelettoreLottiImballi cottaId={cottaId} bottiglie={bottiglie} fusti={fusti} selezionati={bozza} onChange={setBozza} />
+          <SelettoreLottiImballi
+            cottaId={cottaId}
+            bottiglie={bottiglie}
+            fusti={fusti}
+            selezionati={bozza}
+            onChange={setBozza}
+          />
           {errore && <p className="text-sm text-red-400">{errore}</p>}
           <DialogFooter>
             <Button variant="outline" onClick={() => setAperto(false)} disabled={salvando}>

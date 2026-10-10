@@ -27,7 +27,11 @@ export function fmtNum(n: number | null | undefined, decimali = 2): string {
   return n.toLocaleString('it-IT', { maximumFractionDigits: decimali })
 }
 
-export function fmtQta(n: number | null | undefined, unita: string | null | undefined, decimali = 2): string {
+export function fmtQta(
+  n: number | null | undefined,
+  unita: string | null | undefined,
+  decimali = 2
+): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return '—'
   return `${fmtNum(n, decimali)}${unita ? ` ${unita}` : ''}`
 }
@@ -59,7 +63,9 @@ export function etichettaCategoria(c: string | null | undefined): string {
 }
 
 /** Risultato di un canale che può fallire con un messaggio per l'utente. */
-export function erroreDa(r: { ok: boolean; errore?: string } | { ok: true } | { ok: false; errore: string }): string | null {
+export function erroreDa(
+  r: { ok: boolean; errore?: string } | { ok: true } | { ok: false; errore: string }
+): string | null {
   return 'errore' in r && r.ok === false ? (r.errore ?? 'Operazione non riuscita') : null
 }
 

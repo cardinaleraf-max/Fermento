@@ -17,7 +17,10 @@ export type BozzaParametri = { valori: Record<number, string>; date: Record<numb
 export const bozzaVuota: BozzaParametri = { valori: {}, date: {} }
 
 /** Valori salvati → bozza da mostrare (numeri con la virgola). */
-export function bozzaDaSalvati(gruppi: GruppoParametri[], salvati: ValoriParametri): BozzaParametri {
+export function bozzaDaSalvati(
+  gruppi: GruppoParametri[],
+  salvati: ValoriParametri
+): BozzaParametri {
   const tipi = new Map<number, Parametro['tipo']>()
   for (const g of gruppi) for (const p of g.parametri) tipi.set(p.id, p.tipo)
   const valori: Record<number, string> = {}
@@ -35,7 +38,9 @@ export function payloadDaBozza(
   gruppi: GruppoParametri[],
   bozza: BozzaParametri,
   salvati: ValoriParametri = { valori: {}, date: {} }
-): { ok: true; valori: Record<number, string>; date: Record<number, string> } | { ok: false; errore: string } {
+):
+  | { ok: true; valori: Record<number, string>; date: Record<number, string> }
+  | { ok: false; errore: string } {
   const valori: Record<number, string> = {}
   const date: Record<number, string> = {}
   for (const g of gruppi) {
@@ -47,7 +52,8 @@ export function payloadDaBozza(
       }
       if (p.tipo === 'numero') {
         const n = parseNumero(grezzo)
-        if (n === null || Number.isNaN(n)) return { ok: false, errore: `"${p.nome}": inserisci un numero (es. 22 oppure 22,5).` }
+        if (n === null || Number.isNaN(n))
+          return { ok: false, errore: `"${p.nome}": inserisci un numero (es. 22 oppure 22,5).` }
         valori[p.id] = String(n)
       } else {
         valori[p.id] = grezzo
@@ -63,15 +69,27 @@ export function payloadDaBozza(
 }
 
 /** true se la bozza è diversa da quanto salvato. */
-export function bozzaModificata(gruppi: GruppoParametri[], bozza: BozzaParametri, salvati: ValoriParametri): boolean {
+export function bozzaModificata(
+  gruppi: GruppoParametri[],
+  bozza: BozzaParametri,
+  salvati: ValoriParametri
+): boolean {
   const di = payloadDaBozza(gruppi, bozza, salvati)
   if (!di.ok) return true
-  for (const [k, v] of Object.entries(di.valori)) if ((salvati.valori[Number(k)] ?? '') !== v) return true
-  for (const [k, v] of Object.entries(di.date)) if ((salvati.date[Number(k)] ?? '') !== v) return true
+  for (const [k, v] of Object.entries(di.valori))
+    if ((salvati.valori[Number(k)] ?? '') !== v) return true
+  for (const [k, v] of Object.entries(di.date))
+    if ((salvati.date[Number(k)] ?? '') !== v) return true
   return false
 }
 
-function CampoScala({ valore, onChange }: { valore: string; onChange: (v: string) => void }): React.JSX.Element {
+function CampoScala({
+  valore,
+  onChange
+}: {
+  valore: string
+  onChange: (v: string) => void
+}): React.JSX.Element {
   return (
     <div className="flex flex-wrap gap-1" role="radiogroup">
       {Array.from({ length: 10 }, (_, i) => String(i + 1)).map((n) => (
@@ -95,7 +113,13 @@ function CampoScala({ valore, onChange }: { valore: string; onChange: (v: string
   )
 }
 
-function CampoSiNo({ valore, onChange }: { valore: string; onChange: (v: string) => void }): React.JSX.Element {
+function CampoSiNo({
+  valore,
+  onChange
+}: {
+  valore: string
+  onChange: (v: string) => void
+}): React.JSX.Element {
   const opzioni: Array<{ v: string; e: string }> = [
     { v: 'si', e: 'Sì' },
     { v: 'no', e: 'No' }
@@ -109,7 +133,9 @@ function CampoSiNo({ valore, onChange }: { valore: string; onChange: (v: string)
           onClick={() => onChange(valore === o.v ? '' : o.v)}
           className={cn(
             'rounded px-3 py-1 text-sm font-medium transition-colors',
-            valore === o.v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            valore === o.v
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground'
           )}
         >
           {o.e}
@@ -142,8 +168,10 @@ export function ParametriFase({
 }): React.JSX.Element {
   const [chiusi, setChiusi] = useState<Set<number>>(new Set())
 
-  const setValore = (id: number, v: string): void => onChange({ ...bozza, valori: { ...bozza.valori, [id]: v } })
-  const setData = (gid: number, v: string): void => onChange({ ...bozza, date: { ...bozza.date, [gid]: v } })
+  const setValore = (id: number, v: string): void =>
+    onChange({ ...bozza, valori: { ...bozza.valori, [id]: v } })
+  const setData = (gid: number, v: string): void =>
+    onChange({ ...bozza, date: { ...bozza.date, [gid]: v } })
   const toggle = (gid: number): void =>
     setChiusi((prev) => {
       const n = new Set(prev)
@@ -155,7 +183,8 @@ export function ParametriFase({
   if (gruppi.length === 0 && storici.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        Nessun parametro configurato per questa fase. Puoi aggiungerli da Impostazioni → Modulo agricolo.
+        Nessun parametro configurato per questa fase. Puoi aggiungerli da Impostazioni → Modulo
+        agricolo.
       </p>
     )
   }
@@ -164,7 +193,11 @@ export function ParametriFase({
     <div className="space-y-3">
       {gruppi.length > 1 && (
         <div className="flex justify-end gap-3 text-xs">
-          <button type="button" className="text-muted-foreground hover:text-foreground" onClick={() => setChiusi(new Set())}>
+          <button
+            type="button"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={() => setChiusi(new Set())}
+          >
             Espandi tutto
           </button>
           <button
@@ -188,12 +221,18 @@ export function ParametriFase({
                 onClick={() => toggle(g.id)}
                 aria-expanded={aperto}
               >
-                {aperto ? <ChevronDown className="h-4 w-4 shrink-0" /> : <ChevronRight className="h-4 w-4 shrink-0" />}
+                {aperto ? (
+                  <ChevronDown className="h-4 w-4 shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 shrink-0" />
+                )}
                 <span className="truncate text-sm font-semibold text-foreground">{g.nome}</span>
                 <span
                   className={cn(
                     'shrink-0 text-xs',
-                    compilati === g.parametri.length && compilati > 0 ? 'text-emerald-400' : 'text-muted-foreground'
+                    compilati === g.parametri.length && compilati > 0
+                      ? 'text-emerald-400'
+                      : 'text-muted-foreground'
                   )}
                 >
                   {compilati} di {g.parametri.length} compilati
@@ -214,26 +253,54 @@ export function ParametriFase({
             {aperto && (
               <div className="grid gap-x-4 gap-y-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
                 {g.parametri.length === 0 && (
-                  <p className="text-sm text-muted-foreground">Nessun parametro in questo gruppo.</p>
+                  <p className="text-sm text-muted-foreground">
+                    Nessun parametro in questo gruppo.
+                  </p>
                 )}
                 {g.parametri.map((p) => {
                   const id = `${idBase}-${p.id}`
                   const v = bozza.valori[p.id] ?? ''
                   const lungo = p.tipo === 'testo' && /^note/i.test(p.nome)
                   return (
-                    <div key={p.id} className={cn('grid content-start gap-1.5', (lungo || p.tipo === 'scala') && 'sm:col-span-2 xl:col-span-3')}>
+                    <div
+                      key={p.id}
+                      className={cn(
+                        'grid content-start gap-1.5',
+                        (lungo || p.tipo === 'scala') && 'sm:col-span-2 xl:col-span-3'
+                      )}
+                    >
                       <label htmlFor={id} className="text-sm text-foreground/90">
                         {p.tipo === 'numero' ? p.nome : etichettaParametro(p)}
                       </label>
-                      {p.tipo === 'numero' && <InputNumero id={id} valore={v} unita={p.unita} onChange={(x) => setValore(p.id, x)} />}
+                      {p.tipo === 'numero' && (
+                        <InputNumero
+                          id={id}
+                          valore={v}
+                          unita={p.unita}
+                          onChange={(x) => setValore(p.id, x)}
+                        />
+                      )}
                       {p.tipo === 'testo' &&
                         (lungo ? (
-                          <textarea id={id} className={cls.textarea} value={v} onChange={(e) => setValore(p.id, e.target.value)} />
+                          <textarea
+                            id={id}
+                            className={cls.textarea}
+                            value={v}
+                            onChange={(e) => setValore(p.id, e.target.value)}
+                          />
                         ) : (
-                          <Input id={id} value={v} onChange={(e) => setValore(p.id, e.target.value)} />
+                          <Input
+                            id={id}
+                            value={v}
+                            onChange={(e) => setValore(p.id, e.target.value)}
+                          />
                         ))}
-                      {p.tipo === 'scala' && <CampoScala valore={v} onChange={(x) => setValore(p.id, x)} />}
-                      {p.tipo === 'si_no' && <CampoSiNo valore={v} onChange={(x) => setValore(p.id, x)} />}
+                      {p.tipo === 'scala' && (
+                        <CampoScala valore={v} onChange={(x) => setValore(p.id, x)} />
+                      )}
+                      {p.tipo === 'si_no' && (
+                        <CampoSiNo valore={v} onChange={(x) => setValore(p.id, x)} />
+                      )}
                     </div>
                   )
                 })}
@@ -250,7 +317,8 @@ export function ParametriFase({
           <ul className="grid gap-1 sm:grid-cols-2">
             {storici.map((s, i) => (
               <li key={i} className="text-muted-foreground">
-                {s.gruppo} · {s.parametro}: <span className="text-foreground">{testoValore(s.tipo, s.valore, s.unita)}</span>
+                {s.gruppo} · {s.parametro}:{' '}
+                <span className="text-foreground">{testoValore(s.tipo, s.valore, s.unita)}</span>
               </li>
             ))}
           </ul>

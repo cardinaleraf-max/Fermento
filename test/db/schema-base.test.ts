@@ -6,7 +6,18 @@ import { creaDbTest, nomiTabelle } from './helpers'
 test('applicaSchema crea le tabelle base di Fermento', () => {
   const db = creaDbTest()
   const tabelle = nomiTabelle(db)
-  for (const t of ['configurazioni', 'materie_prime', 'lotti_materie_prime', 'cotte', 'cotta_materie_prime', 'confezionamento', 'movimenti_confezionamento', 'vendite', 'licenza', 'movimenti_fusti_rendere']) {
+  for (const t of [
+    'configurazioni',
+    'materie_prime',
+    'lotti_materie_prime',
+    'cotte',
+    'cotta_materie_prime',
+    'confezionamento',
+    'movimenti_confezionamento',
+    'vendite',
+    'licenza',
+    'movimenti_fusti_rendere'
+  ]) {
     assert.ok(tabelle.includes(t), `manca la tabella ${t}`)
   }
 })

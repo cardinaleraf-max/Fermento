@@ -65,7 +65,12 @@ function Nodo({
   const dettagli = tuttiDettagli ? nodo.dettagli : nodo.dettagli.slice(0, DETTAGLI_VISIBILI)
   return (
     <li>
-      <div className={cn('rounded-md border border-border bg-card', nodo.tipo === 'gruppo' && 'border-dashed bg-transparent')}>
+      <div
+        className={cn(
+          'rounded-md border border-border bg-card',
+          nodo.tipo === 'gruppo' && 'border-dashed bg-transparent'
+        )}
+      >
         <button
           type="button"
           className="flex w-full items-start gap-2 px-3 py-2 text-left"
@@ -73,15 +78,25 @@ function Nodo({
           aria-expanded={aperto}
         >
           <span className="mt-0.5 w-4 shrink-0 text-muted-foreground">
-            {haContenuto ? aperto ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" /> : null}
+            {haContenuto ? (
+              aperto ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronRight className="h-4 w-4" />
+              )
+            ) : null}
           </span>
           <Icona className={cn('mt-0.5 h-4 w-4 shrink-0', COLORI[nodo.tipo])} aria-hidden />
           <span className="min-w-0 flex-1">
             <span className="block text-sm font-medium text-foreground">{nodo.titolo}</span>
-            {nodo.sottotitolo && <span className="block text-xs text-muted-foreground">{nodo.sottotitolo}</span>}
+            {nodo.sottotitolo && (
+              <span className="block text-xs text-muted-foreground">{nodo.sottotitolo}</span>
+            )}
           </span>
           {nodo.tipo !== 'gruppo' && (
-            <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">{ETICHETTE_NODO[nodo.tipo]}</span>
+            <span className="shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
+              {ETICHETTE_NODO[nodo.tipo]}
+            </span>
           )}
         </button>
         {aperto && nodo.dettagli.length > 0 && (
@@ -90,7 +105,12 @@ function Nodo({
               {dettagli.map((d, i) => (
                 <div key={i} className="flex min-w-0 gap-1.5">
                   <dt className="shrink-0 text-muted-foreground">{d.etichetta}:</dt>
-                  <dd className={cn('min-w-0 break-words text-foreground/90', d.etichetta === 'Attenzione' && 'text-amber-400')}>
+                  <dd
+                    className={cn(
+                      'min-w-0 break-words text-foreground/90',
+                      d.etichetta === 'Attenzione' && 'text-amber-400'
+                    )}
+                  >
                     {d.valore}
                   </dd>
                 </div>

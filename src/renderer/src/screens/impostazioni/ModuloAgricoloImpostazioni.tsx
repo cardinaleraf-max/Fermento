@@ -5,7 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { AvvisoBox, CampoForm, ErroreBox } from '@/components/agricolo/common'
 import { useAgricolo } from '@/components/agricolo/contesto'
-import { erroreDa, messaggioErrore, notificaCambioModulo, type FrazioneDefault } from '@/lib/agricolo'
+import {
+  erroreDa,
+  messaggioErrore,
+  notificaCambioModulo,
+  type FrazioneDefault
+} from '@/lib/agricolo'
 import GestioneParametri from './GestioneParametri'
 
 function Salvato({ visibile }: { visibile: boolean }): React.JSX.Element | null {
@@ -82,14 +87,23 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
         <CardHeader>
           <CardTitle className="text-base">Stagione corrente</CardTitle>
           <CardDescription>
-            È la stagione proposta quando registri semine, raccolte e lavorazioni, e quella mostrata di
-            default negli elenchi del modulo.
+            È la stagione proposta quando registri semine, raccolte e lavorazioni, e quella mostrata
+            di default negli elenchi del modulo.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <CampoForm etichetta="Stagione" htmlFor="agri-stagione" className="sm:w-56" aiuto='Formato "2026/2027".'>
-              <Input id="agri-stagione" value={stagione} onChange={(e) => setStagione(e.target.value)} />
+            <CampoForm
+              etichetta="Stagione"
+              htmlFor="agri-stagione"
+              className="sm:w-56"
+              aiuto='Formato "2026/2027".'
+            >
+              <Input
+                id="agri-stagione"
+                value={stagione}
+                onChange={(e) => setStagione(e.target.value)}
+              />
             </CampoForm>
             <div className="flex items-center gap-3 sm:pb-5">
               <Button
@@ -108,8 +122,8 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
         <CardHeader>
           <CardTitle className="text-base">Frazioni di calibratura predefinite</CardTitle>
           <CardDescription>
-            Le frazioni proposte in ogni nuova analisi e calibratura. Le frazioni segnate come scarto vengono
-            registrate con la loro quantità ma non entrano in magazzino.
+            Le frazioni proposte in ogni nuova analisi e calibratura. Le frazioni segnate come
+            scarto vengono registrate con la loro quantità ma non entrano in magazzino.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -121,7 +135,9 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
                   value={f.nome}
                   aria-label={`Nome frazione ${i + 1}`}
                   onChange={(e) =>
-                    setFrazioni((prev) => prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x)))
+                    setFrazioni((prev) =>
+                      prev.map((x, j) => (j === i ? { ...x, nome: e.target.value } : x))
+                    )
                   }
                 />
                 <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -130,13 +146,21 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
                     className="h-4 w-4 accent-amber-500"
                     checked={f.scarto}
                     onChange={(e) =>
-                      setFrazioni((prev) => prev.map((x, j) => (j === i ? { ...x, scarto: e.target.checked } : x)))
+                      setFrazioni((prev) =>
+                        prev.map((x, j) => (j === i ? { ...x, scarto: e.target.checked } : x))
+                      )
                     }
                   />
                   Scarto
                 </label>
                 <div className="ml-auto flex gap-1 sm:ml-0">
-                  <Button variant="ghost" size="sm" title="Sposta su" disabled={i === 0} onClick={() => sposta(i, -1)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    title="Sposta su"
+                    disabled={i === 0}
+                    onClick={() => sposta(i, -1)}
+                  >
                     <ArrowUp className="h-3.5 w-3.5" />
                   </Button>
                   <Button
@@ -162,7 +186,11 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
             ))}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" size="sm" onClick={() => setFrazioni((p) => [...p, { nome: '', scarto: false }])}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFrazioni((p) => [...p, { nome: '', scarto: false }])}
+            >
               <Plus className="mr-1.5 h-3.5 w-3.5" /> Aggiungi frazione
             </Button>
             <Button
@@ -174,7 +202,10 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
             </Button>
             <Salvato visibile={salvato === 'frazioni'} />
           </div>
-          <AvvisoBox>Le calibrature già registrate non cambiano: queste sono solo le frazioni proposte per le nuove.</AvvisoBox>
+          <AvvisoBox>
+            Le calibrature già registrate non cambiano: queste sono solo le frazioni proposte per le
+            nuove.
+          </AvvisoBox>
         </CardContent>
       </Card>
 
@@ -184,14 +215,19 @@ export default function ModuloAgricoloImpostazioni(): React.JSX.Element {
         <CardHeader>
           <CardTitle className="text-base">Scadenza proposta per il malto</CardTitle>
           <CardDescription>
-            Alla chiusura di una maltazione la scadenza del lotto di malto viene proposta come data di uscita più
-            questi mesi. Puoi sempre cambiarla lotto per lotto.
+            Alla chiusura di una maltazione la scadenza del lotto di malto viene proposta come data
+            di uscita più questi mesi. Puoi sempre cambiarla lotto per lotto.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
             <CampoForm etichetta="Mesi" htmlFor="agri-mesi" className="sm:w-40">
-              <Input id="agri-mesi" inputMode="numeric" value={mesi} onChange={(e) => setMesi(e.target.value)} />
+              <Input
+                id="agri-mesi"
+                inputMode="numeric"
+                value={mesi}
+                onChange={(e) => setMesi(e.target.value)}
+              />
             </CampoForm>
             <div className="flex items-center gap-3 sm:pb-0.5">
               <Button

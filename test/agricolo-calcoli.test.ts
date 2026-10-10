@@ -58,18 +58,24 @@ test('erroriFrazioni: somma oltre 100% bloccata', () => {
 })
 
 test('erroriFrazioni: nomi vuoti o ripetuti, percentuali negative, nessuna frazione utile', () => {
-  assert.ok(erroriFrazioni([{ nome: ' ', percentuale: 50, scarto: false, peso_specifico_gl: null }]).length > 0)
+  assert.ok(
+    erroriFrazioni([{ nome: ' ', percentuale: 50, scarto: false, peso_specifico_gl: null }])
+      .length > 0
+  )
   assert.ok(
     erroriFrazioni([
       { nome: '3-4 mm', percentuale: 50, scarto: false, peso_specifico_gl: null },
       { nome: '3-4 mm', percentuale: 40, scarto: false, peso_specifico_gl: null }
     ]).some((e) => e.includes('3-4 mm'))
   )
-  assert.ok(erroriFrazioni([{ nome: 'a', percentuale: -1, scarto: false, peso_specifico_gl: null }]).length > 0)
   assert.ok(
-    erroriFrazioni([{ nome: '<3 mm', percentuale: 100, scarto: true, peso_specifico_gl: null }]).some((e) =>
-      e.toLowerCase().includes('almeno una frazione')
-    )
+    erroriFrazioni([{ nome: 'a', percentuale: -1, scarto: false, peso_specifico_gl: null }])
+      .length > 0
+  )
+  assert.ok(
+    erroriFrazioni([
+      { nome: '<3 mm', percentuale: 100, scarto: true, peso_specifico_gl: null }
+    ]).some((e) => e.toLowerCase().includes('almeno una frazione'))
   )
   assert.ok(erroriFrazioni([]).length > 0)
 })
@@ -90,15 +96,23 @@ test('aggiungiGiorni e aggiungiMesi gestiscono fine mese e anni', () => {
 })
 
 test('violazioniCarenza: raccolta dentro il tempo di carenza', () => {
-  const v = violazioniCarenza('2026-06-10', [{ data: '2026-05-20', giorni: 30, prodotto: 'Fungicida X' }])
+  const v = violazioniCarenza('2026-06-10', [
+    { data: '2026-05-20', giorni: 30, prodotto: 'Fungicida X' }
+  ])
   assert.equal(v.length, 1)
   assert.equal(v[0].fine_carenza, '2026-06-19')
   assert.equal(v[0].prodotto, 'Fungicida X')
 })
 
 test('violazioniCarenza: raccolta il giorno di fine carenza o dopo e ok, carenza 0 ignorata', () => {
-  assert.deepEqual(violazioniCarenza('2026-06-19', [{ data: '2026-05-20', giorni: 30, prodotto: 'X' }]), [])
-  assert.deepEqual(violazioniCarenza('2026-05-20', [{ data: '2026-05-20', giorni: 0, prodotto: 'X' }]), [])
+  assert.deepEqual(
+    violazioniCarenza('2026-06-19', [{ data: '2026-05-20', giorni: 30, prodotto: 'X' }]),
+    []
+  )
+  assert.deepEqual(
+    violazioniCarenza('2026-05-20', [{ data: '2026-05-20', giorni: 0, prodotto: 'X' }]),
+    []
+  )
 })
 
 test('calcolaRese: maltazione 187/2026PTL di Mauro', () => {
@@ -132,5 +146,8 @@ test('calcolaRese: maltazione in corso senza peso finale, lotti senza calibratur
 })
 
 test('violazioniCarenza: un trattamento fatto dopo la raccolta non conta', () => {
-  assert.deepEqual(violazioniCarenza('2026-06-10', [{ data: '2026-06-15', giorni: 30, prodotto: 'X' }]), [])
+  assert.deepEqual(
+    violazioniCarenza('2026-06-10', [{ data: '2026-06-15', giorni: 30, prodotto: 'X' }]),
+    []
+  )
 })
