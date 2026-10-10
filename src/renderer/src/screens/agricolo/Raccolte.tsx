@@ -457,7 +457,7 @@ export default function Raccolte(): React.JSX.Element {
                   etichetta="Codice lotto"
                   htmlFor="rac-cod"
                   obbligatorio
-                  aiuto="Con il tuo formato, es. 1A/2026."
+                  aiuto="Con il tuo formato, es. ORZ-01/2026."
                 >
                   <Input
                     id="rac-cod"

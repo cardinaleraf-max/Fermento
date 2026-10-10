@@ -134,7 +134,7 @@ function codiceLottoLibero(
     .get(materiaPrimaId, codice, escludiLotto)
 }
 
-/** "1A/2026 3-4 mm", e se esiste già "1A/2026 3-4 mm (2)", "(3)"… */
+/** "ORZ-01/2026 3-4 mm", e se esiste già "ORZ-01/2026 3-4 mm (2)", "(3)"… */
 function codiceUnico(db: Db, materiaPrimaId: number, base: string): string {
   if (codiceLottoLibero(db, materiaPrimaId, base)) return base
   for (let n = 2; n < 1000; n++) {

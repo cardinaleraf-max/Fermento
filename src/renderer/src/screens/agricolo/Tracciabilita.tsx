@@ -117,7 +117,7 @@ export default function Tracciabilita(): React.JSX.Element {
           <Input
             className="pl-9"
             value={testo}
-            placeholder="Codice della cotta, del lotto (es. 187/2026PTL, 1A/2026) o nome del campo"
+            placeholder="Codice della cotta o del lotto (es. 2026-033, ORZ-01/2026) oppure nome del campo"
             onChange={(e) => setTesto(e.target.value)}
           />
         </div>

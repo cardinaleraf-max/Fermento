@@ -381,7 +381,7 @@ export type LavorazioneRiga = {
   input_kg: number | null
   /** Somma degli output non scarto in kg */
   output_kg: number | null
-  /** Testo breve degli input, es. "1A/2026 (300 q)" */
+  /** Testo breve degli input, es. "ORZ-01/2026 (240 q)" */
   input_descrizione: string
   /** Testo breve degli output, es. "3-4 mm 207 q · 4-5 mm 30 q" */
   output_descrizione: string

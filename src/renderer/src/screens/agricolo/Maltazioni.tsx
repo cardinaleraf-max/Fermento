@@ -399,7 +399,7 @@ function EditorMaltazione({
             etichetta="Codice lotto"
             htmlFor="mal-cod"
             obbligatorio
-            aiuto="Il tuo formato, es. 187/2026PTL."
+            aiuto="Il tuo formato, es. MP-01/2026."
           >
             <Input
               id="mal-cod"
