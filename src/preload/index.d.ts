@@ -1,5 +1,6 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
+  CalibraturaPayload,
   CampoPayload,
   CampoRiga,
   Esito,
@@ -8,7 +9,12 @@ import type {
   FrazioneDefault,
   GruppoParametri,
   GruppoPayload,
+  LavorazioneDettaglio,
+  LavorazioneRiga,
   ParametroPayload,
+  RaccoltaPayload,
+  StatoLavorazione,
+  ViolazioneCarenzaRiga,
   LottoDisponibile,
   OperazionePayload,
   OperazioneRiga,
@@ -796,6 +802,16 @@ interface FermentoAPI {
       valori: Record<number, string>,
       date: Record<number, string>
     ) => Promise<Esito>
+    lavorazioniLista: (f: {
+      tipo: FaseLavorazione
+      stagione?: string | null
+      stato?: StatoLavorazione | null
+    }) => Promise<LavorazioneRiga[]>
+    lavorazioneDettaglio: (id: number) => Promise<LavorazioneDettaglio>
+    lavorazioneElimina: (id: number) => Promise<Esito>
+    verificaCarenza: (seminaId: number, data: string) => Promise<ViolazioneCarenzaRiga[]>
+    raccoltaSalva: (id: number | null, p: RaccoltaPayload) => Promise<EsitoId>
+    calibraturaSalva: (id: number | null, p: CalibraturaPayload) => Promise<EsitoId>
   }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>

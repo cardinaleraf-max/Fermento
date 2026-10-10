@@ -1,13 +1,16 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
+  CalibraturaPayload,
   CampoPayload,
   FaseLavorazione,
   FrazioneDefault,
   GruppoPayload,
   OperazionePayload,
   ParametroPayload,
-  SeminaPayload
+  RaccoltaPayload,
+  SeminaPayload,
+  StatoLavorazione
 } from '../shared/agricolo'
 
 type MateriaPrimaPayload = {
@@ -251,7 +254,14 @@ const api = {
     parametriSposta: (cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu') =>
       ipcRenderer.invoke('agri:parametri-sposta', cosa, id, direzione),
     salvaParametri: (lavorazioneId: number, valori: Record<number, string>, date: Record<number, string>) =>
-      ipcRenderer.invoke('agri:salva-parametri', lavorazioneId, valori, date)
+      ipcRenderer.invoke('agri:salva-parametri', lavorazioneId, valori, date),
+    lavorazioniLista: (f: { tipo: FaseLavorazione; stagione?: string | null; stato?: StatoLavorazione | null }) =>
+      ipcRenderer.invoke('agri:lavorazioni-lista', f),
+    lavorazioneDettaglio: (id: number) => ipcRenderer.invoke('agri:lavorazione-dettaglio', id),
+    lavorazioneElimina: (id: number) => ipcRenderer.invoke('agri:lavorazione-elimina', id),
+    verificaCarenza: (seminaId: number, data: string) => ipcRenderer.invoke('agri:verifica-carenza', seminaId, data),
+    raccoltaSalva: (id: number | null, p: RaccoltaPayload) => ipcRenderer.invoke('agri:raccolta-salva', id, p),
+    calibraturaSalva: (id: number | null, p: CalibraturaPayload) => ipcRenderer.invoke('agri:calibratura-salva', id, p)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),

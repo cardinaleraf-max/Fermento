@@ -77,3 +77,14 @@ export function aggiungiGiorniIso(iso: string, giorni: number): string {
   const [a, m, g] = iso.split('-').map(Number)
   return new Date(Date.UTC(a, m - 1, g + giorni)).toISOString().slice(0, 10)
 }
+
+const FATTORI_KG: Record<string, number> = { kg: 1, q: 100, g: 0.001 }
+
+/** Conversione tra unità di peso (null se non convertibili, es. litri). */
+export function convertiUnita(quantita: number, da: string, a: string): number | null {
+  if (da === a) return quantita
+  const fda = FATTORI_KG[da]
+  const fa = FATTORI_KG[a]
+  if (fda === undefined || fa === undefined) return null
+  return Math.round(((quantita * fda) / fa) * 1e6) / 1e6
+}

@@ -11,6 +11,8 @@ import { licenzaSalvataValida, salvaLicenza } from './licenza'
 import { codiceMacchina } from './impronta'
 import { registerAgricoloIpcHandlers } from './agricolo/ipc'
 import { colonneFitofarmaco, salvaDatiFitofarmaco } from './agricolo/servizi/magazzino'
+import { moduloAttivo } from './agricolo/servizi/config'
+import { generaAvvisiCarenza } from './agricolo/servizi/avvisi'
 
 type MateriaPrimaPayload = {
   nome: string
@@ -3081,6 +3083,9 @@ function generaAvvisiPieno(nAnticipo: number, nCliente: number): void {
       ins.run('cotta_non_producibile', id, 'Birra ' + d.nome + ' non produttiva (0 cotte) con le giacenze attuali')
     }
   }
+
+  // Modulo agricolo (solo se attivo): raccolte fatte dentro il tempo di carenza.
+  if (moduloAttivo(db)) generaAvvisiCarenza(db)
 }
 
 type ReportPeriodo = { da: string; a: string }

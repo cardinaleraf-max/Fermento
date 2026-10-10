@@ -1,12 +1,15 @@
 import { ipcMain } from 'electron'
 import { db } from '../database'
 import type {
+  CalibraturaPayload,
   CampoPayload,
   FaseLavorazione,
   GruppoPayload,
   OperazionePayload,
   ParametroPayload,
-  SeminaPayload
+  RaccoltaPayload,
+  SeminaPayload,
+  StatoLavorazione
 } from '../../shared/agricolo'
 import { ErroreUtente } from './errori'
 import {
@@ -20,6 +23,14 @@ import {
 } from './servizi/campi'
 import { lottiDisponibili } from './servizi/magazzino'
 import { eliminaOperazione, listaOperazioni, salvaOperazione } from './servizi/operazioni'
+import {
+  dettaglioLavorazione,
+  eliminaLavorazione,
+  listaLavorazioni,
+  salvaCalibratura,
+  salvaRaccolta,
+  verificaCarenza
+} from './servizi/lavorazioni'
 import {
   configParametri,
   eliminaGruppo,
@@ -43,13 +54,20 @@ import {
  * dall'utente tornano alla finestra come { ok: false, errore } con un
  * messaggio leggibile; gli errori imprevisti vengono loggati e rilanciati.
  */
-function gestisci<A extends unknown[], R>(canale: string, fn: (...args: A) => R): void {
+function gestisci<A extends unknown[], R>(
+  canale: string,
+  fn: (...args: A) => R,
+  opzioni: { lettura?: boolean } = {}
+): void {
   ipcMain.removeHandler(canale)
   ipcMain.handle(canale, (_event, ...args: unknown[]) => {
     try {
       return fn(...(args as A))
     } catch (error) {
-      if (error instanceof ErroreUtente) return { ok: false as const, errore: error.message }
+      // Nei canali di sola lettura anche l'errore "utente" diventa un errore vero:
+      // chi legge si aspetta il dato, non un esito { ok: false }.
+      if (error instanceof ErroreUtente && !opzioni.lettura)
+        return { ok: false as const, errore: error.message }
       console.error(`[IPC ${canale}] errore:`, error)
       throw error
     }
@@ -156,6 +174,31 @@ export function registerAgricoloIpcHandlers(): void {
       return ok
     }
   )
+
+  // Lavorazioni (raccolta, analisi e calibratura, maltazione)
+  gestisci(
+    'agri:lavorazioni-lista',
+    (f: { tipo: FaseLavorazione; stagione?: string | null; stato?: StatoLavorazione | null }) =>
+      listaLavorazioni(db, f)
+  )
+  gestisci('agri:lavorazione-dettaglio', (id: number) => dettaglioLavorazione(db, id), {
+    lettura: true
+  })
+  gestisci('agri:lavorazione-elimina', (id: number) => {
+    eliminaLavorazione(db, id)
+    return ok
+  })
+  gestisci('agri:verifica-carenza', (seminaId: number, data: string) =>
+    verificaCarenza(db, seminaId, data)
+  )
+  gestisci('agri:raccolta-salva', (id: number | null, p: RaccoltaPayload) => ({
+    ok: true as const,
+    id: salvaRaccolta(db, id ?? null, p)
+  }))
+  gestisci('agri:calibratura-salva', (id: number | null, p: CalibraturaPayload) => ({
+    ok: true as const,
+    id: salvaCalibratura(db, id ?? null, p)
+  }))
 
   console.log('[startup] IPC handlers registrati: agri:*')
 }

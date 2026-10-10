@@ -370,6 +370,8 @@ export type LavorazioneRiga = {
   input_descrizione: string
   /** Testo breve degli output, es. "3-4 mm 207 q · 4-5 mm 30 q" */
   output_descrizione: string
+  /** Primi valori dei parametri, es. "Umidità 10% · Proteine 9%" */
+  riepilogo_parametri: string
   /** Avvisi tempo di carenza (solo raccolte) */
   carenza: ViolazioneCarenzaRiga[]
   rese: Rese | null

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import { ConsigliIntelligenti } from '@/components/ConsigliIntelligenti'
+import { useAgricolo } from '@/components/agricolo/contesto'
 
 type AvvisoRiga = Awaited<ReturnType<typeof window.api.avvisi.lista>>[number]
 
@@ -19,8 +20,13 @@ const TIPI_FILTRO: { value: FiltroTipo; label: string }[] = [
   { value: 'cotta_non_producibile', label: 'Cotta non producibile' }
 ]
 
+/** Tipi del modulo agricolo: nel filtro solo a modulo attivo. */
+const TIPI_FILTRO_AGRICOLI: { value: FiltroTipo; label: string }[] = [
+  { value: 'carenza_raccolta', label: 'Tempo di carenza (raccolta)' }
+]
+
 function labelTipo(tipo: string): string {
-  const f = TIPI_FILTRO.find((t) => t.value === tipo)
+  const f = [...TIPI_FILTRO, ...TIPI_FILTRO_AGRICOLI].find((t) => t.value === tipo)
   return f ? f.label : tipo
 }
 
@@ -47,6 +53,8 @@ function formattaData(s: string): string {
 }
 
 export default function Avvisi(): React.JSX.Element {
+  const agricolo = useAgricolo()
+  const tipiFiltro = agricolo.attivo ? [...TIPI_FILTRO, ...TIPI_FILTRO_AGRICOLI] : TIPI_FILTRO
   const [righe, setRighe] = useState<AvvisoRiga[]>([])
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>('tutti')
   const [caricamento, setCaricamento] = useState(true)
@@ -120,7 +128,7 @@ export default function Avvisi(): React.JSX.Element {
             value={filtroTipo}
             onChange={(e) => setFiltroTipo(e.target.value as FiltroTipo)}
           >
-            {TIPI_FILTRO.map((o) => (
+            {tipiFiltro.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
               </option>
