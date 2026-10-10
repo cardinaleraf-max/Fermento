@@ -5,6 +5,8 @@ appId: com.fermento.app.demo
 npmRebuild: false
 afterPack: scripts/after-pack-fuses.cjs
 productName: Fermento Demo
+# nessun canale di aggiornamento (niente app-update.yml nel pacchetto)
+publish: null
 directories:
   buildResources: build
   output: release
