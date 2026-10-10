@@ -24,7 +24,8 @@
     "genera-chiavi": "tsx scripts/genera-coppia-chiavi.ts",
     "genera-licenza": "tsx scripts/genera-licenza.ts",
     "test": "node --import tsx --test test/*.test.ts",
-    "test:db": "ELECTRON_RUN_AS_NODE=1 electron --import tsx --test test/db/*.test.ts"
+    "test:db": "ELECTRON_RUN_AS_NODE=1 electron --import tsx --test test/db/*.test.ts",
+    "seed:agricolo-dev": "ELECTRON_RUN_AS_NODE=1 electron --import tsx scripts/seed-agricolo-dev.ts"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
