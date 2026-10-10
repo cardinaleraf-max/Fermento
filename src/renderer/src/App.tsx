@@ -22,6 +22,7 @@ import OperazioniCampo from './screens/agricolo/OperazioniCampo'
 import Raccolte from './screens/agricolo/Raccolte'
 import AnalisiCalibratura from './screens/agricolo/AnalisiCalibratura'
 import Maltazioni from './screens/agricolo/Maltazioni'
+import Tracciabilita from './screens/agricolo/Tracciabilita'
 
 function App(): React.JSX.Element {
   const [stato, setStato] = useState<'loading' | 'licenza' | 'password' | 'login' | 'onboarding' | 'app'>('loading')
@@ -133,7 +134,8 @@ const SEZIONI_REALIZZATE: Sezione[] = [
   'agri-raccolte',
   'agri-calibrature',
   'agri-maltazioni',
-  'agri-input'
+  'agri-input',
+  'agri-tracciabilita'
 ]
 
 function AreaApp({
@@ -175,6 +177,7 @@ function AreaApp({
       {agricolo.attivo && sezioneCorrente === 'agri-calibrature' && <AnalisiCalibratura />}
       {agricolo.attivo && sezioneCorrente === 'agri-maltazioni' && <Maltazioni />}
       {agricolo.attivo && sezioneCorrente === 'agri-input' && <InputAgricoli />}
+      {agricolo.attivo && sezioneCorrente === 'agri-tracciabilita' && <Tracciabilita />}
       {!SEZIONI_REALIZZATE.includes(sezioneCorrente) && (!sezioneAgricola || agricolo.attivo) && (
         <Placeholder titolo={sezioneTitoli[sezioneCorrente as Exclude<Sezione, 'dashboard'>]} />
       )}

@@ -2,6 +2,9 @@ import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   CalibraturaPayload,
   CampoPayload,
+  DirezioneTraccia,
+  NodoTraccia,
+  PartenzaTraccia,
   CampoRiga,
   Esito,
   EsitoId,
@@ -836,6 +839,15 @@ interface FermentoAPI {
     maltazioneRiapri: (id: number) => Promise<Esito>
     maltazioniInCorso: () => Promise<LavorazioneRiga[]>
     scadenzaMalto: (dataUscita: string) => Promise<string>
+    cercaPartenze: (testo: string) => Promise<PartenzaTraccia[]>
+    traccia: (
+      partenza: { tipo: PartenzaTraccia['tipo']; id: number },
+      direzione: DirezioneTraccia
+    ) => Promise<NodoTraccia[]>
+    esportaCsv: (
+      albero: NodoTraccia[],
+      nomeFile: string
+    ) => Promise<{ ok: true; percorso: string } | { ok: false; annullato: true }>
   }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>

@@ -1,14 +1,18 @@
-import { ipcMain } from 'electron'
+import fs from 'node:fs'
+import { BrowserWindow, dialog, ipcMain } from 'electron'
 import { db } from '../database'
 import type {
   CalibraturaPayload,
   CampoPayload,
+  DirezioneTraccia,
   FaseLavorazione,
   GruppoPayload,
   MaltazioneAvviaPayload,
   MaltazioneChiudiPayload,
+  NodoTraccia,
   OperazionePayload,
   ParametroPayload,
+  PartenzaTraccia,
   RaccoltaPayload,
   SeminaPayload,
   StatoLavorazione
@@ -30,6 +34,8 @@ import {
   materialiImballoConfezionamento,
   salvaLottiImballi
 } from './servizi/imballi'
+import { cercaPartenze, traccia } from './servizi/tracciabilita'
+import { alberoACsv } from './csv'
 import {
   avviaMaltazione,
   chiudiMaltazione,
@@ -226,6 +232,47 @@ export function registerAgricoloIpcHandlers(): void {
   })
   gestisci('agri:maltazioni-in-corso', () => maltazioniInCorso(db))
   gestisci('agri:scadenza-malto', (dataUscita: string) => scadenzaMaltoProposta(db, dataUscita))
+
+  // Tracciabilità
+  gestisci(
+    'agri:cerca-partenze',
+    (testo: string) => cercaPartenze(db, typeof testo === 'string' ? testo : ''),
+    {
+      lettura: true
+    }
+  )
+  gestisci(
+    'agri:traccia',
+    (partenza: { tipo: PartenzaTraccia['tipo']; id: number }, direzione: DirezioneTraccia) =>
+      traccia(db, partenza, direzione === 'avanti' ? 'avanti' : 'indietro'),
+    { lettura: true }
+  )
+
+  // Esportazione CSV dell'albero di tracciabilità (finestra "Salva con nome")
+  ipcMain.removeHandler('agri:esporta-csv')
+  ipcMain.handle('agri:esporta-csv', async (event, albero: NodoTraccia[], nomeFile: string) => {
+    try {
+      const finestra = BrowserWindow.fromWebContents(event.sender)
+      const nomePulito = (
+        typeof nomeFile === 'string' && nomeFile ? nomeFile : 'tracciabilita'
+      ).replace(/[\\/:*?"<>|]+/g, '-')
+      const opzioni = {
+        title: 'Esporta tracciabilità',
+        defaultPath: `${nomePulito}.csv`,
+        filters: [{ name: 'CSV (Excel)', extensions: ['csv'] }]
+      }
+      const scelta = finestra
+        ? await dialog.showSaveDialog(finestra, opzioni)
+        : await dialog.showSaveDialog(opzioni)
+      if (scelta.canceled || !scelta.filePath)
+        return { ok: false as const, annullato: true as const }
+      fs.writeFileSync(scelta.filePath, alberoACsv(Array.isArray(albero) ? albero : []), 'utf8')
+      return { ok: true as const, percorso: scelta.filePath }
+    } catch (error) {
+      console.error('[IPC agri:esporta-csv] errore:', error)
+      throw error
+    }
+  })
 
   console.log('[startup] IPC handlers registrati: agri:*')
 }

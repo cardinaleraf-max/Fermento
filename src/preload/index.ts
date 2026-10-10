@@ -3,13 +3,16 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   CalibraturaPayload,
   CampoPayload,
+  DirezioneTraccia,
   FaseLavorazione,
   FrazioneDefault,
   GruppoPayload,
   MaltazioneAvviaPayload,
   MaltazioneChiudiPayload,
+  NodoTraccia,
   OperazionePayload,
   ParametroPayload,
+  PartenzaTraccia,
   RaccoltaPayload,
   SeminaPayload,
   StatoLavorazione
@@ -280,7 +283,11 @@ const api = {
     maltazioneChiudi: (id: number, p: MaltazioneChiudiPayload) => ipcRenderer.invoke('agri:maltazione-chiudi', id, p),
     maltazioneRiapri: (id: number) => ipcRenderer.invoke('agri:maltazione-riapri', id),
     maltazioniInCorso: () => ipcRenderer.invoke('agri:maltazioni-in-corso'),
-    scadenzaMalto: (dataUscita: string): Promise<string> => ipcRenderer.invoke('agri:scadenza-malto', dataUscita)
+    scadenzaMalto: (dataUscita: string): Promise<string> => ipcRenderer.invoke('agri:scadenza-malto', dataUscita),
+    cercaPartenze: (testo: string) => ipcRenderer.invoke('agri:cerca-partenze', testo),
+    traccia: (partenza: { tipo: PartenzaTraccia['tipo']; id: number }, direzione: DirezioneTraccia) =>
+      ipcRenderer.invoke('agri:traccia', partenza, direzione),
+    esportaCsv: (albero: NodoTraccia[], nomeFile: string) => ipcRenderer.invoke('agri:esporta-csv', albero, nomeFile)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),
