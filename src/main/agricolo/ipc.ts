@@ -5,6 +5,8 @@ import type {
   CampoPayload,
   FaseLavorazione,
   GruppoPayload,
+  MaltazioneAvviaPayload,
+  MaltazioneChiudiPayload,
   OperazionePayload,
   ParametroPayload,
   RaccoltaPayload,
@@ -24,11 +26,16 @@ import {
 import { lottiDisponibili } from './servizi/magazzino'
 import { eliminaOperazione, listaOperazioni, salvaOperazione } from './servizi/operazioni'
 import {
+  avviaMaltazione,
+  chiudiMaltazione,
   dettaglioLavorazione,
   eliminaLavorazione,
   listaLavorazioni,
+  maltazioniInCorso,
+  riapriMaltazione,
   salvaCalibratura,
   salvaRaccolta,
+  scadenzaMaltoProposta,
   verificaCarenza
 } from './servizi/lavorazioni'
 import {
@@ -199,6 +206,21 @@ export function registerAgricoloIpcHandlers(): void {
     ok: true as const,
     id: salvaCalibratura(db, id ?? null, p)
   }))
+
+  gestisci('agri:maltazione-avvia', (id: number | null, p: MaltazioneAvviaPayload) => ({
+    ok: true as const,
+    id: avviaMaltazione(db, id ?? null, p)
+  }))
+  gestisci('agri:maltazione-chiudi', (id: number, p: MaltazioneChiudiPayload) => ({
+    ok: true as const,
+    id: chiudiMaltazione(db, id, p)
+  }))
+  gestisci('agri:maltazione-riapri', (id: number) => {
+    riapriMaltazione(db, id)
+    return ok
+  })
+  gestisci('agri:maltazioni-in-corso', () => maltazioniInCorso(db))
+  gestisci('agri:scadenza-malto', (dataUscita: string) => scadenzaMaltoProposta(db, dataUscita))
 
   console.log('[startup] IPC handlers registrati: agri:*')
 }

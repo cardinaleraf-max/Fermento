@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Beer, CalendarClock, Lightbulb } from 'lucide-react'
+import { AlertTriangle, Beer, CalendarClock, Flame, Lightbulb } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
+import { fmtData, fmtQta, type LavorazioneRiga } from '@/lib/agricolo'
 
 type DashboardCotta = {
   id: number
@@ -29,12 +30,27 @@ const emptyDati: DashboardDati = {
 
 type DashboardProps = {
   onVaiAvvisi: () => void
+  /** Presente solo a modulo agricolo attivo: mostra le maltazioni in corso. */
+  onVaiMaltazioni?: () => void
 }
 
-export default function Dashboard({ onVaiAvvisi }: DashboardProps): React.JSX.Element {
+export default function Dashboard({ onVaiAvvisi, onVaiMaltazioni }: DashboardProps): React.JSX.Element {
   const [dati, setDati] = useState<DashboardDati>(emptyDati)
   const [errore, setErrore] = useState<string | null>(null)
   const [caricamento, setCaricamento] = useState(true)
+  const [maltazioni, setMaltazioni] = useState<LavorazioneRiga[]>([])
+  const mostraMaltazioni = onVaiMaltazioni !== undefined
+
+  useEffect(() => {
+    if (!mostraMaltazioni) {
+      setMaltazioni([])
+      return
+    }
+    window.api.agri
+      .maltazioniInCorso()
+      .then(setMaltazioni)
+      .catch(() => setMaltazioni([]))
+  }, [mostraMaltazioni])
 
   useEffect(() => {
     void (async () => {
@@ -128,6 +144,47 @@ export default function Dashboard({ onVaiAvvisi }: DashboardProps): React.JSX.El
           </CardContent>
         </Card>
       </div>
+
+      {onVaiMaltazioni && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div className="space-y-1.5">
+              <CardTitle className="flex items-center gap-2">
+                <Flame className="h-4 w-4 text-amber-400" /> Maltazioni in corso
+              </CardTitle>
+              <CardDescription>Il malto entra in magazzino quando registri l&apos;uscita</CardDescription>
+            </div>
+            <button type="button" className="text-sm text-amber-400 hover:underline" onClick={onVaiMaltazioni}>
+              Vai alle maltazioni
+            </button>
+          </CardHeader>
+          <CardContent>
+            {maltazioni.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessuna maltazione in corso.</p>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {maltazioni.map((m) => (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={onVaiMaltazioni}
+                      className="flex w-full items-center justify-between gap-3 py-2 text-left text-sm hover:text-amber-400"
+                    >
+                      <span>
+                        <span className="font-medium text-foreground">{m.codice}</span>
+                        <span className="text-muted-foreground"> · {m.materia_prima_nome}</span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        dal {fmtData(m.data_inizio)} · {fmtQta(m.input_kg, 'kg', 0)} di orzo
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

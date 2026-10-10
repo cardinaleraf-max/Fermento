@@ -6,17 +6,20 @@ import type {
   InputDettaglio,
   LavorazioneDettaglio,
   LavorazioneRiga,
+  MaltazioneAvviaPayload,
+  MaltazioneChiudiPayload,
   OutputDettaglio,
   RaccoltaPayload,
   Rese,
   StatoLavorazione,
   ViolazioneCarenzaRiga
 } from '../../../shared/agricolo'
-import { calcolaFrazioni, calcolaRese, erroriFrazioni, violazioniCarenza } from '../calcoli'
+import { aggiungiMesi, calcolaFrazioni, calcolaRese, erroriFrazioni, violazioniCarenza } from '../calcoli'
 import { ErroreUtente } from '../errori'
-import { EPS, aKg, arrotonda, converti } from '../unita'
+import { EPS, aKg, arrotonda, converti, daKg } from '../unita'
 import { creaLotto, leggiLotto, lottoUsatoAValle, ripristinaLotto, scaricaLotto } from './magazzino'
 import { trattamentiConCarenza } from './operazioni'
+import { shelfLifeMaltoMesi } from './config'
 import { configParametri, valoriLavorazione, valoriLeggibili, valoriStorici } from './parametri'
 import {
   dataObbligatoria,
@@ -503,4 +506,188 @@ export function dettaglioLavorazione(db: Db, id: number): LavorazioneDettaglio {
     bloccata: bloccoLavorazione(db, id),
     data_scadenza_output: scadenza
   }
+}
+
+// ── Maltazione ───────────────────────────────────────────────────────────────
+
+type Chiusura = { data_uscita: string; peso_finale_kg: number; data_scadenza: string | null }
+
+export function scadenzaMaltoProposta(db: Db, dataUscita: string): string {
+  return aggiungiMesi(dataUscita, shelfLifeMaltoMesi(db))
+}
+
+function chiusuraAttuale(db: Db, id: number): Chiusura | null {
+  const lav = db.prepare(`SELECT stato, data_fine FROM agri_lavorazioni WHERE id = ?`).get(id) as
+    | { stato: StatoLavorazione; data_fine: string | null }
+    | undefined
+  if (!lav || lav.stato !== 'chiusa' || !lav.data_fine) return null
+  const out = db
+    .prepare(
+      `SELECT o.quantita_kg, l.data_scadenza FROM agri_lavorazione_output o
+       LEFT JOIN lotti_materie_prime l ON l.id = o.lotto_id
+       WHERE o.lavorazione_id = ? AND o.lotto_id IS NOT NULL LIMIT 1`
+    )
+    .get(id) as { quantita_kg: number | null; data_scadenza: string | null } | undefined
+  if (!out || out.quantita_kg === null) return null
+  return { data_uscita: lav.data_fine, peso_finale_kg: out.quantita_kg, data_scadenza: out.data_scadenza }
+}
+
+/** Crea il lotto di malto e chiude la maltazione (da chiamare in transazione). */
+function applicaChiusura(db: Db, id: number, c: Chiusura): number {
+  const lav = db
+    .prepare(`SELECT codice, stagione, materia_prima_id, data_inizio FROM agri_lavorazioni WHERE id = ?`)
+    .get(id) as { codice: string; stagione: string; materia_prima_id: number; data_inizio: string }
+  if (c.data_uscita < lav.data_inizio) {
+    throw new ErroreUtente("La data di uscita non può essere precedente all'inizio della maltazione.")
+  }
+  const malto = materiaPrima(db, lav.materia_prima_id)
+  const quantita = daKg(c.peso_finale_kg, malto.unita_misura)
+  if (quantita === null) {
+    throw new ErroreUtente(`L'unità del malto "${malto.nome}" (${malto.unita_misura}) non è un peso: usa kg o q.`)
+  }
+  if (!codiceLottoLibero(db, malto.id, lav.codice)) {
+    throw new ErroreUtente(`Esiste già un lotto "${lav.codice}" di ${malto.nome}: cambia il codice della maltazione.`)
+  }
+  const lottoId = creaLotto(db, {
+    materia_prima_id: malto.id,
+    codice: lav.codice,
+    data_carico: c.data_uscita,
+    data_scadenza: c.data_scadenza ?? scadenzaMaltoProposta(db, c.data_uscita),
+    quantita,
+    origine_tipo: 'maltazione',
+    origine_id: id,
+    stagione: lav.stagione,
+    calibro: null,
+    note: null
+  })
+  db.prepare(
+    `INSERT INTO agri_lavorazione_output (lavorazione_id, ordine, nome, quantita, quantita_kg, scarto, lotto_id)
+     VALUES (?, 1, NULL, ?, ?, 0, ?)`
+  ).run(id, quantita, c.peso_finale_kg, lottoId)
+  db.prepare(
+    `UPDATE agri_lavorazioni SET stato = 'chiusa', data_fine = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(c.data_uscita, id)
+  return lottoId
+}
+
+/** Toglie il lotto di malto e riporta la maltazione "in corso" (da chiamare in transazione). */
+function togliChiusura(db: Db, id: number): void {
+  const lotti = db
+    .prepare(`SELECT lotto_id FROM agri_lavorazione_output WHERE lavorazione_id = ? AND lotto_id IS NOT NULL`)
+    .all(id) as Array<{ lotto_id: number }>
+  db.prepare(`DELETE FROM agri_lavorazione_output WHERE lavorazione_id = ?`).run(id)
+  const del = db.prepare(`DELETE FROM lotti_materie_prime WHERE id = ?`)
+  for (const l of lotti) del.run(l.lotto_id)
+  db.prepare(
+    `UPDATE agri_lavorazioni SET stato = 'in_corso', data_fine = NULL, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
+  ).run(id)
+}
+
+/**
+ * Avvia (o modifica) una maltazione: scarica dal magazzino i lotti di orzo
+ * calibrato indicati. Il malto entra in magazzino solo alla chiusura. Se la
+ * maltazione era già chiusa (e il malto non è stato usato) il lotto di malto
+ * viene ricreato con gli stessi dati di chiusura.
+ */
+export function avviaMaltazione(db: Db, id: number | null, p: MaltazioneAvviaPayload): number {
+  const dataInizio = dataObbligatoria(p.data_inizio, 'Data di inizio')
+  const stagione = stagioneObbligatoria(p.stagione)
+  const codice = testoObbligatorio(p.codice, 'Codice lotto')
+  const malto = materiaPrima(db, idObbligatorio(p.materia_prima_id, 'Tipo di malto'))
+  if (malto.categoria !== 'malto') {
+    throw new ErroreUtente('Il tipo di malto deve essere una materia prima della categoria "malto".')
+  }
+  if (daKg(1, malto.unita_misura) === null) {
+    throw new ErroreUtente(`L'unità del malto "${malto.nome}" (${malto.unita_misura}) non è un peso: usa kg o q.`)
+  }
+  const ingressi = Array.isArray(p.input) ? p.input : []
+  if (ingressi.length === 0) throw new ErroreUtente("Aggiungi almeno un lotto di orzo calibrato.")
+  const perLotto = new Map<number, number>()
+  for (const i of ingressi) {
+    const lottoId = idObbligatorio(i.lotto_id, 'Lotto di orzo calibrato')
+    const kg = numeroPositivo(i.kg, 'Peso orzo (kg)')
+    perLotto.set(lottoId, arrotonda((perLotto.get(lottoId) ?? 0) + kg, 6))
+  }
+  const note = testoOpzionale(p.note)
+  const doppio = db
+    .prepare(`SELECT id FROM agri_lavorazioni WHERE tipo = 'maltazione' AND codice = ? COLLATE NOCASE AND id IS NOT ?`)
+    .get(codice, id)
+  if (doppio) throw new ErroreUtente(`Esiste già una maltazione con codice "${codice}".`)
+
+  return db.transaction((): number => {
+    let lavId: number
+    let chiusura: Chiusura | null = null
+    if (id !== null) {
+      verificaModificabile(db, id, 'maltazione')
+      chiusura = chiusuraAttuale(db, id)
+      annullaEffetti(db, id)
+      db.prepare(
+        `UPDATE agri_lavorazioni SET stagione = ?, codice = ?, data_inizio = ?, materia_prima_id = ?, note = ?,
+                stato = 'in_corso', data_fine = NULL, aggiornato_il = CURRENT_TIMESTAMP WHERE id = ?`
+      ).run(stagione, codice, dataInizio, malto.id, note, id)
+      lavId = id
+    } else {
+      lavId = Number(
+        db
+          .prepare(
+            `INSERT INTO agri_lavorazioni (tipo, stagione, codice, data_inizio, stato, materia_prima_id, note)
+             VALUES ('maltazione', ?, ?, ?, 'in_corso', ?, ?)`
+          )
+          .run(stagione, codice, dataInizio, malto.id, note).lastInsertRowid
+      )
+    }
+    const insIn = db.prepare(
+      `INSERT INTO agri_lavorazione_input (lavorazione_id, lotto_id, quantita, quantita_kg) VALUES (?, ?, ?, ?)`
+    )
+    for (const [lottoId, kg] of perLotto) {
+      const l = leggiLotto(db, lottoId)
+      if (!l) throw new ErroreUtente('Lotto di orzo calibrato non trovato.')
+      const mp = materiaPrima(db, l.materia_prima_id)
+      if (mp.categoria !== 'orzo_calibrato') {
+        throw new ErroreUtente(`Il lotto ${l.lotto_fornitore || '#' + l.id} non è orzo calibrato.`)
+      }
+      const quantita = daKg(kg, mp.unita_misura)
+      if (quantita === null) throw new ErroreUtente(`L'unità di ${mp.nome} non è un peso.`)
+      scaricaLotto(db, lottoId, quantita)
+      insIn.run(lavId, lottoId, quantita, kg)
+    }
+    if (chiusura) applicaChiusura(db, lavId, chiusura)
+    return lavId
+  })()
+}
+
+/** Chiude la maltazione (o corregge la chiusura): crea il lotto di malto in magazzino. */
+export function chiudiMaltazione(db: Db, id: number, p: MaltazioneChiudiPayload): number {
+  const lav = db.prepare(`SELECT tipo, stato FROM agri_lavorazioni WHERE id = ?`).get(id) as
+    | { tipo: string; stato: StatoLavorazione }
+    | undefined
+  if (!lav || lav.tipo !== 'maltazione') throw new ErroreUtente('Maltazione non trovata.')
+  const chiusura: Chiusura = {
+    data_uscita: dataObbligatoria(p.data_uscita, 'Data di uscita'),
+    peso_finale_kg: numeroPositivo(p.peso_finale_kg, 'Peso finale'),
+    data_scadenza: dataOpzionale(p.data_scadenza, 'Scadenza')
+  }
+  return db.transaction((): number => {
+    if (lav.stato === 'chiusa') {
+      verificaModificabile(db, id, 'maltazione')
+      togliChiusura(db, id)
+    }
+    return applicaChiusura(db, id, chiusura)
+  })()
+}
+
+/** Riporta "in corso" una maltazione chiusa, se il malto non è ancora stato usato. */
+export function riapriMaltazione(db: Db, id: number): void {
+  const lav = db.prepare(`SELECT tipo, stato FROM agri_lavorazioni WHERE id = ?`).get(id) as
+    | { tipo: string; stato: StatoLavorazione }
+    | undefined
+  if (!lav || lav.tipo !== 'maltazione') throw new ErroreUtente('Maltazione non trovata.')
+  if (lav.stato !== 'chiusa') return
+  const blocco = bloccoLavorazione(db, id)
+  if (blocco) throw new ErroreUtente(`Non si può riaprire: ${blocco.charAt(0).toLowerCase()}${blocco.slice(1)}`)
+  db.transaction(() => togliChiusura(db, id))()
+}
+
+export function maltazioniInCorso(db: Db): LavorazioneRiga[] {
+  return listaLavorazioni(db, { tipo: 'maltazione', stato: 'in_corso' })
 }

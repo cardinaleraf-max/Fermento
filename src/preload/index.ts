@@ -6,6 +6,8 @@ import type {
   FaseLavorazione,
   FrazioneDefault,
   GruppoPayload,
+  MaltazioneAvviaPayload,
+  MaltazioneChiudiPayload,
   OperazionePayload,
   ParametroPayload,
   RaccoltaPayload,
@@ -261,7 +263,12 @@ const api = {
     lavorazioneElimina: (id: number) => ipcRenderer.invoke('agri:lavorazione-elimina', id),
     verificaCarenza: (seminaId: number, data: string) => ipcRenderer.invoke('agri:verifica-carenza', seminaId, data),
     raccoltaSalva: (id: number | null, p: RaccoltaPayload) => ipcRenderer.invoke('agri:raccolta-salva', id, p),
-    calibraturaSalva: (id: number | null, p: CalibraturaPayload) => ipcRenderer.invoke('agri:calibratura-salva', id, p)
+    calibraturaSalva: (id: number | null, p: CalibraturaPayload) => ipcRenderer.invoke('agri:calibratura-salva', id, p),
+    maltazioneAvvia: (id: number | null, p: MaltazioneAvviaPayload) => ipcRenderer.invoke('agri:maltazione-avvia', id, p),
+    maltazioneChiudi: (id: number, p: MaltazioneChiudiPayload) => ipcRenderer.invoke('agri:maltazione-chiudi', id, p),
+    maltazioneRiapri: (id: number) => ipcRenderer.invoke('agri:maltazione-riapri', id),
+    maltazioniInCorso: () => ipcRenderer.invoke('agri:maltazioni-in-corso'),
+    scadenzaMalto: (dataUscita: string): Promise<string> => ipcRenderer.invoke('agri:scadenza-malto', dataUscita)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),

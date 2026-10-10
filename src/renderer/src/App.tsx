@@ -21,6 +21,7 @@ import InputAgricoli from './screens/agricolo/InputAgricoli'
 import OperazioniCampo from './screens/agricolo/OperazioniCampo'
 import Raccolte from './screens/agricolo/Raccolte'
 import AnalisiCalibratura from './screens/agricolo/AnalisiCalibratura'
+import Maltazioni from './screens/agricolo/Maltazioni'
 
 function App(): React.JSX.Element {
   const [stato, setStato] = useState<'loading' | 'licenza' | 'password' | 'login' | 'onboarding' | 'app'>('loading')
@@ -131,6 +132,7 @@ const SEZIONI_REALIZZATE: Sezione[] = [
   'agri-operazioni',
   'agri-raccolte',
   'agri-calibrature',
+  'agri-maltazioni',
   'agri-input'
 ]
 
@@ -152,7 +154,12 @@ function AreaApp({
   return (
     <Layout sezioneCorrente={sezioneCorrente} onSezioneChange={setSezioneCorrente} moduloAgricolo={agricolo.attivo}>
       <ProposteNavigazione onNaviga={setSezioneCorrente} />
-      {sezioneCorrente === 'dashboard' && <Dashboard onVaiAvvisi={() => setSezioneCorrente('avvisi')} />}
+      {sezioneCorrente === 'dashboard' && (
+        <Dashboard
+          onVaiAvvisi={() => setSezioneCorrente('avvisi')}
+          onVaiMaltazioni={agricolo.attivo ? () => setSezioneCorrente('agri-maltazioni') : undefined}
+        />
+      )}
       {sezioneCorrente === 'magazzino-mp' && <MagazzinoMP />}
       {sezioneCorrente === 'magazzino-conf' && <MagazzinoConf />}
       {sezioneCorrente === 'produzione' && <Produzione />}
@@ -166,6 +173,7 @@ function AreaApp({
       {agricolo.attivo && sezioneCorrente === 'agri-operazioni' && <OperazioniCampo />}
       {agricolo.attivo && sezioneCorrente === 'agri-raccolte' && <Raccolte />}
       {agricolo.attivo && sezioneCorrente === 'agri-calibrature' && <AnalisiCalibratura />}
+      {agricolo.attivo && sezioneCorrente === 'agri-maltazioni' && <Maltazioni />}
       {agricolo.attivo && sezioneCorrente === 'agri-input' && <InputAgricoli />}
       {!SEZIONI_REALIZZATE.includes(sezioneCorrente) && (!sezioneAgricola || agricolo.attivo) && (
         <Placeholder titolo={sezioneTitoli[sezioneCorrente as Exclude<Sezione, 'dashboard'>]} />

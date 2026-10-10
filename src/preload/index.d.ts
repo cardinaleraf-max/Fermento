@@ -11,6 +11,8 @@ import type {
   GruppoPayload,
   LavorazioneDettaglio,
   LavorazioneRiga,
+  MaltazioneAvviaPayload,
+  MaltazioneChiudiPayload,
   ParametroPayload,
   RaccoltaPayload,
   StatoLavorazione,
@@ -812,6 +814,11 @@ interface FermentoAPI {
     verificaCarenza: (seminaId: number, data: string) => Promise<ViolazioneCarenzaRiga[]>
     raccoltaSalva: (id: number | null, p: RaccoltaPayload) => Promise<EsitoId>
     calibraturaSalva: (id: number | null, p: CalibraturaPayload) => Promise<EsitoId>
+    maltazioneAvvia: (id: number | null, p: MaltazioneAvviaPayload) => Promise<EsitoId>
+    maltazioneChiudi: (id: number, p: MaltazioneChiudiPayload) => Promise<EsitoId>
+    maltazioneRiapri: (id: number) => Promise<Esito>
+    maltazioniInCorso: () => Promise<LavorazioneRiga[]>
+    scadenzaMalto: (dataUscita: string) => Promise<string>
   }
   birre: {
     disattiva: (id: number) => Promise<{ ok: true } | { ok: false; errore: string }>
