@@ -10,7 +10,12 @@ import { ensureAiConfigRows, registerAiIpcHandlers } from './ai/agent'
 import { licenzaSalvataValida, salvaLicenza } from './licenza'
 import { codiceMacchina } from './impronta'
 import { registerAgricoloIpcHandlers, registerImballiIpcHandlers } from './agricolo/ipc'
-import { colonneFitofarmaco, salvaDatiFitofarmaco } from './agricolo/servizi/magazzino'
+import {
+  colonneFitofarmaco,
+  motivoBloccoEliminazioneLotto,
+  motivoBloccoEliminazioneMateria,
+  salvaDatiFitofarmaco
+} from './agricolo/servizi/magazzino'
 import { moduloAttivo } from './agricolo/servizi/config'
 import { generaAvvisiCarenza } from './agricolo/servizi/avvisi'
 import { collegamentiMovimento, inserisciLottiImballi } from './agricolo/servizi/imballi'
@@ -309,6 +314,11 @@ function registerMpIpcHandlers(): void {
         return { ok: false as const, errore: 'Materia prima non trovata' }
       }
 
+      const bloccoAgricolo = motivoBloccoEliminazioneMateria(db, id)
+      if (bloccoAgricolo) {
+        return { ok: false as const, errore: bloccoAgricolo }
+      }
+
       const ricetteRef = db
         .prepare(`SELECT COUNT(*) as c FROM ricetta_ingredienti WHERE materia_prima_id = ?`)
         .get(id) as { c: number }
@@ -430,6 +440,11 @@ function registerMpIpcHandlers(): void {
         | undefined
       if (!lotto) {
         return { ok: false as const, errore: 'Lotto non trovato' }
+      }
+
+      const bloccoAgricolo = motivoBloccoEliminazioneLotto(db, id)
+      if (bloccoAgricolo) {
+        return { ok: false as const, errore: bloccoAgricolo }
       }
 
       const usato = db

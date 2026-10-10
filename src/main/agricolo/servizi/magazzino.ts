@@ -293,3 +293,72 @@ export function salvaDatiFitofarmaco(db: Db, materiaPrimaId: number, p: DatiFito
     `UPDATE materie_prime SET ${colonne.map(([c]) => `${c} = ?`).join(', ')} WHERE id = ?`
   ).run(...colonne.map(([, v]) => v), materiaPrimaId)
 }
+
+// ── Guardie per le eliminazioni dal Magazzino materie prime ────────────────
+
+function tabellaPresente(db: Db, nome: string): boolean {
+  return !!db.prepare(`SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`).get(nome)
+}
+
+function colonnaPresente(db: Db, tabella: string, colonna: string): boolean {
+  return (db.prepare(`PRAGMA table_info(${tabella})`).all() as Array<{ name: string }>).some((c) => c.name === colonna)
+}
+
+const NOMI_ORIGINE: Record<string, string> = {
+  raccolta: 'una raccolta',
+  calibratura: "un'analisi e calibratura",
+  maltazione: 'una maltazione'
+}
+
+/**
+ * Perché un lotto non si può eliminare dal magazzino per motivi della filiera
+ * agricola, o null. Tollera un DB ripristinato da un backup vecchio (tabelle o
+ * colonne agricole non ancora create): in quel caso non c'è nulla da proteggere.
+ */
+export function motivoBloccoEliminazioneLotto(db: Db, lottoId: number): string | null {
+  if (colonnaPresente(db, 'lotti_materie_prime', 'origine_tipo')) {
+    const l = db.prepare(`SELECT origine_tipo FROM lotti_materie_prime WHERE id = ?`).get(lottoId) as
+      | { origine_tipo: string | null }
+      | undefined
+    if (l?.origine_tipo && l.origine_tipo !== 'acquisto') {
+      return `Questo lotto è stato creato da ${NOMI_ORIGINE[l.origine_tipo] ?? 'una lavorazione'}: per toglierlo elimina quella lavorazione.`
+    }
+  }
+  const usi: Array<[tabella: string, sql: string]> = [
+    ['agri_lavorazione_input', `SELECT 1 FROM agri_lavorazione_input WHERE lotto_id = ? LIMIT 1`],
+    ['agri_lavorazione_output', `SELECT 1 FROM agri_lavorazione_output WHERE lotto_id = ? LIMIT 1`],
+    ['agri_consumi', `SELECT 1 FROM agri_consumi WHERE lotto_id = ? LIMIT 1`]
+  ]
+  for (const [tabella, sql] of usi) {
+    if (tabellaPresente(db, tabella) && db.prepare(sql).get(lottoId)) {
+      return "Lotto usato nella filiera agricola (semina, operazione di campo o lavorazione): non si può eliminare."
+    }
+  }
+  return null
+}
+
+/** Perché una materia prima non si può eliminare per motivi della filiera agricola, o null. */
+export function motivoBloccoEliminazioneMateria(db: Db, materiaPrimaId: number): string | null {
+  if (
+    tabellaPresente(db, 'agri_operazioni') &&
+    db.prepare(`SELECT 1 FROM agri_operazioni WHERE materia_prima_id = ? LIMIT 1`).get(materiaPrimaId)
+  ) {
+    return 'Prodotto usato in operazioni di campo: non si può eliminare.'
+  }
+  if (tabellaPresente(db, 'agri_lavorazioni')) {
+    const lav = db
+      .prepare(`SELECT tipo FROM agri_lavorazioni WHERE materia_prima_id = ? LIMIT 1`)
+      .get(materiaPrimaId) as { tipo: string } | undefined
+    if (lav) {
+      const nome = lav.tipo === 'raccolta' ? 'raccolte' : lav.tipo === 'calibratura' ? 'calibrature' : 'maltazioni'
+      return `Materia prima usata in ${nome}: non si può eliminare.`
+    }
+  }
+  if (
+    tabellaPresente(db, 'agri_consumi') &&
+    db.prepare(`SELECT 1 FROM agri_consumi WHERE materia_prima_id = ? LIMIT 1`).get(materiaPrimaId)
+  ) {
+    return 'Prodotto usato nella filiera agricola: non si può eliminare.'
+  }
+  return null
+}
