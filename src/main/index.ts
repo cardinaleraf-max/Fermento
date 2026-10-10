@@ -19,6 +19,16 @@ import {
 import { moduloAttivo } from './agricolo/servizi/config'
 import { generaAvvisiCarenza } from './agricolo/servizi/avvisi'
 import { collegamentiMovimento, inserisciLottiImballi } from './agricolo/servizi/imballi'
+import {
+  avviaTimeoutDemo,
+  chiaveBloccataInDemo,
+  NON_DISPONIBILE_IN_DEMO,
+  ripristinaDatiDemo,
+  usaCartellaDemo,
+  vietatoInDemo
+} from './demo'
+
+if (__DEMO_MODE__) usaCartellaDemo()
 
 type MateriaPrimaPayload = {
   nome: string
@@ -3373,6 +3383,9 @@ function registerReportIpcHandlers(): void {
 function registerOnboardingIpcHandlers(): void {
   ipcMain.removeHandler('onboarding:completa')
   ipcMain.handle('onboarding:completa', (_event, dati: OnboardingCompletaPayload) => {
+    if (vietatoInDemo('onboarding:completa')) {
+      return { ok: false as const, errore: NON_DISPONIBILE_IN_DEMO }
+    }
     try {
       const tx = db.transaction(() => {
         const aggiorna = db.prepare(
@@ -3415,6 +3428,10 @@ function registerOnboardingIpcHandlers(): void {
 function registerLicenzaIpcHandlers(): void {
   ipcMain.removeHandler('licenza:stato')
   ipcMain.handle('licenza:stato', () => {
+    // La demo non ha licenza: risulta sempre attiva come versione dimostrativa.
+    if (__DEMO_MODE__) {
+      return { valida: true as const, intestatario: 'Versione dimostrativa', scadenza: null }
+    }
     try {
       return licenzaSalvataValida(db)
     } catch (error) {
@@ -3425,6 +3442,9 @@ function registerLicenzaIpcHandlers(): void {
 
   ipcMain.removeHandler('licenza:attiva')
   ipcMain.handle('licenza:attiva', (_event, stringa: string) => {
+    if (vietatoInDemo('licenza:attiva')) {
+      return { ok: false as const, errore: NON_DISPONIBILE_IN_DEMO }
+    }
     try {
       salvaLicenza(db, stringa)
       const stato = licenzaSalvataValida(db)
@@ -3487,6 +3507,9 @@ function registerImpostazioniIpcHandlers(): void {
 
   ipcMain.removeHandler('impostazioni:aggiorna')
   ipcMain.handle('impostazioni:aggiorna', (_e, payload: ImpostazioniConfigAggiorna) => {
+    if (chiaveBloccataInDemo(payload.chiave)) {
+      throw new Error(NON_DISPONIBILE_IN_DEMO)
+    }
     try {
       const n = db
         .prepare(`UPDATE configurazioni SET valore = ?, aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = ?`)
@@ -3661,6 +3684,9 @@ function registerImpostazioniIpcHandlers(): void {
 
   ipcMain.removeHandler('impostazioni:cambia-password')
   ipcMain.handle('impostazioni:cambia-password', async (_e, payload: CambiaPasswordPayload) => {
+    if (vietatoInDemo('impostazioni:cambia-password')) {
+      return { ok: false as const, errore: NON_DISPONIBILE_IN_DEMO }
+    }
     try {
       const utente = db.prepare(`SELECT password_hash FROM utente WHERE id = 1`).get() as
         | { password_hash: string | null }
@@ -3954,6 +3980,9 @@ function ultimoBackupAutomaticoOkOltre24h(): boolean {
 function registerBackupIpcHandlers(): void {
   ipcMain.removeHandler('backup:esegui')
   ipcMain.handle('backup:esegui', (_e, payload: { tipo: BackupTipoEsecuzione }) => {
+    if (vietatoInDemo('backup:esegui')) {
+      return { ok: false as const, errore: NON_DISPONIBILE_IN_DEMO }
+    }
     try {
       return eseguiLogicaBackup(payload.tipo)
     } catch (error) {
@@ -3966,6 +3995,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:seleziona-cartella')
   ipcMain.handle('backup:seleziona-cartella', async () => {
+    if (vietatoInDemo('backup:seleziona-cartella')) {
+      return { ok: false as const }
+    }
     const win = BrowserWindow.getFocusedWindow()
     try {
       const r = win
@@ -3983,6 +4015,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:seleziona-file-ripristino')
   ipcMain.handle('backup:seleziona-file-ripristino', async () => {
+    if (vietatoInDemo('backup:seleziona-file-ripristino')) {
+      return { ok: false as const }
+    }
     const win = BrowserWindow.getFocusedWindow()
     try {
       const opts = {
@@ -4004,6 +4039,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:configura-percorso')
   ipcMain.handle('backup:configura-percorso', (_e, payload: { percorso: string }) => {
+    if (vietatoInDemo('backup:configura-percorso')) {
+      throw new Error(NON_DISPONIBILE_IN_DEMO)
+    }
     try {
       const p = payload.percorso.trim()
       db.prepare(
@@ -4046,6 +4084,9 @@ function registerBackupIpcHandlers(): void {
 
   ipcMain.removeHandler('backup:ripristina')
   ipcMain.handle('backup:ripristina', (_e, payload: { percorso_file: string }) => {
+    if (vietatoInDemo('backup:ripristina')) {
+      return { ok: false as const, errore: NON_DISPONIBILE_IN_DEMO }
+    }
     try {
       const src = path.resolve(payload.percorso_file)
       if (!fs.existsSync(src) || !fs.statSync(src).isFile()) {
@@ -4097,6 +4138,10 @@ function formattaNoteRilascio(raw: unknown): string | null {
 }
 
 function configuraAutoUpdater(): void {
+  if (__DEMO_MODE__) {
+    console.log('[AutoUpdate] disattivato nella versione demo')
+    return
+  }
   if (!app.isPackaged) {
     console.log('[AutoUpdate] skip (app non impacchettata)')
     return
@@ -4211,6 +4256,7 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
+  if (__DEMO_MODE__) ripristinaDatiDemo()
   initDatabase()
   ensureAiConfigRows(db)
   registerAiIpcHandlers(() => db)
@@ -4271,34 +4317,42 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  if (__DEMO_MODE__) {
+    const finestra = BrowserWindow.getAllWindows()[0]
+    if (finestra) avviaTimeoutDemo(finestra)
+  }
+
   configuraAutoUpdater()
 
-  setTimeout(() => {
-    try {
-      if (ultimoBackupAutomaticoOkOltre24h()) {
-        const r = eseguiLogicaBackup('automatico')
-        if (!r.ok) {
-          console.warn('[backup avvio automatico] esito non ok:', r)
-        }
-      }
-    } catch (e) {
-      console.error('[backup avvio automatico]', e)
-    }
-  }, 0)
-
-  setInterval(
-    () => {
+  // Backup automatici: non nella demo (i dati di esempio si azzerano a ogni avvio).
+  if (!__DEMO_MODE__) {
+    setTimeout(() => {
       try {
-        const r = eseguiLogicaBackup('automatico')
-        if (!r.ok) {
-          console.warn('[backup 24h] esito non ok:', r)
+        if (ultimoBackupAutomaticoOkOltre24h()) {
+          const r = eseguiLogicaBackup('automatico')
+          if (!r.ok) {
+            console.warn('[backup avvio automatico] esito non ok:', r)
+          }
         }
       } catch (e) {
-        console.error('[backup 24h]', e)
+        console.error('[backup avvio automatico]', e)
       }
-    },
-    24 * 60 * 60 * 1000
-  )
+    }, 0)
+
+    setInterval(
+      () => {
+        try {
+          const r = eseguiLogicaBackup('automatico')
+          if (!r.ok) {
+            console.warn('[backup 24h] esito non ok:', r)
+          }
+        } catch (e) {
+          console.error('[backup 24h]', e)
+        }
+      },
+      24 * 60 * 60 * 1000
+    )
+  }
 
   app.on('activate', function () {
     // On macOS it's common to re-create a window in the app when the

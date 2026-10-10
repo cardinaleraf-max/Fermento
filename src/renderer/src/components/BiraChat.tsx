@@ -170,6 +170,47 @@ export type BiraChatProps = {
   onClose?: () => void
 }
 
+/** Nella versione demo Bira è spento: al posto della chat un breve messaggio. */
+function BiraDemo({ onClose }: BiraChatProps): React.JSX.Element {
+  return (
+    <div className="flex h-full flex-col overflow-hidden bg-[var(--floating)]">
+      <div
+        className="flex items-center justify-between gap-2 px-3.5 py-2.5"
+        style={{ borderBottom: '1px solid var(--line)' }}
+      >
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400/15">
+            <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+          </div>
+          <div className="truncate text-sm font-semibold text-ink/90">Bira</div>
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/[0.05] hover:text-ink/80"
+            title="Chiudi"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+        <div className="rounded-full bg-amber-400/10 p-2.5">
+          <Sparkles className="h-5 w-5 text-amber-400/80" />
+        </div>
+        <div className="max-w-xs space-y-1">
+          <h3 className="text-sm font-semibold text-ink/85">Bira, l&apos;assistente di Fermento</h3>
+          <p className="text-[11px] text-ink/50">
+            Nella versione completa risponde alle domande sui tuoi dati: scorte, cotte, vendite,
+            clienti e avvisi. Nella demo non è disponibile.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
   const [messaggi, setMessaggi] = useState<Messaggio[]>([])
   const [input, setInput] = useState('')
@@ -343,6 +384,8 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
       tooltip: 'Modalit\u00e0 locale: nessun dato esce dal PC.'
     }
   }, [health])
+
+  if (__DEMO_MODE__) return <BiraDemo onClose={onClose} />
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-[var(--floating)]">

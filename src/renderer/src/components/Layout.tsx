@@ -22,6 +22,7 @@ import { inkTesto } from '@/lib/tema'
 import { cn } from '@/lib/utils'
 import { BiraLauncher } from './BiraLauncher'
 import { InterruttoreTema } from './InterruttoreTema'
+import { DemoBadge } from './DemoBadge'
 
 export type Sezione =
   | 'dashboard'
@@ -289,7 +290,14 @@ export function Layout({
             {sezioneLabelMap[sezioneCorrente]}
           </h2>
           {/* margini negativi: l'interruttore non cambia l'altezza dell'intestazione */}
-          <InterruttoreTema className="-my-2" />
+          {__DEMO_MODE__ ? (
+            <div className="flex items-center gap-3">
+              <DemoBadge className="-my-1" />
+              <InterruttoreTema className="-my-2" />
+            </div>
+          ) : (
+            <InterruttoreTema className="-my-2" />
+          )}
         </header>
         <main className="min-w-0 flex-1 p-6">{children}</main>
       </div>

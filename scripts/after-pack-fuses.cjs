@@ -8,7 +8,12 @@ exports.default = async function afterPack(context) {
   const { electronPlatformName, appOutDir, packager } = context
   let executable
   if (electronPlatformName === 'win32') {
-    const nomi = ['fermento.exe', `${packager.appInfo.productFilename}.exe`]
+    const nomi = [
+      'fermento.exe',
+      `${packager.appInfo.productFilename}.exe`,
+      // versione demo (electron-builder.demo.yml → win.executableName)
+      `${packager.platformSpecificBuildOptions?.executableName ?? 'fermento'}.exe`
+    ]
     const trovato = nomi.find((n) => fs.existsSync(path.join(appOutDir, n)))
     if (!trovato) {
       throw new Error(`[fuses] eseguibile non trovato in ${appOutDir} (cercati: ${nomi.join(', ')})`)

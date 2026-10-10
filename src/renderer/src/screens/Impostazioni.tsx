@@ -805,7 +805,19 @@ export default function Impostazioni(): React.JSX.Element {
 
       {tab === 'agricolo' && agricolo.attivo && <ModuloAgricoloImpostazioni />}
 
-      {tab === 'assistente' && (
+      {tab === 'assistente' && __DEMO_MODE__ && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Assistente Bira</CardTitle>
+            <CardDescription>
+              Nella versione completa Bira risponde alle domande sui tuoi dati (scorte, cotte,
+              vendite, clienti, avvisi). Nella demo non è disponibile.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {tab === 'assistente' && !__DEMO_MODE__ && (
         <div className="space-y-4">
           {errParam && (
             <p className="text-sm text-red-400" role="alert">

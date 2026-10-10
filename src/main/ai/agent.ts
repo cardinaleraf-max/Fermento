@@ -467,6 +467,18 @@ export function ensureAiConfigRows(db: BetterSqlite3.Database): void {
 export function registerAiIpcHandlers(getDb: () => BetterSqlite3.Database): void {
   ipcMain.removeHandler('ai:health')
   ipcMain.handle('ai:health', async () => {
+    // Nella demo Bira è spento: la finestra mostra "non disponibile nella demo".
+    if (__DEMO_MODE__) {
+      return {
+        abilitato: false,
+        provider: 'groq' as const,
+        url: '',
+        modello: '',
+        remoto: false,
+        raggiungibile: false,
+        errore: 'demo'
+      }
+    }
     const cfg = leggiConfig((c) => leggiConfigurazione(getDb(), c))
     if (!cfg.abilitato) {
       return {

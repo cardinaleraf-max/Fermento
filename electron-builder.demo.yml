@@ -1,0 +1,51 @@
+# Versione demo (npm run build:win:demo / build:mac:demo).
+# App separata da Fermento: altro appId, altro nome, altra cartella dati.
+# Niente canale di aggiornamento: la demo si scarica sempre dallo stesso link.
+appId: com.fermento.app.demo
+npmRebuild: false
+afterPack: scripts/after-pack-fuses.cjs
+productName: Fermento Demo
+directories:
+  buildResources: build
+  output: release
+asar: true
+asarUnpack:
+  - resources/**
+  - node_modules/better-sqlite3/**
+  - node_modules/bindings/**
+# Database di esempio generato da scripts/genera-seed-demo.ts
+extraResources:
+  - from: resources/demo/fermento-demo-seed.db
+    to: demo/fermento-demo-seed.db
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.{js,ts,mjs,cjs}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!release/**'
+  - '!resources/demo/**'
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: resources/icon.ico
+  executableName: fermento-demo
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Fermento Demo
+  uninstallDisplayName: Fermento Demo
+  artifactName: Fermento-Demo-setup.${ext}
+mac:
+  target:
+    - target: zip
+      arch: x64
+  icon: resources/icon-512.png
+  entitlementsInherit: build/entitlements.mac.plist
+  artifactName: Fermento-Demo-mac.${ext}
+  notarize: false

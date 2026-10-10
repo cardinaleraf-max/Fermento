@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { InterruttoreTema } from '@/components/InterruttoreTema'
+import { DemoBadge } from '@/components/DemoBadge'
 import { inkTesto } from '@/lib/tema'
 
 type LoginProps = {
@@ -132,13 +133,17 @@ export default function Login({ primoAvvio, onLoginSuccess }: LoginProps): React
             </h1>
           </div>
 
+          {__DEMO_MODE__ && <DemoBadge className="mb-5" />}
+
           <h2 className="text-xl font-semibold text-foreground mb-1">
             {primoAvvio ? 'Configura accesso' : 'Bentornato'}
           </h2>
           <p className="text-sm text-muted-foreground mb-8">
             {primoAvvio
               ? 'Imposta la password per proteggere il gestionale.'
-              : 'Inserisci la password per accedere.'}
+              : __DEMO_MODE__
+                ? 'Versione demo: la password è «demo».'
+                : 'Inserisci la password per accedere.'}
           </p>
 
           <div className="space-y-4">
