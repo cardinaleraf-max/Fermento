@@ -383,7 +383,7 @@ export type LavorazioneRiga = {
   output_kg: number | null
   /** Testo breve degli input, es. "ORZ-01/2026 (240 q)" */
   input_descrizione: string
-  /** Testo breve degli output, es. "3-4 mm 207 q · 4-5 mm 30 q" */
+  /** Testo breve degli output, es. "2,5-2,8 mm 89 q · >2,8 mm 108 q" */
   output_descrizione: string
   /** Primi valori dei parametri, es. "Umidità 10% · Proteine 9%" */
   riepilogo_parametri: string

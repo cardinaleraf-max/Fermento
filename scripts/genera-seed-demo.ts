@@ -713,10 +713,10 @@ const genera = db.transaction(() => {
     quantita: 240,
     materia_prima_id: orzoCalibrato,
     frazioni: [
-      { nome: '<3 mm', percentuale: 14, scarto: true, peso_specifico_gl: null },
-      { nome: '3-4 mm', percentuale: 71, scarto: false, peso_specifico_gl: 63 },
-      { nome: '4-5 mm', percentuale: 13, scarto: false, peso_specifico_gl: 67 },
-      { nome: '>5 mm', percentuale: 2, scarto: false, peso_specifico_gl: null }
+      { nome: '<2,2 mm', percentuale: 5, scarto: true, peso_specifico_gl: null },
+      { nome: '2,2-2,5 mm', percentuale: 13, scarto: false, peso_specifico_gl: null },
+      { nome: '2,5-2,8 mm', percentuale: 37, scarto: false, peso_specifico_gl: 64 },
+      { nome: '>2,8 mm', percentuale: 45, scarto: false, peso_specifico_gl: 67 }
     ],
     note: null
   })
@@ -725,13 +725,13 @@ const genera = db.transaction(() => {
     'Analisi orzo · Proteine': '10.5'
   })
 
-  // Maltazione: 1000 kg di orzo 3-4 mm → 830 kg di malto Pilsner (nel magazzino della birra)
+  // Maltazione: 1000 kg di orzo 2,5-2,8 mm → 830 kg di malto Pilsner (nel magazzino della birra)
   const maltazione = avviaMaltazione(db, null, {
     data_inizio: `${A}-08-18`,
     stagione: stagioneMalteria,
     materia_prima_id: pilsner,
     codice: `MP-01/${A}`,
-    input: [{ lotto_id: lottoDi('calibratura', calibratura, '3-4 mm'), kg: 1000 }],
+    input: [{ lotto_id: lottoDi('calibratura', calibratura, '2,5-2,8 mm'), kg: 1000 }],
     note: 'Germinazione regolare, radichetta uniforme'
   })
   parametri(
@@ -783,13 +783,13 @@ const genera = db.transaction(() => {
     data_scadenza: null
   })
 
-  // Maltazione in corso (compare in Dashboard): orzo 4-5 mm, parametri compilati fino a oggi
+  // Maltazione in corso (compare in Dashboard): orzo >2,8 mm, parametri compilati fino a oggi
   const maltazioneInCorso = avviaMaltazione(db, null, {
     data_inizio: giorni(-3),
     stagione: stagioneDaData(giorni(-3)),
     materia_prima_id: pilsner,
     codice: `MP-02/${A}`,
-    input: [{ lotto_id: lottoDi('calibratura', calibratura, '4-5 mm'), kg: 900 }],
+    input: [{ lotto_id: lottoDi('calibratura', calibratura, '>2,8 mm'), kg: 900 }],
     note: null
   })
   parametri('maltazione', maltazioneInCorso, {

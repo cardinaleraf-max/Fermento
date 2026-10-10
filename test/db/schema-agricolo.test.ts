@@ -77,11 +77,12 @@ test('configurazioni del modulo: spento di default, stagione valida, frazioni pr
     nome: string
     scarto: boolean
   }>
+  // Setacci standard di malteria: sotto i 2,2 mm è scarto
   assert.deepEqual(frazioni, [
-    { nome: '<3 mm', scarto: true },
-    { nome: '3-4 mm', scarto: false },
-    { nome: '4-5 mm', scarto: false },
-    { nome: '>5 mm', scarto: false }
+    { nome: '<2,2 mm', scarto: true },
+    { nome: '2,2-2,5 mm', scarto: false },
+    { nome: '2,5-2,8 mm', scarto: false },
+    { nome: '>2,8 mm', scarto: false }
   ])
 })
 

@@ -93,7 +93,7 @@ export function erroriFrazioni(frazioni: FrazioneInput[]): string[] {
   for (const f of frazioni) {
     const nome = f.nome.trim()
     if (!nome) {
-      errori.push('Ogni frazione deve avere un nome (il calibro, es. "3-4 mm").')
+      errori.push('Ogni frazione deve avere un nome (il calibro, es. "2,5-2,8 mm").')
       continue
     }
     const chiave = nome.toLowerCase()

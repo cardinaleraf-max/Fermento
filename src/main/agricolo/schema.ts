@@ -174,11 +174,12 @@ const indici = [
   `CREATE INDEX IF NOT EXISTS idx_conf_lotti_imballi_mov ON confezionamento_lotti_imballi(movimento_id);`
 ]
 
+/** Setacci standard di malteria: sotto i 2,2 mm è scarto. Modificabili in Impostazioni. */
 export const FRAZIONI_DEFAULT_SEED = [
-  { nome: '<3 mm', scarto: true },
-  { nome: '3-4 mm', scarto: false },
-  { nome: '4-5 mm', scarto: false },
-  { nome: '>5 mm', scarto: false }
+  { nome: '<2,2 mm', scarto: true },
+  { nome: '2,2-2,5 mm', scarto: false },
+  { nome: '2,5-2,8 mm', scarto: false },
+  { nome: '>2,8 mm', scarto: false }
 ]
 
 type ParametroSeed = [
