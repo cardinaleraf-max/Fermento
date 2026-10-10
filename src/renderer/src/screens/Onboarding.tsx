@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InterruttoreTema } from '@/components/InterruttoreTema'
+import { inkBordo, inkTesto } from '@/lib/tema'
 
 type Props = {
   onOnboardingCompletato: () => void
@@ -71,10 +73,11 @@ export default function Onboarding({ onOnboardingCompletato }: Props): React.JSX
 
   return (
     <div className="flex min-h-screen bg-background">
+      <InterruttoreTema className="fixed right-4 top-4 z-20" />
       {/* Sidebar sinistra */}
       <div
         className="hidden lg:flex lg:w-[400px] flex-shrink-0 flex-col justify-between p-12 relative overflow-hidden"
-        style={{ background: '#0C0C14', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--sidebar)', borderRight: '1px solid var(--line)' }}
       >
         <div
           className="absolute inset-0 pointer-events-none"
@@ -93,7 +96,7 @@ export default function Onboarding({ onOnboardingCompletato }: Props): React.JSX
               fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
               fontSize: '2.5rem',
               fontWeight: 700,
-              color: '#E8A020',
+              color: 'var(--brand-text)',
               lineHeight: 1.05,
               letterSpacing: '0.12em'
             }}
@@ -104,7 +107,7 @@ export default function Onboarding({ onOnboardingCompletato }: Props): React.JSX
             className="mt-2.5"
             style={{
               fontSize: '0.65rem',
-              color: 'rgba(255,255,255,0.22)',
+              color: inkTesto(0.22),
               textTransform: 'uppercase',
               letterSpacing: '0.22em'
             }}
@@ -133,8 +136,8 @@ export default function Onboarding({ onOnboardingCompletato }: Props): React.JSX
                     fontSize: '0.7rem',
                     fontWeight: 600,
                     background: attivo ? '#E8A020' : 'transparent',
-                    border: attivo ? 'none' : '1px solid rgba(255,255,255,0.2)',
-                    color: attivo ? '#0C0C14' : completato ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)'
+                    border: attivo ? 'none' : `1px solid ${inkBordo(0.2)}`,
+                    color: attivo ? '#0C0C14' : completato ? inkTesto(0.7) : inkTesto(0.3)
                   }}
                 >
                   {completato ? '✓' : n}
@@ -142,7 +145,7 @@ export default function Onboarding({ onOnboardingCompletato }: Props): React.JSX
                 <span
                   style={{
                     fontSize: '0.75rem',
-                    color: attivo ? 'rgba(255,255,255,0.9)' : completato ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)'
+                    color: attivo ? inkTesto(0.9) : completato ? inkTesto(0.5) : inkTesto(0.25)
                   }}
                 >
                   {label}
@@ -316,8 +319,8 @@ export default function Onboarding({ onOnboardingCompletato }: Props): React.JSX
             onClick={step === 3 ? () => { void handleCompleta() } : avanti}
             disabled={isLoading}
             style={{
-              background: '#1a1a2e',
-              color: '#E8A020',
+              background: 'var(--pulsante-avanti)',
+              color: 'var(--brand-text)',
               border: '1px solid rgba(232,160,32,0.3)',
               borderRadius: '9999px',
               padding: '8px 24px'

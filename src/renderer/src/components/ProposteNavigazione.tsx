@@ -81,9 +81,9 @@ export function ProposteNavigazione({ onNaviga }: Props): React.JSX.Element | nu
     <div
       className="fixed bottom-4 right-4 z-[60] w-[min(340px,calc(100vw-2rem))] rounded-xl p-3 shadow-2xl"
       style={{
-        background: '#0C0C14',
+        background: 'var(--floating)',
         border: '1px solid rgba(232,160,32,0.3)',
-        boxShadow: '0 20px 50px -10px rgba(0,0,0,0.65), 0 0 0 1px rgba(232,160,32,0.1)',
+        boxShadow: '0 20px 50px -10px var(--floating-shadow-proposte), 0 0 0 1px rgba(232,160,32,0.1)',
         animation: 'propIn 0.2s ease-out'
       }}
       role="dialog"
@@ -103,22 +103,22 @@ export function ProposteNavigazione({ onNaviga }: Props): React.JSX.Element | nu
           <div className="text-[10px] uppercase tracking-[0.15em] text-amber-300/75">
             Bira suggerisce
           </div>
-          <div className="mt-0.5 text-sm font-medium text-white/90">Aprire: {label}</div>
+          <div className="mt-0.5 text-sm font-medium text-ink/90">Aprire: {label}</div>
           {proposta.motivo && (
-            <div className="mt-0.5 text-xs text-white/55">{proposta.motivo}</div>
+            <div className="mt-0.5 text-xs text-ink/55">{proposta.motivo}</div>
           )}
         </div>
         <button
           type="button"
           onClick={rifiuta}
-          className="shrink-0 rounded p-1 text-white/35 hover:bg-white/[0.05] hover:text-white/70"
+          className="shrink-0 rounded p-1 text-ink/35 hover:bg-ink/[0.05] hover:text-ink/70"
           aria-label="Chiudi suggerimento"
         >
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
       <div className="flex items-center justify-end gap-1.5">
-        <Button type="button" size="sm" variant="ghost" onClick={rifiuta} className="h-7 px-2 text-xs text-white/60">
+        <Button type="button" size="sm" variant="ghost" onClick={rifiuta} className="h-7 px-2 text-xs text-ink/60">
           No grazie
         </Button>
         <Button type="button" size="sm" onClick={accetta} className="h-7 px-3 text-xs">

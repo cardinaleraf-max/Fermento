@@ -17,6 +17,7 @@ import {
   Wrench
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { inkBordo } from '@/lib/tema'
 import { cn } from '@/lib/utils'
 
 type Raccomandazione = Extract<
@@ -150,14 +151,14 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-amber-100">Consigli di Bira</h2>
-            <p className="text-[11px] text-white/45">
+            <p className="text-[11px] text-ink/45">
               Analisi AI: priorita&apos;, raggruppamenti e azioni suggerite
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {stato && (
-            <div className="flex items-center gap-1.5 text-[10px] text-white/40">
+            <div className="flex items-center gap-1.5 text-[10px] text-ink/40">
               {stato.remoto && (
                 <span
                   title="Generato in cloud (Groq). Nomi di MP, ricette e clienti non vengono inviati."
@@ -168,7 +169,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                 </span>
               )}
               <span>{formattaData(stato.generato_il)}</span>
-              <span className="text-white/25">·</span>
+              <span className="text-ink/25">·</span>
               <span>{stato.segnali_analizzati} segnali</span>
             </div>
           )}
@@ -199,21 +200,21 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
       )}
 
       {!stato && !errore && !caricamento && (
-        <div className="px-4 pb-4 pt-1 text-xs text-white/45">
-          Clicca <span className="font-medium text-white/70">Analizza con Bira</span> per ottenere raccomandazioni
+        <div className="px-4 pb-4 pt-1 text-xs text-ink/45">
+          Clicca <span className="font-medium text-ink/70">Analizza con Bira</span> per ottenere raccomandazioni
           basate sullo stato attuale del birrificio.
         </div>
       )}
 
       {caricamento && !stato && (
-        <div className="flex items-center gap-2 px-4 pb-4 pt-1 text-xs text-white/55">
+        <div className="flex items-center gap-2 px-4 pb-4 pt-1 text-xs text-ink/55">
           <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
           Bira sta analizzando lo stato del birrificio…
         </div>
       )}
 
       {stato && raccomandazioni.length === 0 && (
-        <div className="px-4 pb-4 pt-1 text-xs text-white/55">
+        <div className="px-4 pb-4 pt-1 text-xs text-ink/55">
           Nessuna raccomandazione: al momento non ci sono segnali rilevanti da segnalare.
         </div>
       )}
@@ -227,13 +228,13 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
             return (
               <li
                 key={idx}
-                className="overflow-hidden rounded-md border bg-white/[0.02]"
-                style={{ borderColor: 'rgba(255,255,255,0.08)' }}
+                className="overflow-hidden rounded-md border bg-ink/[0.02]"
+                style={{ borderColor: inkBordo(0.08) }}
               >
                 <button
                   type="button"
                   onClick={() => setAperta(aperto ? null : idx)}
-                  className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-white/[0.03]"
+                  className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-ink/[0.03]"
                 >
                   <div
                     className={cn(
@@ -258,7 +259,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                         return (
                           <span
                             key={`${rf.tipo}-${rf.id}-${i}`}
-                            className="inline-flex items-center gap-1 rounded-full border border-white/[0.08] bg-white/[0.03] px-1.5 py-0.5 text-[10px] text-white/65"
+                            className="inline-flex items-center gap-1 rounded-full border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-[10px] text-ink/65"
                           >
                             <t.Icon className="h-2.5 w-2.5" />
                             <span className="max-w-[140px] truncate">{rf.nome}</span>
@@ -266,26 +267,26 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                         )
                       })}
                       {r.riferimenti.length > 4 && (
-                        <span className="text-[10px] text-white/35">+{r.riferimenti.length - 4}</span>
+                        <span className="text-[10px] text-ink/35">+{r.riferimenti.length - 4}</span>
                       )}
                     </div>
-                    <div className="mt-1 text-sm font-medium text-white/90">{r.titolo}</div>
+                    <div className="mt-1 text-sm font-medium text-ink/90">{r.titolo}</div>
                   </div>
                   <ChevronDown
                     className={cn(
-                      'mt-1 h-4 w-4 shrink-0 text-white/40 transition-transform',
+                      'mt-1 h-4 w-4 shrink-0 text-ink/40 transition-transform',
                       aperto && 'rotate-180'
                     )}
                   />
                 </button>
                 {aperto && (
-                  <div className="border-t border-white/[0.06] bg-white/[0.015] px-3 py-3 text-xs">
+                  <div className="border-t border-ink/[0.06] bg-ink/[0.015] px-3 py-3 text-xs">
                     {r.descrizione && (
-                      <p className="mb-3 whitespace-pre-wrap text-white/75">{r.descrizione}</p>
+                      <p className="mb-3 whitespace-pre-wrap text-ink/75">{r.descrizione}</p>
                     )}
                     {r.azioni.length > 0 && (
                       <div className="space-y-1.5">
-                        <div className="text-[10px] uppercase tracking-wider text-white/35">
+                        <div className="text-[10px] uppercase tracking-wider text-ink/35">
                           Azioni suggerite
                         </div>
                         {r.azioni.map((az, i) => {
@@ -294,7 +295,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                           return (
                             <div
                               key={i}
-                              className="flex items-start gap-2 rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5"
+                              className="flex items-start gap-2 rounded-md border border-ink/[0.06] bg-ink/[0.02] px-2.5 py-1.5"
                             >
                               <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-400/10">
                                 <am.Icon className="h-3 w-3 text-amber-300" />
@@ -303,7 +304,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                                 <div className="text-[10px] uppercase tracking-wider text-amber-200/70">
                                   {am.label}
                                 </div>
-                                <div className="text-white/80">{az.testo}</div>
+                                <div className="text-ink/80">{az.testo}</div>
                               </div>
                               {sezione && onNavigaA && (
                                 <Button
@@ -311,7 +312,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                                   size="sm"
                                   variant="ghost"
                                   onClick={() => nav(sezione)}
-                                  className="h-7 shrink-0 px-2 text-[11px] text-white/60 hover:text-amber-200"
+                                  className="h-7 shrink-0 px-2 text-[11px] text-ink/60 hover:text-amber-200"
                                 >
                                   Vai
                                 </Button>
@@ -322,7 +323,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
                       </div>
                     )}
                     {r.segnali_ids.length > 0 && (
-                      <div className="mt-3 text-[10px] text-white/35">
+                      <div className="mt-3 text-[10px] text-ink/35">
                         Basato sugli avvisi #{r.segnali_ids.join(', #')}
                       </div>
                     )}

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { InterruttoreTema } from '@/components/InterruttoreTema'
+import { inkTesto } from '@/lib/tema'
 
 type LoginProps = {
   primoAvvio: boolean
@@ -60,9 +62,10 @@ export default function Login({ primoAvvio, onLoginSuccess }: LoginProps): React
 
   return (
     <div className="flex min-h-screen bg-background">
+      <InterruttoreTema className="fixed right-4 top-4 z-20" />
       <div
         className="hidden lg:flex lg:w-[400px] flex-shrink-0 flex-col justify-between p-12 relative overflow-hidden"
-        style={{ background: '#0C0C14', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--sidebar)', borderRight: '1px solid var(--line)' }}
       >
         <div
           className="absolute inset-0 pointer-events-none"
@@ -81,7 +84,7 @@ export default function Login({ primoAvvio, onLoginSuccess }: LoginProps): React
               fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
               fontSize: '2.5rem',
               fontWeight: 700,
-              color: '#E8A020',
+              color: 'var(--brand-text)',
               lineHeight: 1.05,
               letterSpacing: '0.12em'
             }}
@@ -92,7 +95,7 @@ export default function Login({ primoAvvio, onLoginSuccess }: LoginProps): React
             className="mt-2.5"
             style={{
               fontSize: '0.65rem',
-              color: 'rgba(255,255,255,0.22)',
+              color: inkTesto(0.22),
               textTransform: 'uppercase',
               letterSpacing: '0.22em'
             }}
@@ -106,7 +109,7 @@ export default function Login({ primoAvvio, onLoginSuccess }: LoginProps): React
             (feature) => (
               <div key={feature} className="flex items-center gap-3">
                 <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: 'rgba(232,160,32,0.5)' }} />
-                <span style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.25)' }}>{feature}</span>
+                <span style={{ fontSize: '0.75rem', color: inkTesto(0.25) }}>{feature}</span>
               </div>
             )
           )}
@@ -121,7 +124,7 @@ export default function Login({ primoAvvio, onLoginSuccess }: LoginProps): React
                 fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
                 fontSize: '2rem',
                 fontWeight: 700,
-                color: '#E8A020',
+                color: 'var(--brand-text)',
                 letterSpacing: '0.12em'
               }}
             >

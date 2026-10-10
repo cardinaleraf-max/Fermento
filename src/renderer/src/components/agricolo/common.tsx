@@ -16,9 +16,9 @@ import { cn } from '@/lib/utils'
 /** Classi condivise, allineate alle schermate esistenti di Fermento. */
 export const cls = {
   select:
-    'h-9 w-full rounded-md border border-input bg-input px-3 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50',
+    'h-9 w-full rounded-md border border-input bg-campo px-3 py-1 text-sm text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-50',
   textarea:
-    'min-h-[72px] w-full rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+    'min-h-[72px] w-full rounded-md border border-input bg-campo px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
   tabellaWrap: 'overflow-x-auto rounded-lg border border-border bg-card',
   tabella: 'w-full text-sm',
   thead:

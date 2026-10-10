@@ -549,7 +549,7 @@ function ClienteFormFields({
         <Label htmlFor="c_note">Note</Label>
         <textarea
           id="c_note"
-          className="min-h-[90px] rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground"
+          className="min-h-[90px] rounded-md border border-input bg-campo px-3 py-2 text-sm text-foreground"
           value={form.note}
           onChange={(e) => onChange((prev) => ({ ...prev, note: e.target.value }))}
         />

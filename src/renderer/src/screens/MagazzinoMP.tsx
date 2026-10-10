@@ -821,7 +821,7 @@ export default function MagazzinoMP(): React.JSX.Element {
               <Label htmlFor="mod_lotto_note">Note</Label>
               <textarea
                 id="mod_lotto_note"
-                className="min-h-[80px] rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground"
+                className="min-h-[80px] rounded-md border border-input bg-campo px-3 py-2 text-sm text-foreground"
                 value={modificaLottoForm.note}
                 onChange={(event) =>
                   setModificaLottoForm((prev) => ({ ...prev, note: event.target.value }))
@@ -1086,7 +1086,7 @@ function MateriaPrimaFormFields({
         <Label htmlFor="mp_note">Note</Label>
         <textarea
           id="mp_note"
-          className="min-h-[90px] rounded-md border border-input bg-input px-3 py-2 text-sm text-foreground"
+          className="min-h-[90px] rounded-md border border-input bg-campo px-3 py-2 text-sm text-foreground"
           value={form.note}
           onChange={(event) => onChange((prev) => ({ ...prev, note: event.target.value }))}
         />

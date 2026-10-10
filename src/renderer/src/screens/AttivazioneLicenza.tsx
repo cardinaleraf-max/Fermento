@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { InterruttoreTema } from '@/components/InterruttoreTema'
+import { inkTesto } from '@/lib/tema'
 
 type Props = {
   onLicenzaAttivata: () => void
@@ -48,10 +50,11 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
 
   return (
     <div className="flex min-h-screen bg-background">
+      <InterruttoreTema className="fixed right-4 top-4 z-20" />
       {/* Sidebar sinistra */}
       <div
         className="hidden lg:flex lg:w-[400px] flex-shrink-0 flex-col justify-between p-12 relative overflow-hidden"
-        style={{ background: '#0C0C14', borderRight: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'var(--sidebar)', borderRight: '1px solid var(--line)' }}
       >
         <div
           className="absolute inset-0 pointer-events-none"
@@ -70,7 +73,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
               fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
               fontSize: '2.5rem',
               fontWeight: 700,
-              color: '#E8A020',
+              color: 'var(--brand-text)',
               lineHeight: 1.05,
               letterSpacing: '0.12em'
             }}
@@ -81,7 +84,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
             className="mt-2.5"
             style={{
               fontSize: '0.65rem',
-              color: 'rgba(255,255,255,0.22)',
+              color: inkTesto(0.22),
               textTransform: 'uppercase',
               letterSpacing: '0.22em'
             }}
@@ -102,7 +105,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
                 fontFamily: 'system-ui, -apple-system, "Segoe UI", sans-serif',
                 fontSize: '2rem',
                 fontWeight: 700,
-                color: '#E8A020',
+                color: 'var(--brand-text)',
                 letterSpacing: '0.12em'
               }}
             >
@@ -120,12 +123,12 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
               style={{
                 marginBottom: '20px',
                 padding: '12px 14px',
-                background: 'rgba(255,255,255,0.03)',
+                background: 'var(--riquadro)',
                 border: '1px solid hsl(var(--border))',
                 borderRadius: '6px'
               }}
             >
-              <p style={{ fontSize: '0.7rem', color: 'rgba(150,150,160,0.85)', marginBottom: '6px' }}>
+              <p style={{ fontSize: '0.7rem', color: 'var(--nota)', marginBottom: '6px' }}>
                 Codice di questo computer
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -141,7 +144,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
                   {copiato ? 'Copiato' : 'Copia'}
                 </Button>
               </div>
-              <p style={{ fontSize: '0.7rem', color: 'rgba(150,150,160,0.7)', marginTop: '8px', lineHeight: 1.4 }}>
+              <p style={{ fontSize: '0.7rem', color: 'var(--nota-tenue)', marginTop: '8px', lineHeight: 1.4 }}>
                 Se non riesci ad attivare, invia questo codice a Fermento.
               </p>
             </div>
@@ -180,7 +183,7 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
                   border: '1px solid rgba(220, 38, 38, 0.35)',
                   borderRadius: '6px',
                   fontSize: '0.8rem',
-                  color: '#f87171',
+                  color: 'var(--errore-testo)',
                   lineHeight: 1.4
                 }}
               >
@@ -194,13 +197,13 @@ export default function AttivazioneLicenza({ onLicenzaAttivata }: Props): React.
               </div>
             )}
 
-            <p style={{ fontSize: '0.72rem', color: 'rgba(150,150,160,0.85)', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '0.72rem', color: 'var(--nota)', lineHeight: 1.5 }}>
               Non hai una chiave o l&apos;hai persa? Scrivi su WhatsApp al{' '}
               <a
                 href="https://wa.me/393920287899"
                 target="_blank"
                 rel="noreferrer"
-                style={{ color: 'rgba(200,200,210,0.9)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
+                style={{ color: 'var(--nota-link)', textDecoration: 'underline', textUnderlineOffset: '2px' }}
               >
                 +39 392 028 7899
               </a>

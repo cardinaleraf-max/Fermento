@@ -62,17 +62,17 @@ function ToolCallView({ tool }: { tool: ToolEvento }): React.JSX.Element {
   const stato = tool.ok === null ? 'in corso' : tool.ok ? 'ok' : 'errore'
   const colore =
     tool.ok === null
-      ? 'text-white/40'
+      ? 'text-ink/40'
       : tool.ok
         ? 'text-emerald-400/80'
         : 'text-red-400/80'
 
   return (
-    <div className="rounded-md border border-white/[0.06] bg-white/[0.02]">
+    <div className="rounded-md border border-ink/[0.06] bg-ink/[0.02]">
       <button
         type="button"
         onClick={() => setAperto((v) => !v)}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] text-white/55 hover:text-white/80"
+        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] text-ink/55 hover:text-ink/80"
       >
         {aperto ? (
           <ChevronDown className="h-3 w-3 shrink-0" />
@@ -86,23 +86,23 @@ function ToolCallView({ tool }: { tool: ToolEvento }): React.JSX.Element {
         </span>
       </button>
       {aperto && (
-        <div className="space-y-1.5 border-t border-white/[0.06] p-2.5 text-[11px]">
+        <div className="space-y-1.5 border-t border-ink/[0.06] p-2.5 text-[11px]">
           {Object.keys(tool.argomenti).length > 0 && (
             <div>
-              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-white/30">
+              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-ink/30">
                 Argomenti
               </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-white/55">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-ink/55">
                 {JSON.stringify(tool.argomenti, null, 2)}
               </pre>
             </div>
           )}
           {tool.anteprima && (
             <div>
-              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-white/30">
+              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-ink/30">
                 {tool.ok === false ? 'Errore' : 'Anteprima risultato'}
               </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-white/55">
+              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-ink/55">
                 {tool.anteprima}
               </pre>
             </div>
@@ -127,10 +127,10 @@ function MessaggioView({ msg }: { msg: Messaggio }): React.JSX.Element {
   return (
     <div className="flex justify-start">
       <div className="max-w-[90%] space-y-2">
-        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-white/30">
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-ink/30">
           <Sparkles className="h-3 w-3 text-amber-400/60" />
           <span>Bira</span>
-          {msg.modello && <span className="truncate text-white/20">· {msg.modello}</span>}
+          {msg.modello && <span className="truncate text-ink/20">· {msg.modello}</span>}
         </div>
 
         {msg.toolCalls.length > 0 && (
@@ -142,13 +142,13 @@ function MessaggioView({ msg }: { msg: Messaggio }): React.JSX.Element {
         )}
 
         {msg.contenuto && (
-          <div className="rounded-2xl rounded-bl-sm bg-white/[0.04] px-3.5 py-2 text-sm text-white/85">
+          <div className="rounded-2xl rounded-bl-sm bg-ink/[0.04] px-3.5 py-2 text-sm text-ink/85">
             <div className="whitespace-pre-wrap break-words">{msg.contenuto}</div>
           </div>
         )}
 
         {msg.inCorso && !msg.contenuto && (
-          <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-white/[0.04] px-3.5 py-2 text-sm text-white/50">
+          <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-ink/[0.04] px-3.5 py-2 text-sm text-ink/50">
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
             <span>Sto pensando…</span>
           </div>
@@ -314,8 +314,8 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
   }, [annulla, conversazioneAttiva])
 
   const statoHeader = useMemo(() => {
-    if (healthLoading) return { testo: 'Verifica…', colore: 'text-white/40' }
-    if (!health) return { testo: 'Stato sconosciuto', colore: 'text-white/40' }
+    if (healthLoading) return { testo: 'Verifica…', colore: 'text-ink/40' }
+    if (!health) return { testo: 'Stato sconosciuto', colore: 'text-ink/40' }
     if (!health.abilitato) return { testo: 'Configura…', colore: 'text-amber-400/70' }
     if (!health.raggiungibile)
       return { testo: 'Non raggiungibile', colore: 'text-red-400/80' }
@@ -345,17 +345,17 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
   }, [health])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-[#0C0C14]">
+    <div className="flex h-full flex-col overflow-hidden bg-[var(--floating)]">
       <div
         className="flex items-center justify-between gap-2 px-3.5 py-2.5"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderBottom: '1px solid var(--line)' }}
       >
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-400/15">
             <Sparkles className="h-3.5 w-3.5 text-amber-400" />
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-white/90">Bira</div>
+            <div className="truncate text-sm font-semibold text-ink/90">Bira</div>
             <div className={cn('truncate text-[10px]', statoHeader.colore)}>
               {statoHeader.testo}
             </div>
@@ -378,7 +378,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
             type="button"
             onClick={nuovaConversazione}
             disabled={messaggi.length === 0}
-            className="rounded-md p-1.5 text-white/40 transition-colors hover:bg-white/[0.05] hover:text-white/80 disabled:cursor-not-allowed disabled:opacity-30"
+            className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/[0.05] hover:text-ink/80 disabled:cursor-not-allowed disabled:opacity-30"
             title="Nuova chat"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -387,7 +387,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md p-1.5 text-white/40 transition-colors hover:bg-white/[0.05] hover:text-white/80"
+              className="rounded-md p-1.5 text-ink/40 transition-colors hover:bg-ink/[0.05] hover:text-ink/80"
               title="Chiudi"
             >
               <X className="h-3.5 w-3.5" />
@@ -436,8 +436,8 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
               <Sparkles className="h-5 w-5 text-amber-400/80" />
             </div>
             <div className="max-w-xs space-y-1">
-              <h3 className="text-sm font-semibold text-white/85">Ciao, sono Bira</h3>
-              <p className="text-[11px] text-white/50">
+              <h3 className="text-sm font-semibold text-ink/85">Ciao, sono Bira</h3>
+              <p className="text-[11px] text-ink/50">
                 {health?.remoto
                   ? 'Posso rispondere su cotte, vendite e produzione. In modalit\u00e0 cloud non vedo clienti, ricette, nomi materie prime.'
                   : 'Posso rispondere a domande sui tuoi dati: materie prime, cotte, vendite, clienti, avvisi. Tutto resta sul tuo PC.'}
@@ -450,7 +450,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
                   type="button"
                   onClick={() => inviaMessaggio(p)}
                   disabled={!!conversazioneAttiva || (health ? !health.raggiungibile : false)}
-                  className="rounded-md border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5 text-left text-[11px] text-white/65 transition-colors hover:border-amber-400/30 hover:bg-amber-400/5 hover:text-amber-100/90 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-md border border-ink/[0.06] bg-ink/[0.02] px-2.5 py-1.5 text-left text-[11px] text-ink/65 transition-colors hover:border-amber-400/30 hover:bg-amber-400/5 hover:text-amber-100/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {p}
                 </button>
@@ -468,7 +468,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
 
       <div
         className="p-2.5"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+        style={{ borderTop: '1px solid var(--line)' }}
       >
         <div className="flex items-end gap-1.5">
           <textarea
@@ -483,7 +483,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
             }}
             rows={1}
             placeholder="Scrivi qui… (Invio per inviare)"
-            className="min-h-[36px] max-h-[120px] flex-1 resize-none rounded-md border border-white/[0.06] bg-white/[0.03] px-2.5 py-2 text-xs text-white/85 placeholder:text-white/30 focus:border-amber-400/30 focus:outline-none"
+            className="min-h-[36px] max-h-[120px] flex-1 resize-none rounded-md border border-ink/[0.06] bg-ink/[0.03] px-2.5 py-2 text-xs text-ink/85 placeholder:text-ink/30 focus:border-amber-400/30 focus:outline-none"
             disabled={!!conversazioneAttiva}
           />
           {conversazioneAttiva ? (

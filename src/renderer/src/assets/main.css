@@ -23,8 +23,85 @@
     --destructive-foreground: 40 10% 96%;
     --border: 240 10% 15%;
     --input: 240 10% 15%;
+    --campo: 240 10% 15%;
     --ring: 35 90% 52%;
     --radius: 0.625rem;
+
+    /* Testo/sfondi/bordi "in trasparenza" (classi text-ink/…, bg-ink/…, border-ink/…). */
+    --ink: 255 255 255;
+    --ink-a0-testo: 0;
+    --ink-k-testo: 1;
+    --ink-k-fondo: 1;
+    --ink-k-bordo: 1;
+
+    /* Cornice dell'app: barra laterale, intestazione, finestre flottanti (Bira). */
+    --sidebar: #0c0c14;
+    --header: rgba(12, 12, 20, 0.9);
+    --line: rgba(255, 255, 255, 0.06);
+    --floating: #0c0c14;
+    --floating-shadow: rgba(0, 0, 0, 0.7);
+    --floating-shadow-proposte: rgba(0, 0, 0, 0.65);
+    --overlay: rgb(0 0 0 / 0.6);
+    --brand-text: #e8a020;
+    --scrollbar: hsl(240 10% 22%);
+    --scrollbar-hover: hsl(240 10% 32%);
+
+    /* Schermate iniziali (accesso, attivazione, configurazione). */
+    --nota: rgba(150, 150, 160, 0.85);
+    --nota-tenue: rgba(150, 150, 160, 0.7);
+    --nota-link: rgba(200, 200, 210, 0.9);
+    --riquadro: rgba(255, 255, 255, 0.03);
+    --errore-testo: #f87171;
+    --pulsante-avanti: #1a1a2e;
+  }
+
+  /* Tema chiaro: stessi ruoli, valori per fondo chiaro. */
+  :root.tema-chiaro {
+    color-scheme: light;
+    --background: 240 14% 96%;
+    --foreground: 240 15% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 15% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 15% 10%;
+    --primary: 35 90% 52%;
+    --primary-foreground: 240 15% 8%;
+    --secondary: 240 10% 92%;
+    --secondary-foreground: 240 15% 10%;
+    --muted: 240 10% 92%;
+    --muted-foreground: 240 6% 38%;
+    --accent: 35 90% 52%;
+    --accent-foreground: 240 15% 8%;
+    --destructive: 0 72% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 9% 86%;
+    --input: 240 9% 80%;
+    --campo: 0 0% 100%;
+    --ring: 32 90% 42%;
+
+    --ink: 20 20 28;
+    --ink-a0-testo: 0.35;
+    --ink-k-testo: 0.65;
+    --ink-k-fondo: 1.6;
+    --ink-k-bordo: 2.2;
+
+    --sidebar: #ffffff;
+    --header: rgba(255, 255, 255, 0.88);
+    --line: hsl(var(--border));
+    --floating: #ffffff;
+    --floating-shadow: rgba(20, 20, 28, 0.22);
+    --floating-shadow-proposte: rgba(20, 20, 28, 0.22);
+    --overlay: rgb(20 20 28 / 0.35);
+    --brand-text: #b86e0a;
+    --scrollbar: hsl(240 8% 78%);
+    --scrollbar-hover: hsl(240 8% 64%);
+
+    --nota: hsl(240 6% 38%);
+    --nota-tenue: hsl(240 6% 45%);
+    --nota-link: hsl(240 15% 20%);
+    --riquadro: hsl(0 0% 100%);
+    --errore-testo: #b91c1c;
+    --pulsante-avanti: rgba(232, 160, 32, 0.14);
   }
 }
 
@@ -41,7 +118,7 @@ body {
 }
 
 select {
-  background-color: hsl(var(--input));
+  background-color: hsl(var(--campo));
   color: hsl(var(--foreground));
 }
 
@@ -64,9 +141,9 @@ input[type='time']::-webkit-calendar-picker-indicator {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(240 10% 22%);
+  background: var(--scrollbar);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(240 10% 32%);
+  background: var(--scrollbar-hover);
 }

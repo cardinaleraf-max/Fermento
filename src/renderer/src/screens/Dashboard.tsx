@@ -85,7 +85,7 @@ export default function Dashboard({ onVaiAvvisi, onVaiMaltazioni }: DashboardPro
               onVaiAvvisi()
             }
           }}
-          className="cursor-pointer transition-colors hover:border-white/20"
+          className="cursor-pointer transition-colors hover:border-ink/20"
         >
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avvisi attivi</CardTitle>

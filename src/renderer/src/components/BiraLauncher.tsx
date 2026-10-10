@@ -31,7 +31,7 @@ export function BiraLauncher(): React.JSX.Element {
 
   return (
     <>
-      <div className="p-2.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      <div className="p-2.5" style={{ borderTop: '1px solid var(--line)' }}>
         <button
           type="button"
           onClick={() => setAperto((v) => !v)}
@@ -39,7 +39,7 @@ export function BiraLauncher(): React.JSX.Element {
             'group relative flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-all',
             aperto
               ? 'text-amber-300'
-              : 'text-white/60 hover:bg-white/[0.04] hover:text-amber-200'
+              : 'text-ink/60 hover:bg-ink/[0.04] hover:text-amber-200'
           )}
           style={
             aperto
@@ -70,7 +70,7 @@ export function BiraLauncher(): React.JSX.Element {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-xs font-semibold">Bira</div>
-            <div className="truncate text-[10px] text-white/40">Assistente AI</div>
+            <div className="truncate text-[10px] text-ink/40">Assistente AI</div>
           </div>
           <div
             className={cn(
@@ -93,10 +93,10 @@ export function BiraLauncher(): React.JSX.Element {
             style={{
               width: 'min(420px, calc(100vw - 2rem))',
               height: 'min(640px, calc(100vh - 2rem))',
-              background: '#0C0C14',
+              background: 'var(--floating)',
               border: '1px solid rgba(232,160,32,0.2)',
               boxShadow:
-                '0 24px 60px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(232,160,32,0.08)',
+                '0 24px 60px -12px var(--floating-shadow), 0 0 0 1px rgba(232,160,32,0.08)',
               animation: 'biraChatIn 0.18s ease-out'
             }}
             role="dialog"
