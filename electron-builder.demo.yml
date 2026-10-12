@@ -19,14 +19,12 @@ asarUnpack:
 extraResources:
   - from: resources/demo/fermento-demo-seed.db
     to: demo/fermento-demo-seed.db
+# Solo ciò che serve all'app (electron-builder aggiunge da solo package.json e le
+# dipendenze di produzione). Prima entrava tutta la cartella del progetto:
+# documenti interni, test, note di lavoro e una vecchia build non offuscata.
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
-  - '!release/**'
+  - out/**
+  - resources/**
   - '!resources/demo/**'
 win:
   target:
