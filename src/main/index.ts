@@ -20,6 +20,13 @@ import { moduloAttivo } from './agricolo/servizi/config'
 import { generaAvvisiCarenza } from './agricolo/servizi/avvisi'
 import { collegamentiMovimento, inserisciLottiImballi } from './agricolo/servizi/imballi'
 import {
+  avviaCotta,
+  ingredientiCotta,
+  modificaIngredientiCotta,
+  type AvviaCottaDati,
+  type IngredienteRichiesto
+} from './produzione/ingredientiCotta'
+import {
   avviaTimeoutDemo,
   chiaveBloccataInDemo,
   NON_DISPONIBILE_IN_DEMO,
@@ -82,13 +89,7 @@ type ConfCreaMaterialePayload = {
   soglia_riordino: number
 }
 
-type AvviaCottaPayload = {
-  numero_lotto: string
-  birra_id: number
-  ricetta_id: number
-  data_inizio: string
-  litri_teorici: number
-}
+type AvviaCottaPayload = AvviaCottaDati
 
 type AggiungiCottaALottoPayload = {
   cotta_id: number
@@ -860,72 +861,35 @@ function registerProduzioneIpcHandlers(): void {
   ipcMain.removeHandler('prod:avvia-cotta')
   ipcMain.handle('prod:avvia-cotta', (_event, dati: AvviaCottaPayload) => {
     try {
-      const esistente = db
-        .prepare(`SELECT id FROM cotte WHERE numero_lotto = ?`)
-        .get(dati.numero_lotto) as { id: number } | undefined
-      if (esistente) {
-        return { ok: false, errore: `Numero lotto "${dati.numero_lotto}" gia esistente` }
-      }
-
-      const avvisi: string[] = []
-      let cottaId = 0
-
-      const transaction = db.transaction(() => {
-        const insertCotta = db
-          .prepare(
-            `INSERT INTO cotte (numero_lotto, birra_id, ricetta_id, data_inizio, litri_teorici, stato)
-             VALUES (?, ?, ?, ?, ?, 'in_corso')`
-          )
-          .run(dati.numero_lotto, dati.birra_id, dati.ricetta_id, dati.data_inizio, dati.litri_teorici)
-        cottaId = Number(insertCotta.lastInsertRowid)
-
-        const ingredienti = db
-          .prepare(`SELECT id, materia_prima_id, quantita FROM ricetta_ingredienti WHERE ricetta_id = ?`)
-          .all(dati.ricetta_id) as Array<{ id: number; materia_prima_id: number; quantita: number }>
-
-        const getMpNome = db.prepare(`SELECT nome FROM materie_prime WHERE id = ?`)
-        const getLottiDisponibili = db.prepare(
-          `SELECT id, quantita_residua FROM lotti_materie_prime
-           WHERE materia_prima_id = ? AND quantita_residua > 0
-           ORDER BY data_scadenza ASC, id ASC`
-        )
-        const scaricaLotto = db.prepare(`UPDATE lotti_materie_prime SET quantita_residua = ? WHERE id = ?`)
-        const insertCottaMp = db.prepare(
-          `INSERT INTO cotta_materie_prime (cotta_id, lotto_materia_prima_id, materia_prima_id, quantita_usata)
-           VALUES (?, ?, ?, ?)`
-        )
-
-        for (const ingrediente of ingredienti) {
-          let rimanente = ingrediente.quantita
-          const lotti = getLottiDisponibili.all(ingrediente.materia_prima_id) as Array<{
-            id: number
-            quantita_residua: number
-          }>
-
-          for (const lotto of lotti) {
-            if (rimanente <= 0) break
-            const usato = Math.min(lotto.quantita_residua, rimanente)
-            scaricaLotto.run(lotto.quantita_residua - usato, lotto.id)
-            insertCottaMp.run(cottaId, lotto.id, ingrediente.materia_prima_id, usato)
-            rimanente -= usato
-          }
-
-          if (rimanente > 0) {
-            const mp = getMpNome.get(ingrediente.materia_prima_id) as { nome: string } | undefined
-            avvisi.push(
-              `Giacenza insufficiente per ${mp?.nome ?? 'MP #' + ingrediente.materia_prima_id}: mancano ${rimanente}`
-            )
-          }
-        }
-      })
-
-      transaction()
-      return { ok: true, cotta_id: cottaId, avvisi }
+      return avviaCotta(db, dati)
     } catch (error) {
       console.error('[IPC prod:avvia-cotta] errore:', error)
       throw error
     }
   })
+
+  ipcMain.removeHandler('prod:ingredienti-cotta')
+  ipcMain.handle('prod:ingredienti-cotta', (_event, cotta_id: number) => {
+    try {
+      return ingredientiCotta(db, cotta_id)
+    } catch (error) {
+      console.error('[IPC prod:ingredienti-cotta] errore:', error)
+      throw error
+    }
+  })
+
+  ipcMain.removeHandler('prod:modifica-ingredienti-cotta')
+  ipcMain.handle(
+    'prod:modifica-ingredienti-cotta',
+    (_event, dati: { cotta_id: number; ingredienti: IngredienteRichiesto[] }) => {
+      try {
+        return modificaIngredientiCotta(db, dati.cotta_id, dati.ingredienti)
+      } catch (error) {
+        console.error('[IPC prod:modifica-ingredienti-cotta] errore:', error)
+        throw error
+      }
+    }
+  )
 
   ipcMain.removeHandler('prod:dettaglio-cotta')
   ipcMain.handle('prod:dettaglio-cotta', (_event, cotta_id: number) => {

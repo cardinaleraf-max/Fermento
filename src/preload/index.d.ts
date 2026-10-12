@@ -211,12 +211,26 @@ type MaterialeCotta = {
   data_scadenza: string
 }
 
+type IngredienteRichiesto = { materia_prima_id: number; quantita: number }
+
 type AvviaCottaPayload = {
   numero_lotto: string
   birra_id: number
   ricetta_id: number
   data_inizio: string
   litri_teorici: number
+  /** Facoltativo: ingredienti modificati solo per questa cotta (la ricetta non cambia). */
+  ingredienti?: IngredienteRichiesto[]
+}
+
+/** Ingrediente già scaricato per una cotta (totale per materia prima). */
+type IngredienteCottaRiga = {
+  materia_prima_id: number
+  mp_nome: string
+  unita_misura: string
+  categoria: string
+  quantita: number
+  giacenza: number
 }
 
 type AvviaCottaResult =
@@ -896,6 +910,11 @@ interface FermentoAPI {
     avviaCotta: (dati: AvviaCottaPayload) => Promise<AvviaCottaResult>
     dettaglioCotta: (cotta_id: number) => Promise<DettaglioCotta | undefined>
     materialiCotta: (cotta_id: number) => Promise<MaterialeCotta[]>
+    ingredientiCotta: (cotta_id: number) => Promise<IngredienteCottaRiga[]>
+    modificaIngredientiCotta: (
+      cotta_id: number,
+      ingredienti: IngredienteRichiesto[]
+    ) => Promise<{ ok: true } | { ok: false; errore: string }>
     confeziona: (dati: ConfezionaPayload) => Promise<ConfezionaResult>
     scadenzaDefault: () => Promise<string>
     confezionamentoFusti: (cotta_id: number) => Promise<ConfezionamentoFustoRiga[]>

@@ -68,12 +68,16 @@ type ConfCreaMaterialePayload = {
   soglia_riordino: number
 }
 
+type IngredienteRichiesto = { materia_prima_id: number; quantita: number }
+
 type AvviaCottaPayload = {
   numero_lotto: string
   birra_id: number
   ricetta_id: number
   data_inizio: string
   litri_teorici: number
+  /** Facoltativo: ingredienti modificati solo per questa cotta. */
+  ingredienti?: IngredienteRichiesto[]
 }
 
 type AggiungiCottaALottoPayload = {
@@ -326,6 +330,9 @@ const api = {
     avviaCotta: (dati: AvviaCottaPayload) => ipcRenderer.invoke('prod:avvia-cotta', dati),
     dettaglioCotta: (cotta_id: number) => ipcRenderer.invoke('prod:dettaglio-cotta', cotta_id),
     materialiCotta: (cotta_id: number) => ipcRenderer.invoke('prod:materiali-cotta', cotta_id),
+    ingredientiCotta: (cotta_id: number) => ipcRenderer.invoke('prod:ingredienti-cotta', cotta_id),
+    modificaIngredientiCotta: (cotta_id: number, ingredienti: IngredienteRichiesto[]) =>
+      ipcRenderer.invoke('prod:modifica-ingredienti-cotta', { cotta_id, ingredienti }),
     confeziona: (dati: ConfezionaPayload) => ipcRenderer.invoke('prod:confeziona', dati),
     scadenzaDefault: (): Promise<string> => ipcRenderer.invoke('prod:scadenza-default'),
     confezionamentoFusti: (cotta_id: number) =>
