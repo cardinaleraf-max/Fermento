@@ -3,12 +3,7 @@ import { Pencil, Plus, RotateCcw, Trash2, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  etichettaCategoria,
-  isCategoriaInputAgricolo,
-  isCategoriaMpAgricola,
-  parseNumero
-} from '@/lib/agricolo'
+import { etichettaCategoria, isCategoriaInputAgricolo, parseNumero } from '@/lib/agricolo'
 import {
   insufficiente,
   rigaPerMateria,
@@ -24,6 +19,13 @@ export type MateriaElenco = {
   categoria: string
   unita_misura: string
   giacenza_totale: number
+}
+
+/** Materie raggruppate per categoria, nell'ordine dell'elenco (già ordinato per categoria). */
+function perCategoria(materie: MateriaElenco[]): Array<[string, MateriaElenco[]]> {
+  const gruppi = new Map<string, MateriaElenco[]>()
+  for (const m of materie) gruppi.set(m.categoria, [...(gruppi.get(m.categoria) ?? []), m])
+  return [...gruppi]
 }
 
 const fmt = (n: number): string => n.toLocaleString('it-IT', { maximumFractionDigits: 3 })
@@ -127,14 +129,21 @@ export function IngredientiCottaTabella({
         )}
       </div>
       {aiuto && <p className="px-4 pt-2 text-xs text-muted-foreground">{aiuto}</p>}
-      <table className="w-full text-sm">
+      <table className="w-full table-fixed text-sm">
+        <colgroup>
+          <col />
+          <col className="w-[8.5rem]" />
+          <col className="w-[6.5rem]" />
+          <col className="w-[7.5rem]" />
+          <col className="w-[5.5rem]" />
+        </colgroup>
         <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-2 font-medium">Ingrediente</th>
-            <th className="px-4 py-2 text-right font-medium">{intestazioneQuantita}</th>
-            <th className="px-4 py-2 text-right font-medium">Giacenza</th>
-            <th className="px-4 py-2 font-medium">Disponibile</th>
-            <th className="w-20 px-2 py-2">
+            <th className="px-3 py-2 text-right font-medium">{intestazioneQuantita}</th>
+            <th className="px-3 py-2 text-right font-medium">Giacenza</th>
+            <th className="px-3 py-2 font-medium">Disponibile</th>
+            <th className="px-2 py-2">
               <span className="sr-only">Azioni</span>
             </th>
           </tr>
@@ -165,31 +174,31 @@ export function IngredientiCottaTabella({
                     <select
                       aria-label="Scegli ingrediente"
                       autoFocus
-                      className="flex h-8 w-full min-w-[10rem] rounded-md border border-input px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                      className="flex h-8 w-full rounded-md border border-input px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                       value={r.materia_prima_id || ''}
                       onChange={(e) => scegli(r, Number(e.target.value))}
                     >
                       <option value="">Scegli ingrediente…</option>
-                      {opzioniPer(r).map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nome} —{' '}
-                          {isCategoriaMpAgricola(m.categoria)
-                            ? etichettaCategoria(m.categoria)
-                            : m.categoria}{' '}
-                          ({m.unita_misura})
-                        </option>
+                      {perCategoria(opzioniPer(r)).map(([categoria, elenco]) => (
+                        <optgroup key={categoria} label={etichettaCategoria(categoria)}>
+                          {elenco.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.nome} ({m.unita_misura})
+                            </option>
+                          ))}
+                        </optgroup>
                       ))}
                     </select>
                   ) : (
-                    <div className="py-1.5">
+                    <div className="break-words py-1.5">
                       {r.mp_nome}
                       {r.riferimento === null && (
-                        <span className="ml-2 text-xs text-amber-400">aggiunto</span>
+                        <div className="text-xs text-amber-400">aggiunto</div>
                       )}
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-2 text-right">
+                <td className="px-3 py-2 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Input
                       aria-label={`Quantità ${r.mp_nome}`}
@@ -203,22 +212,22 @@ export function IngredientiCottaTabella({
                           )
                         )
                       }
-                      className="h-8 w-24 text-right tabular-nums"
+                      className="h-8 w-20 text-right tabular-nums"
                     />
                     <span className="w-6 text-left text-muted-foreground">{r.unita_misura}</span>
                   </div>
                   {cambiata && (
-                    <div className="mt-1 pr-8 text-xs text-amber-400">
+                    <div className="mt-1 whitespace-nowrap pr-8 text-xs text-amber-400">
                       {etichettaRiferimento}: {fmt(r.riferimento as number)} {r.unita_misura}
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-2 text-right tabular-nums">
+                <td className="px-3 py-2 text-right tabular-nums">
                   <div className="py-1.5">
                     {scelto ? `${fmt(r.giacenza)} ${r.unita_misura}` : '—'}
                   </div>
                 </td>
-                <td className="px-4 py-2">
+                <td className="px-3 py-2">
                   <div className="py-1">
                     {scelto && (
                       <Badge

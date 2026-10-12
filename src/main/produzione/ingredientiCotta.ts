@@ -264,7 +264,18 @@ export function avviaCotta(
         return
       }
 
-      for (const [id, q] of personalizzati) avvisa(id, scaricaFifo(db, cottaId, id, q, true))
+      const scaricatiSoloInParte: string[] = []
+      for (const [id, q] of personalizzati) {
+        const rimanente = scaricaFifo(db, cottaId, id, q, true)
+        avvisa(id, rimanente)
+        if (rimanente > 0) {
+          const m = leggiMateria(db, id)
+          const u = m?.unita_misura ?? ''
+          scaricatiSoloInParte.push(
+            `${m?.nome ?? 'MP #' + id} ${fmt(q6(q - rimanente))} ${u} su ${fmt(q)} ${u}`
+          )
+        }
+      }
       const daRicetta = new Map<number, number>()
       for (const ing of ricetta)
         daRicetta.set(
@@ -272,7 +283,12 @@ export function avviaCotta(
           q6((daRicetta.get(ing.materia_prima_id) ?? 0) + ing.quantita)
         )
       const variazioni = descriviVariazioni(db, daRicetta, personalizzati)
-      if (variazioni) aggiungiNota(db, cottaId, `Variazioni rispetto alla ricetta: ${variazioni}`)
+      // La nota dice anche quanto è stato scaricato davvero se la giacenza non bastava.
+      const mancanze = scaricatiSoloInParte.length
+        ? ` — giacenza insufficiente, scaricati solo: ${scaricatiSoloInParte.join('; ')}`
+        : ''
+      if (variazioni)
+        aggiungiNota(db, cottaId, `Variazioni rispetto alla ricetta: ${variazioni}${mancanze}`)
     })()
 
     return { ok: true as const, cotta_id: cottaId, avvisi }

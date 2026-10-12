@@ -381,3 +381,28 @@ test('ingredientiCotta: totali per materia prima con la giacenza attuale', () =>
     ]
   )
 })
+
+test('avvio con ingredienti modificati e giacenza insufficiente: la nota dice quanto è stato scaricato davvero', () => {
+  const db = creaDbTest()
+  const b = birrificio(db)
+  const r = avviaCotta(
+    db,
+    datiCotta(b, {
+      ingredienti: [
+        { materia_prima_id: b.pilsner, quantita: 55 },
+        { materia_prima_id: b.cascade, quantita: 900 }
+      ]
+    })
+  )
+  assert.deepEqual(r, {
+    ok: true,
+    cotta_id: 1,
+    avvisi: ['Giacenza insufficiente per Luppolo Cascade: mancano 400']
+  })
+  assert.equal(residuo(db, b.cascade1), 0)
+  assert.equal(
+    nota(db, 1),
+    'Variazioni rispetto alla ricetta: tolto Luppolo Saaz; aggiunto Luppolo Cascade 900 g' +
+      ' — giacenza insufficiente, scaricati solo: Luppolo Cascade 500 g su 900 g'
+  )
+})

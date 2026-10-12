@@ -769,7 +769,7 @@ export default function Produzione(): React.JSX.Element {
                     </div>
                   )}
                 </div>
-                <Badge className={statoBadgeClass(dettaglio.stato)}>
+                <Badge className={`${statoBadgeClass(dettaglio.stato)} shrink-0 whitespace-nowrap`}>
                   {statoLabel(dettaglio.stato)}
                 </Badge>
               </div>
@@ -873,7 +873,7 @@ export default function Produzione(): React.JSX.Element {
         )}
 
         <Dialog open={dialogModIngOpen} onOpenChange={setDialogModIngOpen}>
-          <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+          <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>Modifica ingredienti</DialogTitle>
               <DialogDescription>
@@ -1173,6 +1173,29 @@ export default function Produzione(): React.JSX.Element {
         </div>
       )}
 
+      {!dialogNuovaCottaOpen && avvisiNuovaCotta.length > 0 && (
+        <div className="rounded-md border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-400">
+          <div className="mb-1 flex items-center justify-between gap-2 font-medium">
+            <span className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" /> Cotta avviata, ma la giacenza non bastava:
+              è stato scaricato solo quello che c&apos;era in magazzino.
+            </span>
+            <button
+              type="button"
+              className="text-xs underline-offset-2 hover:underline"
+              onClick={() => setAvvisiNuovaCotta([])}
+            >
+              Chiudi
+            </button>
+          </div>
+          <ul className="list-disc pl-5">
+            {avvisiNuovaCotta.map((avviso, idx) => (
+              <li key={idx}>{avviso}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="rounded-lg border border-border bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -1241,7 +1264,7 @@ export default function Produzione(): React.JSX.Element {
       </div>
 
       <Dialog open={dialogNuovaCottaOpen} onOpenChange={setDialogNuovaCottaOpen}>
-        <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-3xl" onOpenAutoFocus={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Nuova cotta</DialogTitle>
             <DialogDescription>
