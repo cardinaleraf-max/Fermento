@@ -39,7 +39,11 @@ type Materia = { id: number; nome: string; unita_misura: string; categoria: stri
 /** Quantità senza il rumore dei decimali (0,1 + 0,2 = 0,30000000000000004). */
 const q6 = (n: number): number => arrotonda(n, 6)
 
-const oggiIso = (): string => new Date().toISOString().split('T')[0]
+/** Data locale AAAA-MM-GG (toISOString darebbe il giorno prima tra mezzanotte e le 2). */
+function oggiIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 const fmt = (n: number): string => n.toLocaleString('it-IT', { maximumFractionDigits: 3 })
 
