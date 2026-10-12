@@ -13,6 +13,15 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RiquadroLottiImballi, SezioneLottiImballi } from '@/components/LottiImballi'
+import { IngredientiCottaTabella, type MateriaElenco } from '@/components/IngredientiCottaTabella'
+import {
+  insufficiente,
+  payloadDaRighe,
+  righeDaCotta,
+  righeDaRicetta,
+  righeModificate,
+  type RigaBozza
+} from '@/lib/ingredientiCotta'
 
 type Cotta = {
   id: number
@@ -115,6 +124,20 @@ type FustoConfezionamentoRiga = {
 
 const oggiIso = (): string => new Date().toISOString().split('T')[0]
 
+/** Righe di nota che segnano un evento della cotta (evidenziate). */
+const NOTA_EVENTO = /^(Aggiunta produzione|Modifica ingredienti|Variazioni rispetto alla ricetta)/
+
+/** Quantità totale per materia prima. */
+function totaliPerMateria(
+  righe: Array<{ materia_prima_id: number; quantita: number }>
+): Map<number, number> {
+  const m = new Map<number, number>()
+  for (const r of righe) m.set(r.materia_prima_id, (m.get(r.materia_prima_id) ?? 0) + r.quantita)
+  return m
+}
+
+const NESSUNO = new Map<number, number>()
+
 const defaultNuovaCottaForm = (): NuovaCottaForm => ({
   numero_lotto: '',
   birra_id: '',
@@ -177,6 +200,17 @@ export default function Produzione(): React.JSX.Element {
   const [erroreNuovaCotta, setErroreNuovaCotta] = useState('')
   const [avvisiNuovaCotta, setAvvisiNuovaCotta] = useState<string[]>([])
   const [submittingNuovaCotta, setSubmittingNuovaCotta] = useState(false)
+  /** Ingredienti della nuova cotta, modificabili (partono dalla ricetta). */
+  const [righeNuova, setRigheNuova] = useState<RigaBozza[]>([])
+  const [inizialiNuova, setInizialiNuova] = useState<RigaBozza[]>([])
+  const [materie, setMaterie] = useState<MateriaElenco[]>([])
+
+  const [dialogModIngOpen, setDialogModIngOpen] = useState(false)
+  const [righeModIng, setRigheModIng] = useState<RigaBozza[]>([])
+  const [inizialiModIng, setInizialiModIng] = useState<RigaBozza[]>([])
+  const [usatiModIng, setUsatiModIng] = useState<Map<number, number>>(new Map())
+  const [erroreModIng, setErroreModIng] = useState('')
+  const [submittingModIng, setSubmittingModIng] = useState(false)
 
   const [dialogConfezionamentoOpen, setDialogConfezionamentoOpen] = useState(false)
   const [fustiDisponibili, setFustiDisponibili] = useState<MaterialeConfezionamento[]>([])
@@ -216,6 +250,8 @@ export default function Produzione(): React.JSX.Element {
     () => birreAttive.find((birra) => String(birra.id) === nuovaCottaForm.birra_id) ?? null,
     [birreAttive, nuovaCottaForm.birra_id]
   )
+
+  const riferimentiNuova = useMemo(() => totaliPerMateria(ingredientiRicetta), [ingredientiRicetta])
 
   const ricettaAggiungiSelezionata = useMemo(
     () => ricetteBirra.find((r) => String(r.id) === aggiungiCottaForm.ricetta_id) ?? null,
@@ -269,12 +305,37 @@ export default function Produzione(): React.JSX.Element {
     }
   }
 
+  /** Ingredienti della ricetta scelta: la bozza modificabile riparte da questi. */
+  function impostaRicetta(ingredienti: IngredienteRicetta[]): void {
+    const righe = righeDaRicetta(ingredienti)
+    setIngredientiRicetta(ingredienti)
+    setRigheNuova(righe)
+    setInizialiNuova(righe)
+  }
+
   async function caricaIngredientiRicetta(ricettaId: number): Promise<void> {
     try {
       const ingredienti = await window.api.prod.ingredientiRicetta(ricettaId)
-      setIngredientiRicetta(ingredienti)
+      impostaRicetta(ingredienti)
     } catch (err) {
       setErroreNuovaCotta(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function caricaMaterie(): Promise<void> {
+    try {
+      const lista = await window.api.mp.lista()
+      setMaterie(
+        lista.map((m) => ({
+          id: m.id,
+          nome: m.nome,
+          categoria: m.categoria ?? '',
+          unita_misura: m.unita_misura,
+          giacenza_totale: m.giacenza_totale
+        }))
+      )
+    } catch {
+      setMaterie([])
     }
   }
 
@@ -311,7 +372,7 @@ export default function Produzione(): React.JSX.Element {
 
   useEffect(() => {
     if (!birraSelezionata) {
-      setIngredientiRicetta([])
+      impostaRicetta([])
       return
     }
     void caricaIngredientiRicetta(birraSelezionata.ricetta_id)
@@ -330,11 +391,58 @@ export default function Produzione(): React.JSX.Element {
 
   function apriDialogNuovaCotta(): void {
     setNuovaCottaForm(defaultNuovaCottaForm())
-    setIngredientiRicetta([])
+    impostaRicetta([])
     setErroreNuovaCotta('')
     setAvvisiNuovaCotta([])
     void caricaBirreAttive()
+    void caricaMaterie()
     setDialogNuovaCottaOpen(true)
+  }
+
+  async function apriDialogModificaIngredienti(): Promise<void> {
+    if (!dettaglio) return
+    setErroreModIng('')
+    try {
+      const [ingredienti] = await Promise.all([
+        window.api.prod.ingredientiCotta(dettaglio.id),
+        caricaMaterie()
+      ])
+      const righe = righeDaCotta(ingredienti)
+      setRigheModIng(righe)
+      setInizialiModIng(righe)
+      setUsatiModIng(totaliPerMateria(ingredienti))
+      setDialogModIngOpen(true)
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function confermaModificaIngredienti(): Promise<void> {
+    if (!dettaglio) return
+    setErroreModIng('')
+    if (!righeModificate(righeModIng, inizialiModIng)) {
+      setDialogModIngOpen(false)
+      return
+    }
+    const p = payloadDaRighe(righeModIng)
+    if (!p.ok) {
+      setErroreModIng(p.errore)
+      return
+    }
+    setSubmittingModIng(true)
+    try {
+      const esito = await window.api.prod.modificaIngredientiCotta(dettaglio.id, p.ingredienti)
+      if (!esito.ok) {
+        setErroreModIng(esito.errore)
+        return
+      }
+      setDialogModIngOpen(false)
+      await Promise.all([caricaDettaglio(dettaglio.id), caricaCotte()])
+    } catch (err) {
+      setErroreModIng(err instanceof Error ? err.message : String(err))
+    } finally {
+      setSubmittingModIng(false)
+    }
   }
 
   async function apriDialogAggiungiCotta(cotta: Cotta, e: React.MouseEvent): Promise<void> {
@@ -413,6 +521,17 @@ export default function Produzione(): React.JSX.Element {
       return
     }
 
+    // Ingredienti inviati solo se modificati: altrimenti si scarica la ricetta come sempre.
+    let ingredienti: Array<{ materia_prima_id: number; quantita: number }> | undefined
+    if (righeModificate(righeNuova, inizialiNuova)) {
+      const p = payloadDaRighe(righeNuova)
+      if (!p.ok) {
+        setErroreNuovaCotta(p.errore)
+        return
+      }
+      ingredienti = p.ingredienti
+    }
+
     setSubmittingNuovaCotta(true)
     try {
       const result = await window.api.prod.avviaCotta({
@@ -420,7 +539,8 @@ export default function Produzione(): React.JSX.Element {
         birra_id: birraSelezionata.id,
         ricetta_id: birraSelezionata.ricetta_id,
         data_inizio: nuovaCottaForm.data_inizio,
-        litri_teorici: birraSelezionata.cotta_litri_riferimento
+        litri_teorici: birraSelezionata.cotta_litri_riferimento,
+        ...(ingredienti ? { ingredienti } : {})
       })
       if (!result.ok) {
         setErroreNuovaCotta(result.errore)
@@ -638,7 +758,7 @@ export default function Produzione(): React.JSX.Element {
                         <div
                           key={idx}
                           className={
-                            riga.startsWith('Aggiunta produzione')
+                            NOTA_EVENTO.test(riga)
                               ? 'text-xs text-amber-400'
                               : 'text-xs text-muted-foreground'
                           }
@@ -656,8 +776,15 @@ export default function Produzione(): React.JSX.Element {
             </div>
 
             <div className="rounded-lg border border-border bg-card">
-              <div className="border-b border-border px-6 py-4">
+              <div className="flex items-center justify-between gap-4 border-b border-border px-6 py-4">
                 <h3 className="font-semibold text-foreground">Materie prime utilizzate</h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void apriDialogModificaIngredienti()}
+                >
+                  <Pencil className="mr-2 h-3.5 w-3.5" /> Modifica ingredienti
+                </Button>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -744,6 +871,60 @@ export default function Produzione(): React.JSX.Element {
             )}
           </>
         )}
+
+        <Dialog open={dialogModIngOpen} onOpenChange={setDialogModIngOpen}>
+          <DialogContent className="max-w-2xl" onOpenAutoFocus={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>Modifica ingredienti</DialogTitle>
+              <DialogDescription>
+                {dettaglio ? `Lotto ${dettaglio.numero_lotto} · ${dettaglio.birra_nome}. ` : ''}
+                Le quantità in più si scaricano dai lotti con la scadenza più vicina, quelle in meno
+                tornano nei lotti da cui erano uscite. La ricetta non cambia.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <IngredientiCottaTabella
+                titolo="Ingredienti usati"
+                righe={righeModIng}
+                iniziali={inizialiModIng}
+                onChange={setRigheModIng}
+                materie={materie}
+                riferimenti={usatiModIng}
+                giaUsato={usatiModIng}
+                intestazioneQuantita="Usata"
+                etichettaRiferimento="prima"
+                testoRipristina="Annulla le modifiche"
+              />
+
+              {erroreModIng && (
+                <div className="rounded-md border border-red-500/20 bg-red-500/10 p-3 text-sm text-red-400">
+                  {erroreModIng}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setDialogModIngOpen(false)}
+                disabled={submittingModIng}
+              >
+                Annulla
+              </Button>
+              <Button
+                onClick={() => void confermaModificaIngredienti()}
+                disabled={
+                  submittingModIng ||
+                  !righeModificate(righeModIng, inizialiModIng) ||
+                  righeModIng.some((r) => r.materia_prima_id > 0 && insufficiente(r))
+                }
+              >
+                {submittingModIng ? 'Salvataggio...' : 'Salva modifiche'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={dialogModificaConfOpen} onOpenChange={setDialogModificaConfOpen}>
           <DialogContent className="max-w-lg" onOpenAutoFocus={(e) => e.preventDefault()}>
@@ -1114,49 +1295,20 @@ export default function Produzione(): React.JSX.Element {
               </select>
             </div>
 
-            {birraSelezionata && ingredientiRicetta.length > 0 && (
-              <div className="rounded-lg border border-border bg-secondary/20">
-                <div className="border-b border-border px-4 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Ingredienti ricetta
-                </div>
-                <table className="w-full text-sm">
-                  <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-4 py-2 font-medium">Ingrediente</th>
-                      <th className="px-4 py-2 font-medium text-right">Richiesta</th>
-                      <th className="px-4 py-2 font-medium text-right">Giacenza</th>
-                      <th className="px-4 py-2 font-medium">Disponibile</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ingredientiRicetta.map((ing) => {
-                      const ok = ing.giacenza_totale >= ing.quantita
-                      return (
-                        <tr key={ing.id} className="border-t border-border/50 text-foreground/80">
-                          <td className="px-4 py-2">{ing.mp_nome}</td>
-                          <td className="px-4 py-2 text-right tabular-nums">
-                            {ing.quantita} {ing.unita_misura}
-                          </td>
-                          <td className="px-4 py-2 text-right tabular-nums">
-                            {ing.giacenza_totale} {ing.unita_misura}
-                          </td>
-                          <td className="px-4 py-2">
-                            <Badge
-                              className={
-                                ok
-                                  ? 'bg-green-500/15 text-green-400 border-green-500/25'
-                                  : 'bg-red-500/15 text-red-400 border-red-500/25'
-                              }
-                            >
-                              {ok ? 'OK' : 'Insufficiente'}
-                            </Badge>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
+            {birraSelezionata && (
+              <IngredientiCottaTabella
+                titolo="Ingredienti della cotta"
+                aiuto="Puoi cambiare le quantità, sostituire o togliere un ingrediente: le modifiche valgono solo per questa cotta, la ricetta non cambia."
+                righe={righeNuova}
+                iniziali={inizialiNuova}
+                onChange={setRigheNuova}
+                materie={materie}
+                riferimenti={riferimentiNuova}
+                giaUsato={NESSUNO}
+                intestazioneQuantita="Richiesta"
+                etichettaRiferimento="ricetta"
+                testoRipristina="Ripristina ricetta"
+              />
             )}
 
             {avvisiNuovaCotta.length > 0 && (
