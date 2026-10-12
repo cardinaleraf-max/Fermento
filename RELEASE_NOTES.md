@@ -1,5 +1,19 @@
 # Note di rilascio
 
+## v1.5.0 — Ottobre 2026
+
+### Novita
+- Ingredienti della cotta modificabili: nella finestra "Nuova cotta" puoi cambiare le quantita, sostituire o togliere un ingrediente e aggiungerne di nuovi, solo per quella cotta (la ricetta resta com'e). Anche a cotta avviata, con il pulsante "Modifica ingredienti" nella scheda della cotta: il magazzino si aggiorna da solo e ogni modifica resta annotata sulla cotta.
+- Tema chiaro: in alto a destra trovi la luna e il sole per passare dal tema scuro a quello chiaro.
+- Lotti degli imballi (HACCP), facoltativi: nei carichi di confezionamento puoi indicare lotto e fornitore, e nella cotta confezionata i lotti di bottiglie, tappi e fusti usati.
+- Modulo agricolo, facoltativo e spento se non lo attivi: filiera dal campo al malto (campi e semine, operazioni di campo, raccolte, analisi e calibratura, maltazione con parametri personalizzabili, tracciabilita completa). Si accende da Impostazioni, scheda Parametri, Moduli aggiuntivi.
+
+### Miglioramenti
+- Se avvii una cotta e la giacenza non basta, l'avviso resta visibile nella lista delle cotte.
+
+### Per gli utenti esistenti
+Nessuna azione richiesta. I tuoi dati, configurazioni e accessi restano invariati. Apri Fermento normalmente con la tua password.
+
 ## v1.4.0 — Luglio 2026
 
 ### Miglioramenti
