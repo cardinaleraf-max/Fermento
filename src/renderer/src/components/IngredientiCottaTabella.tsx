@@ -6,9 +6,9 @@ import { Input } from '@/components/ui/input'
 import { etichettaCategoria, isCategoriaInputAgricolo, parseNumero } from '@/lib/agricolo'
 import {
   insufficiente,
-  rigaPerMateria,
   rigaVuota,
   righeModificate,
+  sostituisci,
   tolti,
   type RigaBozza
 } from '@/lib/ingredientiCotta'
@@ -79,14 +79,7 @@ export function IngredientiCottaTabella({
   const scegli = (r: RigaBozza, materiaId: number): void => {
     const m = materie.find((x) => x.id === materiaId)
     if (!m) return
-    // Su una sostituzione la quantità resta quella digitata, su un'aggiunta parte vuota.
-    const nuova = rigaPerMateria(
-      m,
-      r.chiave,
-      r.materia_prima_id ? r.quantita : '',
-      riferimenti,
-      giaUsato
-    )
+    const nuova = sostituisci(r, m, riferimenti, giaUsato)
     onChange(righe.map((x) => (x.chiave === r.chiave ? nuova : x)))
     apriScelta(r.chiave, false)
   }

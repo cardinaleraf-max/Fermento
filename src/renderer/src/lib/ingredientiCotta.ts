@@ -100,6 +100,20 @@ export function rigaPerMateria(
   }
 }
 
+/**
+ * Sostituisce l'ingrediente di una riga. La quantità digitata resta solo se
+ * l'unità è la stessa (250 g di un luppolo non diventano 250 kg di un malto).
+ */
+export function sostituisci(
+  r: RigaBozza,
+  m: MateriaScelta,
+  riferimenti: Map<number, number>,
+  giaUsato: Map<number, number>
+): RigaBozza {
+  const tieni = r.materia_prima_id > 0 && r.unita_misura === m.unita_misura
+  return rigaPerMateria(m, r.chiave, tieni ? r.quantita : '', riferimenti, giaUsato)
+}
+
 export function rigaVuota(): RigaBozza {
   return {
     chiave: nuovaChiave(),

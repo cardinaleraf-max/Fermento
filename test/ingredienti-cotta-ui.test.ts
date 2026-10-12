@@ -5,6 +5,7 @@ import {
   payloadDaRighe,
   rigaPerMateria,
   righeDaCotta,
+  sostituisci,
   righeDaRicetta,
   righeModificate,
   tolti,
@@ -130,4 +131,22 @@ test('rigaPerMateria: riferimento e disponibilità tengono conto di quanto già 
   const nuova = rigaPerMateria(m, 'k2', '10', new Map(), new Map())
   assert.equal(nuova.riferimento, null)
   assert.equal(nuova.disponibile, 300)
+})
+
+test('sostituisci: la quantità resta solo se l unità è la stessa, altrimenti va riscritta', () => {
+  const [, saaz] = righeDaRicetta(ricetta)
+  const citra = { id: 8, nome: 'Luppolo Citra', unita_misura: 'g', giacenza_totale: 1550 }
+  const frumento = { id: 9, nome: 'Malto di Frumento', unita_misura: 'kg', giacenza_totale: 90 }
+  const conCitra = sostituisci(saaz, citra, new Map(), new Map())
+  assert.deepEqual(
+    [conCitra.chiave, conCitra.materia_prima_id, conCitra.quantita],
+    [saaz.chiave, 8, '5,5']
+  )
+  const conFrumento = sostituisci(saaz, frumento, new Map(), new Map())
+  assert.deepEqual(
+    [conFrumento.materia_prima_id, conFrumento.quantita, conFrumento.unita_misura],
+    [9, '', 'kg']
+  )
+  const vuota = { ...saaz, materia_prima_id: 0, quantita: '3' }
+  assert.equal(sostituisci(vuota, citra, new Map(), new Map()).quantita, '')
 })
