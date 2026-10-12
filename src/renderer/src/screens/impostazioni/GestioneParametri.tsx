@@ -402,7 +402,12 @@ export default function GestioneParametri(): React.JSX.Element {
           </DialogHeader>
           {paramDialog && (
             <div className="grid gap-3">
-              <CampoForm etichetta="Nome" htmlFor="par-nome" obbligatorio>
+              <CampoForm
+                etichetta="Nome"
+                htmlFor="par-nome"
+                obbligatorio
+                aiuto="Se in un gruppo tutti i parametri sono numeri chiamati «Riga – Colonna» (es. «Curva 2 – Durata»), la scheda li mostra come tabella."
+              >
                 <Input
                   id="par-nome"
                   value={paramDialog.nome}

@@ -194,6 +194,21 @@ type GruppoSeed = {
   parametri: ParametroSeed[]
 }
 
+const FASI_ESSICCAZIONE = [
+  'Curva umida',
+  'Calo peso',
+  'Curva 2',
+  'Curva 3',
+  'Curva 4',
+  'Colpo di fuoco'
+]
+const MISURE_ESSICCAZIONE: Array<[string, string]> = [
+  ['Umidità', '%'],
+  ['Temp. entrata', '°C'],
+  ['Temp. uscita', '°C'],
+  ['Durata', 'ore']
+]
+
 /** Replica il foglio di lavoro della malteria Marduk (integrazioni, punto 6). */
 const GRUPPI_SEED: GruppoSeed[] = [
   {
@@ -250,15 +265,28 @@ const GRUPPI_SEED: GruppoSeed[] = [
     ]
   },
   {
+    // Una riga per fase di curva, una colonna per misura: nomi «Fase – Misura»
+    // così la scheda li mostra come tabella (feedback Marduk, 12/10/2026).
     fase: 'maltazione',
     nome: 'Essiccazione',
     con_data: false,
+    parametri: FASI_ESSICCAZIONE.flatMap((f) =>
+      MISURE_ESSICCAZIONE.map(([m, unita]): ParametroSeed => [`${f} – ${m}`, unita, 'numero'])
+    )
+  },
+  {
+    fase: 'maltazione',
+    nome: 'Post-essiccazione',
+    con_data: true,
     parametri: [
-      ['Calo peso – temperatura', '°C', 'numero'],
-      ['Calo peso – durata', 'ore', 'numero'],
-      ['Colpo di fuoco – temperatura', '°C', 'numero'],
-      ['Colpo di fuoco – durata', 'min', 'numero'],
-      ['Friabilità', null, 'scala']
+      ['Radichetta rimossa', null, 'si_no'],
+      ['Ricalibratura', null, 'si_no'],
+      ['Peso dopo la pulizia', 'kg', 'numero'],
+      ['Umidità finale', '%', 'numero'],
+      ['Friabilità', null, 'scala'],
+      ['Aspetto visivo', null, 'testo'],
+      ['Aspetto gustativo', null, 'testo'],
+      ['Note di degustazione', null, 'testo']
     ]
   },
   {

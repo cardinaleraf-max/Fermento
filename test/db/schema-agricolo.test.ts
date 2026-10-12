@@ -100,7 +100,7 @@ test('una configurazione modificata dall utente non viene sovrascritta dalla mig
   assert.equal(v('agri_stagione_corrente'), '2030/2031')
 })
 
-test('parametri di fase predefiniti: 6 gruppi e 40 parametri nell ordine del processo', () => {
+test('parametri di fase predefiniti: 7 gruppi e 67 parametri nell ordine del processo', () => {
   const db = creaDbTest()
   const gruppi = db
     .prepare(`SELECT fase, nome, con_data FROM agri_gruppi_parametri ORDER BY fase, ordine`)
@@ -113,10 +113,13 @@ test('parametri di fase predefiniti: 6 gruppi e 40 parametri nell ordine del pro
       'maltazione/Macerazione',
       'maltazione/Germinazione',
       'maltazione/Essiccazione',
+      'maltazione/Post-essiccazione',
       'maltazione/Test di laboratorio'
     ]
   )
   assert.equal(gruppi.find((g) => g.nome === 'Test di laboratorio')?.con_data, 1)
+  assert.equal(gruppi.find((g) => g.nome === 'Post-essiccazione')?.con_data, 1)
+  assert.equal(gruppi.find((g) => g.nome === 'Essiccazione')?.con_data, 0)
   const conteggi = db
     .prepare(
       `SELECT g.nome, COUNT(p.id) AS n FROM agri_gruppi_parametri g LEFT JOIN agri_parametri p ON p.gruppo_id = g.id GROUP BY g.id ORDER BY g.fase, g.ordine`
@@ -124,7 +127,7 @@ test('parametri di fase predefiniti: 6 gruppi e 40 parametri nell ordine del pro
     .all() as Array<{ nome: string; n: number }>
   assert.deepEqual(
     conteggi.map((c) => c.n),
-    [2, 2, 11, 10, 5, 10]
+    [2, 2, 11, 10, 24, 8, 10]
   )
   const tipi = db
     .prepare(
@@ -144,4 +147,48 @@ test('i parametri predefiniti non tornano se l utente li ha cancellati', () => {
   applicaSchema(db)
   const n = (db.prepare(`SELECT COUNT(*) AS c FROM agri_gruppi_parametri`).get() as { c: number }).c
   assert.equal(n, 0)
+})
+
+test('essiccazione predefinita: 6 fasi di curva × umidità, temperature in entrata/uscita e ore', () => {
+  const db = creaDbTest()
+  const parametri = db
+    .prepare(
+      `SELECT p.nome, p.unita, p.tipo FROM agri_parametri p JOIN agri_gruppi_parametri g ON g.id = p.gruppo_id
+       WHERE g.nome = 'Essiccazione' ORDER BY p.ordine`
+    )
+    .all() as Array<{ nome: string; unita: string | null; tipo: string }>
+  const fasi = ['Curva umida', 'Calo peso', 'Curva 2', 'Curva 3', 'Curva 4', 'Colpo di fuoco']
+  const colonne: Array<[string, string]> = [
+    ['Umidità', '%'],
+    ['Temp. entrata', '°C'],
+    ['Temp. uscita', '°C'],
+    ['Durata', 'ore']
+  ]
+  assert.deepEqual(
+    parametri,
+    fasi.flatMap((f) => colonne.map(([c, u]) => ({ nome: `${f} – ${c}`, unita: u, tipo: 'numero' })))
+  )
+})
+
+test('post-essiccazione predefinita: pulizia, qualità finale e analisi sensoriale', () => {
+  const db = creaDbTest()
+  const parametri = db
+    .prepare(
+      `SELECT p.nome, p.unita, p.tipo FROM agri_parametri p JOIN agri_gruppi_parametri g ON g.id = p.gruppo_id
+       WHERE g.nome = 'Post-essiccazione' ORDER BY p.ordine`
+    )
+    .all() as Array<{ nome: string; unita: string | null; tipo: string }>
+  assert.deepEqual(
+    parametri.map((p) => [p.nome, p.unita, p.tipo]),
+    [
+      ['Radichetta rimossa', null, 'si_no'],
+      ['Ricalibratura', null, 'si_no'],
+      ['Peso dopo la pulizia', 'kg', 'numero'],
+      ['Umidità finale', '%', 'numero'],
+      ['Friabilità', null, 'scala'],
+      ['Aspetto visivo', null, 'testo'],
+      ['Aspetto gustativo', null, 'testo'],
+      ['Note di degustazione', null, 'testo']
+    ]
+  )
 })

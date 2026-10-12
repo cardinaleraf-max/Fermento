@@ -29,14 +29,21 @@ function paramId(db: BetterSqlite3.Database, nome: string): number {
   return (db.prepare(`SELECT id FROM agri_parametri WHERE nome = ?`).get(nome) as { id: number }).id
 }
 
-test('configurazione predefinita della maltazione: 5 gruppi in ordine con i parametri', () => {
+test('configurazione predefinita della maltazione: 6 gruppi in ordine con i parametri', () => {
   const db = creaDbTest()
   const gruppi = configParametri(db, 'maltazione')
   assert.deepEqual(
     gruppi.map((g) => g.nome),
-    ['Preparazione', 'Macerazione', 'Germinazione', 'Essiccazione', 'Test di laboratorio']
+    [
+      'Preparazione',
+      'Macerazione',
+      'Germinazione',
+      'Essiccazione',
+      'Post-essiccazione',
+      'Test di laboratorio'
+    ]
   )
-  assert.equal(gruppi[4].con_data, true)
+  assert.equal(gruppi[5].con_data, true)
   assert.equal(gruppi[2].parametri[0].nome, 'Peso umido')
   assert.equal(configParametri(db, 'calibratura')[0].parametri.length, 2)
   assert.equal(configParametri(db, 'raccolta').length, 0)
@@ -157,7 +164,7 @@ test('elimina parametro e gruppo: con valori diventano nascosti e restano nello 
   assert.equal(eliminaGruppo(db, germ.id), 'nascosto')
   assert.deepEqual(
     configParametri(db, 'maltazione').map((g) => g.nome),
-    ['Preparazione', 'Macerazione', 'Test di laboratorio']
+    ['Preparazione', 'Macerazione', 'Post-essiccazione', 'Test di laboratorio']
   )
 })
 

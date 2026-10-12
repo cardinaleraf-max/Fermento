@@ -9,6 +9,7 @@ import {
   type ValoreStorico,
   type ValoriParametri
 } from '@/lib/agricolo'
+import { comeTabella, type TabellaParametri } from '@/lib/tabellaParametri'
 import { InputNumero, cls } from './common'
 
 /** Valori in modifica: testo così come digitato (virgola decimale ammessa). */
@@ -145,6 +146,63 @@ function CampoSiNo({
   )
 }
 
+/** Gruppo «Riga – Colonna» (es. curve di essiccazione) come tabella di numeri. */
+function TabellaGruppo({
+  tabella,
+  bozza,
+  setValore,
+  idBase
+}: {
+  tabella: TabellaParametri
+  bozza: BozzaParametri
+  setValore: (id: number, v: string) => void
+  idBase: string
+}): React.JSX.Element {
+  return (
+    <div className="overflow-x-auto p-4">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <th className="py-1.5 pr-3 font-medium">
+              <span className="sr-only">Fase</span>
+            </th>
+            {tabella.colonne.map((c) => (
+              <th key={c.nome} className="px-2 py-1.5 font-medium">
+                {c.unita ? `${c.nome} (${c.unita})` : c.nome}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tabella.righe.map((r) => (
+            <tr key={r.nome} className="border-t border-border/50">
+              <th
+                scope="row"
+                className="whitespace-nowrap py-2 pr-3 text-left font-normal text-foreground/90"
+              >
+                {r.nome}
+              </th>
+              {r.celle.map((p, i) => (
+                <td key={p.id} className="min-w-[6rem] px-2 py-1.5">
+                  <label htmlFor={`${idBase}-${p.id}`} className="sr-only">
+                    {p.nome}
+                  </label>
+                  <InputNumero
+                    id={`${idBase}-${p.id}`}
+                    valore={bozza.valori[p.id] ?? ''}
+                    unita={tabella.colonne[i].unita ? null : p.unita}
+                    onChange={(x) => setValore(p.id, x)}
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function etichettaParametro(p: Parametro): string {
   return p.unita ? `${p.nome} (${p.unita})` : p.nome
 }
@@ -211,6 +269,7 @@ export function ParametriFase({
       )}
       {gruppi.map((g) => {
         const aperto = !chiusi.has(g.id)
+        const tabella = comeTabella(g.parametri)
         const compilati = g.parametri.filter((p) => (bozza.valori[p.id] ?? '').trim() !== '').length
         return (
           <section key={g.id} className={cn(cls.pannello, 'overflow-hidden')}>
@@ -250,7 +309,15 @@ export function ParametriFase({
                 </label>
               )}
             </div>
-            {aperto && (
+            {aperto && tabella && (
+              <TabellaGruppo
+                tabella={tabella}
+                bozza={bozza}
+                setValore={setValore}
+                idBase={idBase}
+              />
+            )}
+            {aperto && !tabella && (
               <div className="grid gap-x-4 gap-y-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
                 {g.parametri.length === 0 && (
                   <p className="text-sm text-muted-foreground">
