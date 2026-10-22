@@ -26,6 +26,7 @@ import {
   type ToolContext,
   type ToolDefinition
 } from './strumenti/comuni'
+import { strumentiAgricoli } from './strumenti/agricolo'
 import { strumentiProduzione } from './strumenti/produzione'
 
 export type { ToolContext, ToolDefinition } from './strumenti/comuni'
@@ -511,7 +512,7 @@ const strumentiBase: ToolDefinition[] = [
   }
 ]
 
-const tutti: ToolDefinition[] = [...strumentiBase, ...strumentiProduzione]
+const tutti: ToolDefinition[] = [...strumentiBase, ...strumentiProduzione, ...strumentiAgricoli]
 const perNome = new Map(tutti.map((t) => [t.name, t]))
 
 export type OpzioniStrumenti = { moduloAgricolo?: boolean }
