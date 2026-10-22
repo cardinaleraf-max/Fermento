@@ -16,6 +16,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type BetterSqlite3 from 'better-sqlite3'
 import { applicaSchema } from '../src/main/database'
+import { ensureAiConfigRows } from '../src/main/ai/bira'
 
 const Database = require('better-sqlite3') as typeof import('better-sqlite3')
 type Db = BetterSqlite3.Database
@@ -109,19 +110,63 @@ console.log(
 const db: Db = new Database(copia)
 db.pragma('foreign_keys = ON')
 
+/** Impostazioni non di Bira (chiave, valore, tipo, etichetta, categoria): devono restare identiche. */
+function improntaConfigurazioni(d: Db): string {
+  const righe = d
+    .prepare(
+      `SELECT chiave, valore, tipo, etichetta, categoria FROM configurazioni
+       WHERE chiave NOT LIKE 'ai\\_%' ESCAPE '\\' ORDER BY chiave`
+    )
+    .all()
+  return createHash('sha256').update(JSON.stringify(righe)).digest('hex')
+}
+const leggiChiaveBira = (d: Db): string | null =>
+  (
+    d.prepare(`SELECT valore FROM configurazioni WHERE chiave = 'ai_groq_api_key'`).get() as
+      | { valore: string }
+      | undefined
+  )?.valore ?? null
+
 const prima = fotografa(db)
+const configPrima = improntaConfigurazioni(db)
+const chiaveBiraPrima = leggiChiaveBira(db)
 console.log(`Database: ${origine}`)
 console.log(
   `Tabelle esistenti: ${prima.size}, righe totali: ${[...prima.values()].reduce((s, t) => s + t.righe, 0)}`
 )
 
+// Come all'avvio dell'app (due volte: tutto deve essere ripetibile).
 applicaSchema(db)
+ensureAiConfigRows(db)
 applicaSchema(db)
+ensureAiConfigRows(db)
 
 for (const [t, p] of prima) {
   const colsDopo = colonneConfrontate(db, t)
   const mancanti = p.colonne.filter((c) => !colsDopo.includes(c))
   if (mancanti.length > 0) problemi.push(`${t}: colonne sparite ${mancanti.join(', ')}`)
+  if (t === 'configurazioni') {
+    // Unico cambiamento voluto: le vecchie impostazioni di Bira (Ollama, modello fisso…)
+    // spariscono e resta solo la chiave, invariata. Tutto il resto identico.
+    if (improntaConfigurazioni(db) !== configPrima) {
+      problemi.push('configurazioni: impostazioni esistenti (non di Bira) modificate')
+    }
+    if (chiaveBiraPrima !== null && leggiChiaveBira(db) !== chiaveBiraPrima) {
+      problemi.push('configurazioni: la chiave di Bira è cambiata')
+    }
+    const restanti = (
+      db
+        .prepare(`SELECT chiave FROM configurazioni WHERE chiave LIKE 'ai\\_%' ESCAPE '\\'`)
+        .all() as Array<{
+        chiave: string
+      }>
+    ).map((r) => r.chiave)
+    if (restanti.join(',') !== 'ai_groq_api_key') {
+      problemi.push(`configurazioni: impostazioni di Bira inattese: ${restanti.join(', ')}`)
+    }
+    console.log(`  configurazioni: vecchie impostazioni di Bira tolte, chiave conservata`)
+    continue
+  }
   const dopo = impronta(db, t, p.colonne, p.maxRowid)
   if (dopo.righe !== p.righe) problemi.push(`${t}: righe esistenti ${p.righe} → ${dopo.righe}`)
   if (dopo.impronta !== p.impronta) problemi.push(`${t}: i dati esistenti risultano modificati`)
