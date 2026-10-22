@@ -25,6 +25,8 @@ const ATTESA_LIMITE_DEFAULT_MS = 4000
 const ATTESA_MAX_GIRO_MS = 30_000
 const ATTESA_MAX_TOTALE_MS = 60_000
 const RIPOSO_ERRORE_SERVER_MS = 15_000
+/** Pause prima dei nuovi tentativi quando manca la rete. */
+const ATTESE_RETE_MS = [1000, 3000]
 
 const SCARTA_RISERVA = /whisper|guard|orpheus|tts|safeguard|prompt|embed/i
 const PREFERENZE_RISERVA = [/gpt-oss-120b/i, /qwen/i, /gpt-oss/i, /llama/i, /kimi/i]
@@ -171,9 +173,10 @@ export class GestoreModelli {
           this.riposoFino.set(voce.id, this.adesso() + (e.attesaMs ?? ATTESA_LIMITE_DEFAULT_MS))
           continue
         }
-        if (e.tipo === 'rete' && tentativiRete < 1) {
+        if (e.tipo === 'rete' && tentativiRete < ATTESE_RETE_MS.length) {
+          // Un breve vuoto della connessione non deve arrivare all'utente.
+          await this.attendi(ATTESE_RETE_MS[tentativiRete], signal)
           tentativiRete++
-          await this.attendi(1000, signal)
           continue
         }
         if (
@@ -213,8 +216,12 @@ export async function verificaBira(gestore: GestoreModelli): Promise<StatoBira> 
     return { stato: 'pronto', modello, messaggio: 'Bira è pronto.' }
   } catch (e) {
     if (!(e instanceof ErroreProvider)) {
+      console.warn('[bira] verifica non riuscita:', e)
       return { stato: 'non_raggiungibile', modello: null, messaggio: 'Bira non risponde.' }
     }
+    console.warn(
+      `[bira] verifica: ${e.tipo}${e.status ? ` ${e.status}` : ''}: ${e.message.slice(0, 300)}`
+    )
     switch (e.tipo) {
       case 'chiave_non_valida':
         return {

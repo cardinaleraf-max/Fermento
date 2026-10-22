@@ -71,8 +71,8 @@ export function BiraLauncher(): React.JSX.Element {
           <div
             className="fixed bottom-4 left-4 z-50 flex flex-col rounded-xl shadow-2xl"
             style={{
-              width: 'min(420px, calc(100vw - 2rem))',
-              height: 'min(640px, calc(100vh - 2rem))',
+              width: 'min(520px, calc(100vw - 2rem))',
+              height: 'min(720px, calc(100vh - 2rem))',
               background: 'var(--floating)',
               border: '1px solid rgba(232,160,32,0.2)',
               boxShadow:

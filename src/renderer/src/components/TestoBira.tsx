@@ -1,4 +1,5 @@
 import { analizzaMarkdown, type Inline } from '@/lib/markdownBira'
+import { cn } from '@/lib/utils'
 
 function TestoInline({ parti }: { parti: Inline[] }): React.JSX.Element {
   return (
@@ -21,6 +22,9 @@ function TestoInline({ parti }: { parti: Inline[] }): React.JSX.Element {
     </>
   )
 }
+
+/** Celle corte (codici, date, numeri) su una riga sola: non vanno spezzate a metà. */
+const corta = (parti: Inline[]): boolean => parti.reduce((n, p) => n + p.testo.length, 0) <= 22
 
 /** Risposta di Bira con titoli, elenchi e tabelle (solo elementi React, niente HTML). */
 export function TestoBira({ testo }: { testo: string }): React.JSX.Element {
@@ -83,7 +87,10 @@ export function TestoBira({ testo }: { testo: string }): React.JSX.Element {
                     {b.righe.map((r, j) => (
                       <tr key={j} className="border-t border-ink/[0.06]">
                         {r.map((c, k) => (
-                          <td key={k} className="px-2 py-1 align-top">
+                          <td
+                            key={k}
+                            className={cn('px-2 py-1 align-top', corta(c) && 'whitespace-nowrap')}
+                          >
                             <TestoInline parti={c} />
                           </td>
                         ))}

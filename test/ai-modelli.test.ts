@@ -189,14 +189,28 @@ test('errore temporaneo del server (5xx): prova il modello successivo', async ()
   assert.equal((await g.chat({ messages: [] })).modello, SECONDO)
 })
 
-test('rete assente: un solo nuovo tentativo, poi errore di rete', async () => {
+test('rete assente: due nuovi tentativi (dopo 1 e 3 s), poi errore di rete', async () => {
+  const attese: number[] = []
   const client = clientFinto({ [PRIMO]: [new ErroreProvider('rete', 'giù')] })
-  const g = new GestoreModelli(client, { attendi: nessunaAttesa })
+  const g = new GestoreModelli(client, {
+    attendi: async (ms) => {
+      attese.push(ms)
+    }
+  })
   await assert.rejects(
     g.chat({ messages: [] }),
     (e: unknown) => e instanceof ErroreProvider && e.tipo === 'rete'
   )
-  assert.equal(client.richieste.length, 2)
+  assert.equal(client.richieste.length, 3)
+  assert.deepEqual(attese, [1000, 3000])
+})
+
+test('rete che torna dopo un vuoto breve: la risposta arriva', async () => {
+  const client = clientFinto({
+    [PRIMO]: [new ErroreProvider('rete', 'giù'), new ErroreProvider('rete', 'giù'), 'ok']
+  })
+  const g = new GestoreModelli(client, { attendi: nessunaAttesa })
+  assert.equal((await g.chat({ messages: [] })).modello, PRIMO)
 })
 
 test('scegliModelloDiRiserva: scarta audio/guardie e preferisce i modelli di chat più forti', () => {

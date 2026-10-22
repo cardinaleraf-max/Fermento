@@ -168,6 +168,8 @@ function anteprima(testo: string, max = 280): string {
 export function messaggioErrore(e: unknown): string {
   if (e instanceof ErrorePrivacy) return e.message
   if (e instanceof ErroreProvider) {
+    // Nel log del programma resta il motivo tecnico (utile all'assistenza).
+    console.warn(`[bira] ${e.tipo}${e.status ? ` ${e.status}` : ''}: ${e.message.slice(0, 300)}`)
     switch (e.tipo) {
       case 'chiave_non_valida':
         return 'La chiave di Bira non è valida: controllala in Impostazioni → Bira.'
