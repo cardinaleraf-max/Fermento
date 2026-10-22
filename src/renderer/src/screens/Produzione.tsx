@@ -810,7 +810,8 @@ export default function Produzione(): React.JSX.Element {
                           <td className="px-6 py-3">{mat.lotto_fornitore}</td>
                           <td className="px-6 py-3">{formatData(mat.data_scadenza)}</td>
                           <td className="px-6 py-3 text-right tabular-nums">
-                            {mat.quantita_usata} {mat.unita_misura}
+                            {Number(mat.quantita_usata).toLocaleString('it-IT', { maximumFractionDigits: 3 })}{' '}
+                            {mat.unita_misura}
                           </td>
                         </tr>
                       ))

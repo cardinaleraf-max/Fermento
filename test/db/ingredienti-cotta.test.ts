@@ -236,7 +236,7 @@ test('modifica: un aumento scarica dai lotti più vicini alla scadenza e somma s
   assert.deepEqual(scarichi(db, cotta), ['PIL-A: 60', 'SAAZ-1: 250', 'PIL-B: 10'])
   assert.equal(residuo(db, b.pilsA), 0)
   assert.equal(residuo(db, b.pilsB), 90)
-  assert.equal(nota(db, cotta), 'Modifica ingredienti del 2026-10-13: Malto Pilsner 55 → 70 kg')
+  assert.equal(nota(db, cotta), 'Modifica ingredienti del 13/10/2026: Malto Pilsner 55 → 70 kg')
 })
 
 test('modifica: una riduzione restituisce prima agli ultimi lotti scaricati, la rimozione restituisce tutto', () => {
@@ -260,7 +260,7 @@ test('modifica: una riduzione restituisce prima agli ultimi lotti scaricati, la 
   assert.equal(residuo(db, b.saaz1), 300)
   assert.match(
     nota(db, cotta) ?? '',
-    /\nModifica ingredienti del 2026-10-14: Malto Pilsner 70 → 50 kg; tolto Luppolo Saaz$/
+    /\nModifica ingredienti del 14\/10\/2026: Malto Pilsner 70 → 50 kg; tolto Luppolo Saaz$/
   )
 })
 
@@ -282,7 +282,7 @@ test('modifica: sostituire un ingrediente restituisce il vecchio e scarica il nu
   assert.equal(residuo(db, b.cascade1), 250)
   assert.equal(
     nota(db, cotta),
-    'Modifica ingredienti del 2026-10-13: tolto Luppolo Saaz; aggiunto Luppolo Cascade 250 g'
+    'Modifica ingredienti del 13/10/2026: tolto Luppolo Saaz; aggiunto Luppolo Cascade 250 g'
   )
 })
 

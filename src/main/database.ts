@@ -157,19 +157,21 @@ function migrazioneRetrocompatibilita(database: BetterSqlite3.Database): void {
     return
   }
 
-  // DB esistente (Luca o altri clienti con DB già configurato)
-  const tx = database.transaction(() => {
-    // Setta nome_birrificio solo se ancora vuoto
-    database
-      .prepare(`UPDATE configurazioni SET valore = 'Birrificio Lookdown', aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'nome_birrificio' AND valore = ''`)
-      .run()
+  // Password impostata ma nessun dato di lavoro: è un'installazione nuova chiusa
+  // prima di finire la configurazione iniziale, che deve ripartire da capo.
+  const haDati = database
+    .prepare(
+      `SELECT EXISTS (SELECT 1 FROM cotte) OR EXISTS (SELECT 1 FROM materie_prime)
+         OR EXISTS (SELECT 1 FROM clienti) OR EXISTS (SELECT 1 FROM vendite) AS c`
+    )
+    .get() as { c: number }
+  if (!haDati.c) return
 
-    // Segna l'onboarding come completato
-    database
-      .prepare(`UPDATE configurazioni SET valore = '1', aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'onboarding_completato'`)
-      .run()
-  })
-  tx()
+  // DB già in uso (configurato prima che esistesse la configurazione iniziale):
+  // la si segna come fatta. Il nome del birrificio non si tocca.
+  database
+    .prepare(`UPDATE configurazioni SET valore = '1', aggiornato_il = CURRENT_TIMESTAMP WHERE chiave = 'onboarding_completato' AND valore <> '1'`)
+    .run()
 
   // Nessuna licenza di default: un DB senza riga licenza mostra la schermata di
   // attivazione (il legame licenza-PC richiede una licenza firmata e legata).

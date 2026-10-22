@@ -47,6 +47,9 @@ function oggiIso(): string {
 
 const fmt = (n: number): string => n.toLocaleString('it-IT', { maximumFractionDigits: 3 })
 
+/** AAAA-MM-GG → GG/MM/AAAA per i testi letti dal birraio. */
+const dataItaliana = (iso: string): string => iso.split('-').reverse().join('/')
+
 function leggiMateria(db: Db, id: number): Materia | undefined {
   return db
     .prepare(`SELECT id, nome, unita_misura, categoria FROM materie_prime WHERE id = ?`)
@@ -357,7 +360,7 @@ export function modificaIngredientiCotta(
           scaricaFifo(db, cottaId, id, delta, true)
         }
       }
-      aggiungiNota(db, cottaId, `Modifica ingredienti del ${data}: ${variazioni}`)
+      aggiungiNota(db, cottaId, `Modifica ingredienti del ${dataItaliana(data)}: ${variazioni}`)
     })()
     return { ok: true as const }
   })
