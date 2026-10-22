@@ -5,7 +5,6 @@ import {
   ArrowUp,
   Boxes,
   ChevronDown,
-  Cloud,
   FlaskConical,
   Loader2,
   Package,
@@ -25,10 +24,7 @@ type Raccomandazione = Extract<
   { ok: true }
 >['raccomandazioni'][number]
 
-type RaccOk = Extract<
-  Awaited<ReturnType<typeof window.api.ai.avvisiIntelligenti>>,
-  { ok: true }
->
+type RaccOk = Extract<Awaited<ReturnType<typeof window.api.ai.avvisiIntelligenti>>, { ok: true }>
 
 const PRIORITA_META: Record<
   Raccomandazione['priorita'],
@@ -64,7 +60,10 @@ const PRIORITA_META: Record<
   }
 }
 
-const AZIONE_META: Record<Raccomandazione['azioni'][number]['tipo'], { label: string; Icon: typeof Wrench }> = {
+const AZIONE_META: Record<
+  Raccomandazione['azioni'][number]['tipo'],
+  { label: string; Icon: typeof Wrench }
+> = {
   riordina: { label: 'Riordina', Icon: Package },
   produci: { label: 'Produci', Icon: FlaskConical },
   promo: { label: 'Promo', Icon: PercentCircle },
@@ -74,7 +73,10 @@ const AZIONE_META: Record<Raccomandazione['azioni'][number]['tipo'], { label: st
   altro: { label: 'Azione', Icon: Sparkles }
 }
 
-const TIPO_META: Record<Raccomandazione['riferimenti'][number]['tipo'], { label: string; Icon: typeof Boxes }> = {
+const TIPO_META: Record<
+  Raccomandazione['riferimenti'][number]['tipo'],
+  { label: string; Icon: typeof Boxes }
+> = {
   mp: { label: 'MP', Icon: Package },
   birra: { label: 'Birra', Icon: FlaskConical },
   conf: { label: 'Conf.', Icon: Boxes },
@@ -133,8 +135,7 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
     <section
       className="rounded-lg border"
       style={{
-        background:
-          'linear-gradient(180deg, rgba(232,160,32,0.05) 0%, rgba(232,160,32,0.01) 100%)',
+        background: 'linear-gradient(180deg, rgba(232,160,32,0.05) 0%, rgba(232,160,32,0.01) 100%)',
         borderColor: 'rgba(232,160,32,0.2)'
       }}
     >
@@ -151,29 +152,24 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
           </div>
           <div>
             <h2 className="text-sm font-semibold text-amber-100">Consigli di Bira</h2>
-            <p className="text-[11px] text-ink/45">
-              Analisi AI: priorita&apos;, raggruppamenti e azioni suggerite
-            </p>
+            <p className="text-[11px] text-ink/45">Priorità, raggruppamenti e azioni suggerite</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {stato && (
             <div className="flex items-center gap-1.5 text-[10px] text-ink/40">
-              {stato.remoto && (
-                <span
-                  title="Generato in cloud (Groq). Nomi di MP, ricette e clienti non vengono inviati."
-                  className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-amber-200/90"
-                >
-                  <Cloud className="h-2.5 w-2.5" />
-                  Cloud
-                </span>
-              )}
               <span>{formattaData(stato.generato_il)}</span>
               <span className="text-ink/25">·</span>
               <span>{stato.segnali_analizzati} segnali</span>
             </div>
           )}
-          <Button type="button" variant="outline" size="sm" onClick={() => void analizza()} disabled={caricamento}>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void analizza()}
+            disabled={caricamento}
+          >
             {caricamento ? (
               <>
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -201,8 +197,8 @@ export function ConsigliIntelligenti({ onNavigaA }: Props): React.JSX.Element {
 
       {!stato && !errore && !caricamento && (
         <div className="px-4 pb-4 pt-1 text-xs text-ink/45">
-          Clicca <span className="font-medium text-ink/70">Analizza con Bira</span> per ottenere raccomandazioni
-          basate sullo stato attuale del birrificio.
+          Clicca <span className="font-medium text-ink/70">Analizza con Bira</span> per ottenere
+          raccomandazioni basate sullo stato attuale del birrificio.
         </div>
       )}
 

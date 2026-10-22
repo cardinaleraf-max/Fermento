@@ -1,26 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertCircle,
-  ChevronDown,
-  ChevronRight,
+  Check,
   CircleStop,
-  Cloud,
-  HardDrive,
+  Hourglass,
   Loader2,
+  Lock,
   Plus,
+  RefreshCw,
   Send,
   Sparkles,
-  Wrench,
+  TriangleAlert,
   X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useAgricolo } from '@/components/agricolo/contesto'
+import { TestoBira } from '@/components/TestoBira'
 import { cn } from '@/lib/utils'
 
 type RuoloMessaggio = 'user' | 'assistant'
 
-type ToolEvento = {
+type StrumentoUsato = {
   nome: string
-  argomenti: Record<string, unknown>
+  etichetta: string
   ok: boolean | null
   anteprima: string | null
 }
@@ -29,86 +31,55 @@ type Messaggio = {
   id: string
   ruolo: RuoloMessaggio
   contenuto: string
-  toolCalls: ToolEvento[]
+  strumenti: StrumentoUsato[]
   errore?: string | null
   inCorso?: boolean
-  modello?: string | null
+  /** Secondi di pausa chiesti dal servizio gratuito (null = nessuna pausa). */
+  attesa?: number | null
 }
 
 type AiHealth = Awaited<ReturnType<typeof window.api.ai.health>>
 
-const PROMPT_LOCALI = [
-  'Cosa va in scadenza nei prossimi 60 giorni?',
-  'Quali clienti non comprano da pi\u00f9 di 20 giorni?',
-  'Come carico una nuova materia prima?',
-  'Come avvio una nuova cotta?',
-  'Riassumimi la situazione del birrificio'
+const ESEMPI = [
+  'Riassumimi la situazione del birrificio',
+  'Cosa mi scade nei prossimi due mesi?',
+  'Quante cotte posso fare con quello che ho in magazzino?',
+  'Chi deve ancora restituirmi dei fusti?'
 ]
 
-const PROMPT_CLOUD = [
-  'Riassumimi la situazione del birrificio',
-  'Quali clienti hanno fusti da restituire?',
-  'Quali sono le birre pi\u00f9 vendute negli ultimi 90 giorni?',
-  'Giacenza attuale di prodotto finito per ogni birra',
-  'Come si confeziona una cotta?'
+const ESEMPI_AGRICOLI = [
+  'Com’è andata l’ultima maltazione?',
+  'Quali trattamenti ho fatto sui campi in questa stagione?'
 ]
 
 function generaId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36)
 }
 
-function ToolCallView({ tool }: { tool: ToolEvento }): React.JSX.Element {
-  const [aperto, setAperto] = useState(false)
-  const stato = tool.ok === null ? 'in corso' : tool.ok ? 'ok' : 'errore'
-  const colore =
-    tool.ok === null
-      ? 'text-ink/40'
-      : tool.ok
-        ? 'text-emerald-400/80'
-        : 'text-red-400/80'
-
+/** «Ho consultato: …» con lo stato di ogni strumento (dettagli nel suggerimento). */
+function StrumentiUsati({ strumenti }: { strumenti: StrumentoUsato[] }): React.JSX.Element {
+  const unici = strumenti.filter(
+    (s, i) => strumenti.findIndex((x) => x.etichetta === s.etichetta) === i
+  )
   return (
-    <div className="rounded-md border border-ink/[0.06] bg-ink/[0.02]">
-      <button
-        type="button"
-        onClick={() => setAperto((v) => !v)}
-        className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-[11px] text-ink/55 hover:text-ink/80"
-      >
-        {aperto ? (
-          <ChevronDown className="h-3 w-3 shrink-0" />
-        ) : (
-          <ChevronRight className="h-3 w-3 shrink-0" />
-        )}
-        <Wrench className="h-3 w-3 shrink-0" />
-        <span className="truncate font-mono text-[11px]">{tool.nome}</span>
-        <span className={cn('ml-auto text-[10px] uppercase tracking-wider', colore)}>
-          {stato}
+    <div className="flex flex-wrap items-center gap-1 text-[10px] text-ink/45">
+      <span>Ho consultato:</span>
+      {unici.map((s, i) => (
+        <span
+          key={`${s.nome}-${i}`}
+          title={s.anteprima ?? undefined}
+          className="inline-flex items-center gap-1 rounded-full border border-ink/[0.08] bg-ink/[0.03] px-1.5 py-0.5 text-ink/60"
+        >
+          {s.ok === null ? (
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+          ) : s.ok ? (
+            <Check className="h-2.5 w-2.5 text-emerald-400/80" />
+          ) : (
+            <TriangleAlert className="h-2.5 w-2.5 text-amber-400/80" />
+          )}
+          {s.etichetta}
         </span>
-      </button>
-      {aperto && (
-        <div className="space-y-1.5 border-t border-ink/[0.06] p-2.5 text-[11px]">
-          {Object.keys(tool.argomenti).length > 0 && (
-            <div>
-              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-ink/30">
-                Argomenti
-              </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-ink/55">
-                {JSON.stringify(tool.argomenti, null, 2)}
-              </pre>
-            </div>
-          )}
-          {tool.anteprima && (
-            <div>
-              <div className="mb-0.5 text-[10px] uppercase tracking-wider text-ink/30">
-                {tool.ok === false ? 'Errore' : 'Anteprima risultato'}
-              </div>
-              <pre className="overflow-x-auto whitespace-pre-wrap break-words text-ink/55">
-                {tool.anteprima}
-              </pre>
-            </div>
-          )}
-        </div>
-      )}
+      ))}
     </div>
   )
 }
@@ -126,31 +97,33 @@ function MessaggioView({ msg }: { msg: Messaggio }): React.JSX.Element {
 
   return (
     <div className="flex justify-start">
-      <div className="max-w-[90%] space-y-2">
+      <div className="w-full max-w-[95%] space-y-1.5">
         <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-ink/30">
           <Sparkles className="h-3 w-3 text-amber-400/60" />
           <span>Bira</span>
-          {msg.modello && <span className="truncate text-ink/20">· {msg.modello}</span>}
         </div>
 
-        {msg.toolCalls.length > 0 && (
-          <div className="space-y-1">
-            {msg.toolCalls.map((t, idx) => (
-              <ToolCallView key={`${t.nome}-${idx}`} tool={t} />
-            ))}
-          </div>
-        )}
+        {msg.strumenti.length > 0 && <StrumentiUsati strumenti={msg.strumenti} />}
 
         {msg.contenuto && (
-          <div className="rounded-2xl rounded-bl-sm bg-ink/[0.04] px-3.5 py-2 text-sm text-ink/85">
-            <div className="whitespace-pre-wrap break-words">{msg.contenuto}</div>
+          <div className="rounded-2xl rounded-bl-sm bg-ink/[0.04] px-3.5 py-2 text-sm leading-relaxed text-ink/85">
+            <TestoBira testo={msg.contenuto} />
           </div>
         )}
 
         {msg.inCorso && !msg.contenuto && (
           <div className="flex items-center gap-2 rounded-2xl rounded-bl-sm bg-ink/[0.04] px-3.5 py-2 text-sm text-ink/50">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span>Sto pensando…</span>
+            {msg.attesa ? (
+              <>
+                <Hourglass className="h-3.5 w-3.5 shrink-0" />
+                <span>Il servizio gratuito chiede una breve pausa… (circa {msg.attesa} s)</span>
+              </>
+            ) : (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span>Sto controllando…</span>
+              </>
+            )}
           </div>
         )}
 
@@ -212,6 +185,7 @@ function BiraDemo({ onClose }: BiraChatProps): React.JSX.Element {
 }
 
 export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
+  const agricolo = useAgricolo()
   const [messaggi, setMessaggi] = useState<Messaggio[]>([])
   const [input, setInput] = useState('')
   const [health, setHealth] = useState<AiHealth | null>(null)
@@ -219,24 +193,22 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
   const [conversazioneAttiva, setConversazioneAttiva] = useState<string | null>(null)
 
   const messaggiRef = useRef<Messaggio[]>([])
-  messaggiRef.current = messaggi
+  useEffect(() => {
+    messaggiRef.current = messaggi
+  }, [messaggi])
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
 
-  const verificaHealth = useCallback(async () => {
+  const verificaHealth = useCallback(async (forza = false) => {
     setHealthLoading(true)
     try {
-      setHealth(await window.api.ai.health())
-    } catch (e) {
+      setHealth(await window.api.ai.health({ forza }))
+    } catch {
       setHealth({
-        abilitato: true,
-        provider: 'groq',
-        url: '',
-        modello: '',
-        remoto: true,
-        raggiungibile: false,
-        errore: e instanceof Error ? e.message : 'Errore'
+        stato: 'non_raggiungibile',
+        modello: null,
+        messaggio: 'Non riesco a verificare Bira in questo momento.'
       })
     } finally {
       setHealthLoading(false)
@@ -244,8 +216,25 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
   }, [])
 
   useEffect(() => {
-    void verificaHealth()
-  }, [verificaHealth])
+    if (__DEMO_MODE__) return
+    let attivo = true
+    window.api.ai
+      .health()
+      .then((h) => attivo && setHealth(h))
+      .catch(
+        () =>
+          attivo &&
+          setHealth({
+            stato: 'non_raggiungibile',
+            modello: null,
+            messaggio: 'Non riesco a verificare Bira in questo momento.'
+          })
+      )
+      .finally(() => attivo && setHealthLoading(false))
+    return () => {
+      attivo = false
+    }
+  }, [])
 
   useEffect(() => {
     const off = window.api.ai.onEvento(({ conversazioneId, evento }) => {
@@ -255,39 +244,38 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
         const next = [...prev]
         const cur = { ...next[idx] }
         switch (evento.tipo) {
-          case 'inizio':
-            cur.modello = evento.modello
-            break
           case 'tool_call':
-            cur.toolCalls = [
-              ...cur.toolCalls,
-              {
-                nome: evento.nome,
-                argomenti: evento.argomenti,
-                ok: null,
-                anteprima: null
-              }
+            cur.attesa = null
+            cur.strumenti = [
+              ...cur.strumenti,
+              { nome: evento.nome, etichetta: evento.etichetta, ok: null, anteprima: null }
             ]
             break
           case 'tool_risultato': {
-            const calls = [...cur.toolCalls]
-            for (let i = calls.length - 1; i >= 0; i--) {
-              if (calls[i].nome === evento.nome && calls[i].ok === null) {
-                calls[i] = { ...calls[i], ok: evento.ok, anteprima: evento.anteprima }
+            const s = [...cur.strumenti]
+            for (let i = s.length - 1; i >= 0; i--) {
+              if (s[i].nome === evento.nome && s[i].ok === null) {
+                s[i] = { ...s[i], ok: evento.ok, anteprima: evento.anteprima }
                 break
               }
             }
-            cur.toolCalls = calls
+            cur.strumenti = s
             break
           }
+          case 'attesa':
+            cur.attesa = evento.secondi
+            break
           case 'risposta':
+            cur.attesa = null
             cur.contenuto = evento.testo
             break
           case 'errore':
+            cur.attesa = null
             cur.errore = evento.messaggio
             break
           case 'fine':
             cur.inCorso = false
+            cur.attesa = null
             break
         }
         next[idx] = cur
@@ -315,22 +303,19 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
         id: generaId(),
         ruolo: 'user',
         contenuto: testo,
-        toolCalls: []
+        strumenti: []
       }
       const conversazioneId = generaId()
       const nuovoAssistant: Messaggio = {
         id: conversazioneId,
         ruolo: 'assistant',
         contenuto: '',
-        toolCalls: [],
+        strumenti: [],
         inCorso: true
       }
       const cronologiaPrec = messaggiRef.current
-        .filter((m) => !m.inCorso && (m.contenuto || m.ruolo === 'user'))
-        .map((m) => ({
-          ruolo: m.ruolo,
-          contenuto: m.contenuto
-        }))
+        .filter((m) => !m.inCorso && m.contenuto)
+        .map((m) => ({ ruolo: m.ruolo, contenuto: m.contenuto }))
       const cronologia = [...cronologiaPrec, { ruolo: 'user' as const, contenuto: testo }]
 
       setMessaggi((prev) => [...prev, nuovoUser, nuovoAssistant])
@@ -356,34 +341,26 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
 
   const statoHeader = useMemo(() => {
     if (healthLoading) return { testo: 'Verifica…', colore: 'text-ink/40' }
-    if (!health) return { testo: 'Stato sconosciuto', colore: 'text-ink/40' }
-    if (!health.abilitato) return { testo: 'Configura…', colore: 'text-amber-400/70' }
-    if (!health.raggiungibile)
-      return { testo: 'Non raggiungibile', colore: 'text-red-400/80' }
-    return {
-      testo: `Online · ${health.modello || 'modello sconosciuto'}`,
-      colore: 'text-emerald-400/80'
+    switch (health?.stato) {
+      case 'pronto':
+        return { testo: 'Pronto', colore: 'text-emerald-400/80' }
+      case 'da_configurare':
+        return { testo: 'Da attivare', colore: 'text-amber-400/70' }
+      case 'chiave_non_valida':
+        return { testo: 'Chiave non valida', colore: 'text-red-400/80' }
+      case 'nessun_modello':
+        return { testo: 'Non disponibile', colore: 'text-red-400/80' }
+      case 'non_raggiungibile':
+        return { testo: 'Non raggiungibile', colore: 'text-red-400/80' }
+      default:
+        return { testo: '', colore: 'text-ink/40' }
     }
   }, [health, healthLoading])
 
-  const badgeProvider = useMemo(() => {
-    if (!health) return null
-    if (health.remoto) {
-      return {
-        icona: Cloud,
-        testo: 'Cloud',
-        colore: 'border-amber-400/40 bg-amber-400/10 text-amber-200/90',
-        tooltip:
-          'Modalit\u00e0 cloud: domande e risultati transitano sui server Groq (USA). I tool sensibili (clienti, ricette, materie prime) sono disattivati.'
-      }
-    }
-    return {
-      icona: HardDrive,
-      testo: 'Locale',
-      colore: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300/90',
-      tooltip: 'Modalit\u00e0 locale: nessun dato esce dal PC.'
-    }
-  }, [health])
+  /** Senza chiave (o con chiave sbagliata) non ha senso inviare domande. */
+  const bloccato = health?.stato === 'da_configurare' || health?.stato === 'chiave_non_valida'
+  const problema = health && health.stato !== 'pronto' && health.stato !== 'demo' ? health : null
+  const esempi = agricolo.attivo ? [...ESEMPI.slice(0, 3), ...ESEMPI_AGRICOLI] : ESEMPI
 
   if (__DEMO_MODE__) return <BiraDemo onClose={onClose} />
 
@@ -405,18 +382,6 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          {badgeProvider && (
-            <span
-              title={badgeProvider.tooltip}
-              className={cn(
-                'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider',
-                badgeProvider.colore
-              )}
-            >
-              <badgeProvider.icona className="h-2.5 w-2.5" />
-              {badgeProvider.testo}
-            </span>
-          )}
           <button
             type="button"
             onClick={nuovaConversazione}
@@ -439,36 +404,27 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
         </div>
       </div>
 
-      {health && !health.abilitato && (
+      {problema && !healthLoading && (
         <div className="flex items-start gap-1.5 border-b border-amber-500/20 bg-amber-500/[0.08] px-3 py-2 text-[11px] text-amber-100/85">
           <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-          <div>
-            <div className="font-medium">Assistente non configurato</div>
-            <div className="mt-0.5 text-amber-100/70">
-              Vai in Impostazioni \u2192 Assistente AI e inserisci la tua API key Groq per attivare Bira.
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">
+              {problema.stato === 'da_configurare'
+                ? 'Bira non è ancora attivo'
+                : 'Bira ha un problema'}
             </div>
+            <div className="mt-0.5 text-amber-100/70">{problema.messaggio}</div>
           </div>
-        </div>
-      )}
-
-      {health && !health.raggiungibile && health.abilitato && (
-        <div className="flex items-start gap-1.5 border-b border-amber-500/20 bg-amber-500/[0.08] px-3 py-2 text-[11px] text-amber-100/85">
-          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
-          <div>
-            <div className="font-medium">Bira non raggiungibile</div>
-            <div className="mt-0.5 text-amber-100/70">
-              Verifica la API key e la connessione internet dalle Impostazioni.
-            </div>
-          </div>
-        </div>
-      )}
-
-      {health?.remoto && health.raggiungibile && (
-        <div className="flex items-start gap-1.5 border-b border-amber-400/15 bg-amber-400/[0.04] px-3 py-1.5 text-[10px] text-amber-100/75">
-          <Cloud className="mt-0.5 h-3 w-3 shrink-0" />
-          <div>
-            Modalit&agrave; cloud: clienti, ricette, nomi materie prime non vengono inviati.
-          </div>
+          {problema.stato !== 'da_configurare' && (
+            <button
+              type="button"
+              onClick={() => void verificaHealth(true)}
+              className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-amber-100/80 hover:bg-amber-400/10"
+              title="Riprova"
+            >
+              <RefreshCw className="h-3 w-3" /> Riprova
+            </button>
+          )}
         </div>
       )}
 
@@ -481,18 +437,18 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
             <div className="max-w-xs space-y-1">
               <h3 className="text-sm font-semibold text-ink/85">Ciao, sono Bira</h3>
               <p className="text-[11px] text-ink/50">
-                {health?.remoto
-                  ? 'Posso rispondere su cotte, vendite e produzione. In modalit\u00e0 cloud non vedo clienti, ricette, nomi materie prime.'
-                  : 'Posso rispondere a domande sui tuoi dati: materie prime, cotte, vendite, clienti, avvisi. Tutto resta sul tuo PC.'}
+                Rispondo sui tuoi dati: magazzino, ricette, cotte, vendite e avvisi
+                {agricolo.attivo ? ', e tutta la filiera agricola' : ''}. Chiedimi anche come si fa
+                qualcosa in Fermento.
               </p>
             </div>
             <div className="flex w-full flex-col gap-1">
-              {(health?.remoto ? PROMPT_CLOUD : PROMPT_LOCALI).slice(0, 4).map((p) => (
+              {esempi.map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => inviaMessaggio(p)}
-                  disabled={!!conversazioneAttiva || (health ? !health.raggiungibile : false)}
+                  disabled={!!conversazioneAttiva || bloccato}
                   className="rounded-md border border-ink/[0.06] bg-ink/[0.02] px-2.5 py-1.5 text-left text-[11px] text-ink/65 transition-colors hover:border-amber-400/30 hover:bg-amber-400/5 hover:text-amber-100/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {p}
@@ -509,10 +465,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
         )}
       </div>
 
-      <div
-        className="p-2.5"
-        style={{ borderTop: '1px solid var(--line)' }}
-      >
+      <div className="p-2.5" style={{ borderTop: '1px solid var(--line)' }}>
         <div className="flex items-end gap-1.5">
           <textarea
             ref={inputRef}
@@ -536,6 +489,7 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
               variant="outline"
               onClick={annulla}
               className="shrink-0 border-red-500/30 text-red-200 hover:bg-red-500/10"
+              title="Ferma"
             >
               <CircleStop className="h-3.5 w-3.5" />
             </Button>
@@ -544,12 +498,17 @@ export function BiraChat({ onClose }: BiraChatProps): React.JSX.Element {
               type="button"
               size="sm"
               onClick={() => inviaMessaggio()}
-              disabled={!input.trim() || (health ? !health.abilitato || !health.raggiungibile : false)}
+              disabled={!input.trim() || bloccato}
               className="shrink-0"
+              title="Invia"
             >
               <Send className="h-3.5 w-3.5" />
             </Button>
           )}
+        </div>
+        <div className="mt-1.5 flex items-center gap-1 text-[10px] text-ink/35">
+          <Lock className="h-2.5 w-2.5 shrink-0" />
+          <span>I dati dei tuoi clienti restano sul PC: Bira li vede solo come codici.</span>
         </div>
       </div>
     </div>

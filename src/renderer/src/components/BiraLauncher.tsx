@@ -5,19 +5,6 @@ import { cn } from '@/lib/utils'
 
 export function BiraLauncher(): React.JSX.Element {
   const [aperto, setAperto] = useState(false)
-  const [aiAbilitata, setAiAbilitata] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const h = await window.api.ai.health()
-        setAiAbilitata(h.abilitato)
-      } catch {
-        setAiAbilitata(true)
-      }
-    })()
-  }, [])
-
   useEffect(() => {
     if (!aperto) return
     const onKey = (e: KeyboardEvent): void => {
@@ -27,8 +14,8 @@ export function BiraLauncher(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey)
   }, [aperto])
 
-  // Nella demo il pulsante resta visibile: Bira spiega che non è disponibile.
-  if (!__DEMO_MODE__ && aiAbilitata === false) return <></>
+  // Sempre visibile: senza chiave la chat spiega come attivare Bira; nella demo
+  // spiega che non è disponibile.
 
   return (
     <>
@@ -38,9 +25,7 @@ export function BiraLauncher(): React.JSX.Element {
           onClick={() => setAperto((v) => !v)}
           className={cn(
             'group relative flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left transition-all',
-            aperto
-              ? 'text-amber-300'
-              : 'text-ink/60 hover:bg-ink/[0.04] hover:text-amber-200'
+            aperto ? 'text-amber-300' : 'text-ink/60 hover:bg-ink/[0.04] hover:text-amber-200'
           )}
           style={
             aperto
@@ -62,9 +47,7 @@ export function BiraLauncher(): React.JSX.Element {
             style={{
               background:
                 'radial-gradient(circle at 30% 30%, rgba(232,160,32,0.55), rgba(232,160,32,0.15) 70%)',
-              boxShadow: aperto
-                ? '0 0 12px rgba(232,160,32,0.35)'
-                : '0 0 0 rgba(232,160,32,0)'
+              boxShadow: aperto ? '0 0 12px rgba(232,160,32,0.35)' : '0 0 0 rgba(232,160,32,0)'
             }}
           >
             <Sparkles className="h-3.5 w-3.5 text-amber-100" />
@@ -84,11 +67,7 @@ export function BiraLauncher(): React.JSX.Element {
 
       {aperto && (
         <>
-          <div
-            className="fixed inset-0 z-40"
-            onClick={() => setAperto(false)}
-            aria-hidden
-          />
+          <div className="fixed inset-0 z-40" onClick={() => setAperto(false)} aria-hidden />
           <div
             className="fixed bottom-4 left-4 z-50 flex flex-col rounded-xl shadow-2xl"
             style={{
