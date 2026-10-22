@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Sparkles, Wheat } from 'lucide-react'
+import { Eye, EyeOff, Lock, Plus, RefreshCw, Sparkles, Wheat } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { categoriaVisibile, ordinaCategorie, titoloCategoria } from '@/lib/impostazioni'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
 import { useAgricolo } from '@/components/agricolo/contesto'
@@ -38,26 +39,20 @@ type IngredienteBozza = { materia_prima_id: number; quantita: number; note: stri
 const tabs: { id: TabId; label: string; icon?: typeof Sparkles }[] = [
   { id: 'identita', label: 'Identita birrificio' },
   { id: 'parametri', label: 'Parametri' },
-  { id: 'assistente', label: 'Assistente AI', icon: Sparkles },
+  { id: 'assistente', label: 'Bira', icon: Sparkles },
   { id: 'birre', label: 'Birre e ricette' },
   { id: 'sicurezza', label: 'Sicurezza' },
   { id: 'backup', label: 'Backup' }
 ]
 
-const CAT_ASSISTENTE = 'assistente_ai'
-/** Categorie gestite da schermate dedicate, non dall'elenco generico dei parametri. */
-const CAT_MODULI = 'moduli'
-const CAT_AGRICOLO = 'agricolo'
+const CHIAVE_BIRA = 'ai_groq_api_key'
 
-function groupByCategoria(
-  items: ConfigRiga[],
-  options?: { escludiCategorie?: string[] }
-): Map<string, ConfigRiga[]> {
-  const skip = new Set(options?.escludiCategorie ?? [])
+/** Parametri visibili al cliente raggruppati per categoria (vedi lib/impostazioni). */
+function groupByCategoria(items: ConfigRiga[]): Map<string, ConfigRiga[]> {
   const m = new Map<string, ConfigRiga[]>()
   for (const c of items) {
-    if (c.categoria && skip.has(c.categoria)) continue
-    const key = c.categoria || 'Altro'
+    const key = c.categoria || 'altro'
+    if (!categoriaVisibile(key)) continue
     const list = m.get(key) ?? []
     list.push(c)
     m.set(key, list)
@@ -71,7 +66,11 @@ export default function Impostazioni(): React.JSX.Element {
   const tabsVisibili = useMemo(() => {
     if (!agricolo.attivo) return tabs
     const i = tabs.findIndex((t) => t.id === 'birre')
-    return [...tabs.slice(0, i + 1), { id: 'agricolo' as const, label: 'Modulo agricolo', icon: Wheat }, ...tabs.slice(i + 1)]
+    return [
+      ...tabs.slice(0, i + 1),
+      { id: 'agricolo' as const, label: 'Modulo agricolo', icon: Wheat },
+      ...tabs.slice(i + 1)
+    ]
   }, [agricolo.attivo])
   const [moduloInSalvataggio, setModuloInSalvataggio] = useState(false)
   const [config, setConfig] = useState<ConfigRiga[]>([])
@@ -223,19 +222,15 @@ export default function Impostazioni(): React.JSX.Element {
     void caricaConfig()
   }, [tab, caricaConfig])
 
-  const caricaAiHealth = useCallback(async () => {
+  const caricaAiHealth = useCallback(async (forza = false) => {
     setAiHealthLoad(true)
     try {
-      setAiHealth(await window.api.ai.health())
-    } catch (e) {
+      setAiHealth(await window.api.ai.health({ forza }))
+    } catch {
       setAiHealth({
-        abilitato: true,
-        provider: 'groq',
-        url: '',
-        modello: '',
-        remoto: true,
-        raggiungibile: false,
-        errore: e instanceof Error ? e.message : 'Impossibile contattare l’assistente'
+        stato: 'non_raggiungibile',
+        modello: null,
+        messaggio: 'Non riesco a verificare Bira in questo momento.'
       })
     } finally {
       setAiHealthLoad(false)
@@ -258,16 +253,13 @@ export default function Impostazioni(): React.JSX.Element {
     }
   }, [])
 
-  const ricaricaRicetta = useCallback(
-    async (birraId: number) => {
-      try {
-        setRicetta(await window.api.impostazioni.ricetta(birraId))
-      } catch {
-        setRicetta([])
-      }
-    },
-    []
-  )
+  const ricaricaRicetta = useCallback(async (birraId: number) => {
+    try {
+      setRicetta(await window.api.impostazioni.ricetta(birraId))
+    } catch {
+      setRicetta([])
+    }
+  }, [])
 
   useEffect(() => {
     if (selezionata) {
@@ -288,18 +280,37 @@ export default function Impostazioni(): React.JSX.Element {
   const birreAttive = useMemo(() => birre.filter((b) => b.attiva === 1), [birre])
   const birreInattive = useMemo(() => birre.filter((b) => b.attiva === 0), [birre])
 
-  const groupedParametri = useMemo(
-    () => groupByCategoria(config, { escludiCategorie: [CAT_ASSISTENTE, CAT_MODULI, CAT_AGRICOLO] }),
-    [config]
-  )
+  const groupedParametri = useMemo(() => groupByCategoria(config), [config])
 
-  // Configurazione a prova di errore: esponiamo SOLO la API key Groq.
-  // Provider, URL e modello sono fissi lato backend (vedi agent.ts), cosi'
-  // l'utente non puo' sbagliare campo.
-  const righeAssistente = useMemo(
-    () => config.filter((c) => c.chiave === 'ai_groq_api_key'),
+  const rigaChiaveBira = useMemo(() => config.find((c) => c.chiave === CHIAVE_BIRA), [config])
+  const rigaNumeroBackup = useMemo(
+    () => config.find((c) => c.chiave === 'backup_numero_da_mantenere'),
     [config]
   )
+  const [chiaveVisibile, setChiaveVisibile] = useState(false)
+
+  const salvaChiaveBira = async (): Promise<void> => {
+    if (!rigaChiaveBira) return
+    setSavingKey(CHIAVE_BIRA)
+    setErrParam(null)
+    try {
+      const v = (valori[CHIAVE_BIRA] ?? rigaChiaveBira.valore).trim()
+      await window.api.impostazioni.aggiorna(CHIAVE_BIRA, v)
+      setValori((prev) => ({ ...prev, [CHIAVE_BIRA]: v }))
+      await caricaConfig()
+      if (v) void caricaAiHealth(true)
+      else
+        setAiHealth({
+          stato: 'da_configurare',
+          modello: null,
+          messaggio: 'Inserisci la chiave di Bira.'
+        })
+    } catch (e) {
+      setErrParam(e instanceof Error ? e.message : 'Salvataggio non riuscito')
+    } finally {
+      setSavingKey(null)
+    }
+  }
 
   const salvaParam = async (r: ConfigRiga) => {
     setSavingKey(r.chiave)
@@ -308,9 +319,6 @@ export default function Impostazioni(): React.JSX.Element {
       const v = valori[r.chiave] ?? r.valore
       await window.api.impostazioni.aggiorna(r.chiave, v)
       await caricaConfig()
-      if (r.categoria === CAT_ASSISTENTE && tab === 'assistente') {
-        void caricaAiHealth()
-      }
     } catch (e) {
       setErrParam(e instanceof Error ? e.message : 'Salvataggio non riuscito')
     } finally {
@@ -344,7 +352,10 @@ export default function Impostazioni(): React.JSX.Element {
     setErrBirre(null)
     try {
       const r = await window.api.birre.disattiva(id)
-      if (!r.ok) { setErrBirre(r.errore); return }
+      if (!r.ok) {
+        setErrBirre(r.errore)
+        return
+      }
       if (selezionata?.id === id) setSelezionata(null)
       await caricaBirre()
     } catch (e) {
@@ -358,7 +369,10 @@ export default function Impostazioni(): React.JSX.Element {
     setErrRiattiva(null)
     try {
       const r = await window.api.birre.riattiva(id)
-      if (!r.ok) { setErrRiattiva({ id, msg: r.errore }); return }
+      if (!r.ok) {
+        setErrRiattiva({ id, msg: r.errore })
+        return
+      }
       await caricaBirre()
     } catch (e) {
       setErrRiattiva({ id, msg: e instanceof Error ? e.message : 'Errore riattivazione' })
@@ -383,7 +397,11 @@ export default function Impostazioni(): React.JSX.Element {
     if (!selezionata) return
     setBozzaIng(
       ricetta.length > 0
-        ? ricetta.map((r) => ({ materia_prima_id: r.materia_prima_id, quantita: r.quantita, note: r.note ?? '' }))
+        ? ricetta.map((r) => ({
+            materia_prima_id: r.materia_prima_id,
+            quantita: r.quantita,
+            note: r.note ?? ''
+          }))
         : [{ materia_prima_id: 0, quantita: 0, note: '' }]
     )
     setRicettaAperta(true)
@@ -394,7 +412,11 @@ export default function Impostazioni(): React.JSX.Element {
     setErrVersioni(null)
     try {
       const r = await window.api.ricette.archivia(v.id)
-      if (!r.ok) { setErrVersioni(r.errore); setConfermaArchivia(null); return }
+      if (!r.ok) {
+        setErrVersioni(r.errore)
+        setConfermaArchivia(null)
+        return
+      }
       setConfermaArchivia(null)
       await ricaricaRicetta(selezionata.id)
       await caricaVersioni(selezionata.id)
@@ -409,7 +431,10 @@ export default function Impostazioni(): React.JSX.Element {
     setErrVersioni(null)
     try {
       const r = await window.api.ricette.disarchivia(v.id)
-      if (!r.ok) { setErrVersioni(r.errore); return }
+      if (!r.ok) {
+        setErrVersioni(r.errore)
+        return
+      }
       await caricaVersioni(selezionata.id)
     } catch (e) {
       setErrVersioni(e instanceof Error ? e.message : 'Errore ripristino')
@@ -423,7 +448,11 @@ export default function Impostazioni(): React.JSX.Element {
     try {
       const ingredienti = bozzaIng
         .filter((b) => b.materia_prima_id > 0 && b.quantita > 0)
-        .map((b) => ({ materia_prima_id: b.materia_prima_id, quantita: b.quantita, note: b.note || null }))
+        .map((b) => ({
+          materia_prima_id: b.materia_prima_id,
+          quantita: b.quantita,
+          note: b.note || null
+        }))
       if (ingredienti.length === 0) {
         setErrBirre('Inserire almeno un ingrediente con quantità maggiore di 0')
         return
@@ -489,7 +518,9 @@ export default function Impostazioni(): React.JSX.Element {
       const sel = await window.api.backup.selezionaFileRipristino()
       if (!sel.ok) return
       if (
-        !window.confirm("Il database attuale verrà sostituito. Dopo il ripristino devi riavviare l'applicazione. Procedere?")
+        !window.confirm(
+          "Il database attuale verrà sostituito. Dopo il ripristino devi riavviare l'applicazione. Procedere?"
+        )
       ) {
         return
       }
@@ -540,7 +571,10 @@ export default function Impostazioni(): React.JSX.Element {
     }
     setSavingPw(true)
     try {
-      const r = await window.api.impostazioni.cambiaPassword({ password_attuale: pwAtt, password_nuova: pwNu })
+      const r = await window.api.impostazioni.cambiaPassword({
+        password_attuale: pwAtt,
+        password_nuova: pwNu
+      })
       if (r.ok) {
         setOkPw(true)
         setPwAtt('')
@@ -568,7 +602,9 @@ export default function Impostazioni(): React.JSX.Element {
               onClick={() => setTab(t.id)}
               className={cn(
                 'inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-sm font-medium',
-                tab === t.id ? 'bg-secondary text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+                tab === t.id
+                  ? 'bg-secondary text-foreground shadow'
+                  : 'text-muted-foreground hover:text-foreground'
               )}
             >
               {Icon ? <Icon className="h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden /> : null}
@@ -582,13 +618,15 @@ export default function Impostazioni(): React.JSX.Element {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle style={{ fontSize: '1rem', fontWeight: 600 }}>Identita birrificio</CardTitle>
+              <CardTitle style={{ fontSize: '1rem', fontWeight: 600 }}>
+                Identita birrificio
+              </CardTitle>
               <CardDescription>Informazioni base del tuo birrificio</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {config
-                .filter(c => c.chiave === 'nome_birrificio' || c.chiave === 'nome_titolare')
-                .map(c => (
+                .filter((c) => c.chiave === 'nome_birrificio' || c.chiave === 'nome_titolare')
+                .map((c) => (
                   <div key={c.chiave} className="flex items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground">{c.etichetta}</p>
@@ -596,9 +634,13 @@ export default function Impostazioni(): React.JSX.Element {
                     <div className="flex items-center gap-2">
                       <Input
                         value={valori[c.chiave] ?? c.valore}
-                        onChange={e => setValori(prev => ({ ...prev, [c.chiave]: e.target.value }))}
+                        onChange={(e) =>
+                          setValori((prev) => ({ ...prev, [c.chiave]: e.target.value }))
+                        }
                         className="h-8 w-64 text-sm"
-                        placeholder={c.chiave === 'nome_birrificio' ? 'Nome birrificio' : 'Nome titolare'}
+                        placeholder={
+                          c.chiave === 'nome_birrificio' ? 'Nome birrificio' : 'Nome titolare'
+                        }
                       />
                       <Button
                         size="sm"
@@ -610,8 +652,8 @@ export default function Impostazioni(): React.JSX.Element {
                           setSavingKey(c.chiave)
                           try {
                             await window.api.impostazioni.aggiorna(c.chiave, valore)
-                            setConfig(prev =>
-                              prev.map(x => (x.chiave === c.chiave ? { ...x, valore } : x))
+                            setConfig((prev) =>
+                              prev.map((x) => (x.chiave === c.chiave ? { ...x, valore } : x))
                             )
                           } catch {
                             setErrParam('Errore salvataggio')
@@ -711,7 +753,12 @@ export default function Impostazioni(): React.JSX.Element {
                 >
                   Annulla
                 </Button>
-                <Button onClick={() => { void handleCambiaLicenza() }} disabled={savingLicenza}>
+                <Button
+                  onClick={() => {
+                    void handleCambiaLicenza()
+                  }}
+                  disabled={savingLicenza}
+                >
                   {savingLicenza ? '...' : 'Attiva'}
                 </Button>
               </DialogFooter>
@@ -731,16 +778,20 @@ export default function Impostazioni(): React.JSX.Element {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Moduli aggiuntivi</CardTitle>
-                <CardDescription>Funzioni facoltative, da attivare solo se ti servono.</CardDescription>
+                <CardDescription>
+                  Funzioni facoltative, da attivare solo se ti servono.
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">Filiera agricola (campo → malto)</p>
+                    <p className="text-sm font-medium text-foreground">
+                      Filiera agricola (campo → malto)
+                    </p>
                     <p className="mt-0.5 text-sm text-muted-foreground">
-                      Per i birrifici agricoli: campi e semine, concimazioni e trattamenti, raccolte, analisi e
-                      calibratura dell&apos;orzo, maltazione e tracciabilità dal campo alla bottiglia. Spegnendolo
-                      i dati restano salvati, solo nascosti.
+                      Per i birrifici agricoli: campi e semine, concimazioni e trattamenti,
+                      raccolte, analisi e calibratura dell&apos;orzo, maltazione e tracciabilità dal
+                      campo alla bottiglia. Spegnendolo i dati restano salvati, solo nascosti.
                     </p>
                   </div>
                   <Switch
@@ -753,12 +804,12 @@ export default function Impostazioni(): React.JSX.Element {
               </CardContent>
             </Card>
           )}
-          {[...groupedParametri.entries()]
-            .sort((a, b) => a[0].localeCompare(b[0]))
+          {ordinaCategorie([...groupedParametri.keys()])
+            .map((categoria) => [categoria, groupedParametri.get(categoria) ?? []] as const)
             .map(([categoria, righe]) => (
               <Card key={categoria}>
                 <CardHeader>
-                  <CardTitle className="text-base">{categoria}</CardTitle>
+                  <CardTitle className="text-base">{titoloCategoria(categoria)}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {righe.map((r) => {
@@ -771,9 +822,7 @@ export default function Impostazioni(): React.JSX.Element {
                         className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4"
                       >
                         <div className="min-w-0 flex-1">
-                          <Label htmlFor={`v-${r.chiave}`}>
-                            {r.etichetta || r.chiave}
-                          </Label>
+                          <Label htmlFor={`v-${r.chiave}`}>{r.etichetta || r.chiave}</Label>
                           <Input
                             id={`v-${r.chiave}`}
                             type={inputType}
@@ -827,101 +876,172 @@ export default function Impostazioni(): React.JSX.Element {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Assistente Bira</CardTitle>
+              <CardTitle className="text-base">Bira, il tuo assistente</CardTitle>
               <CardDescription>
-                Per attivare Bira inserisci la tua API key Groq qui sotto. La ottieni
-                gratis su console.groq.com/keys. Una volta salvata, Bira è pronto: non
-                serve altro.
+                Risponde alle domande sui dati del birrificio (magazzino, ricette, cotte, vendite,
+                avvisi{agricolo.attivo ? ', filiera agricola' : ''}) e spiega come si usa Fermento.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {aiHealthLoad && (
-                <p className="text-sm text-muted-foreground" role="status">
-                  Verifica connessione…
-                </p>
-              )}
-              {!aiHealthLoad && aiHealth && (() => {
+              {(() => {
                 const h = aiHealth
-                const pronto = h.abilitato && h.raggiungibile
-                const titolo = !h.abilitato
-                  ? 'Da configurare'
-                  : h.raggiungibile
-                    ? 'Pronto'
-                    : 'Non raggiungibile'
-                const sottotesto = h.errore
-                  ?? (pronto
-                    ? `Online · ${h.modello || 'modello sconosciuto'}`
-                    : !h.abilitato
-                      ? 'Inserisci la API key Groq qui sotto.'
-                      : 'Verifica la API key e la connessione a internet.')
+                const pronto = h?.stato === 'pronto'
+                const titolo = aiHealthLoad
+                  ? 'Verifica in corso…'
+                  : !h
+                    ? ''
+                    : h.stato === 'pronto'
+                      ? 'Pronto'
+                      : h.stato === 'da_configurare'
+                        ? 'Da attivare'
+                        : h.stato === 'chiave_non_valida'
+                          ? 'Chiave non valida'
+                          : h.stato === 'nessun_modello'
+                            ? 'Non disponibile'
+                            : 'Non raggiungibile'
                 return (
                   <div
                     className={cn(
-                      'mb-4 rounded-md border px-3 py-2 text-sm',
-                      pronto
-                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
-                        : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
+                      'flex flex-wrap items-center justify-between gap-3 rounded-md border px-3 py-2 text-sm',
+                      aiHealthLoad
+                        ? 'border-border bg-secondary/30 text-muted-foreground'
+                        : pronto
+                          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                          : 'border-amber-500/30 bg-amber-500/10 text-amber-200'
                     )}
                     role="status"
                   >
-                    <span className="font-medium">{titolo}</span>
-                    <span className="text-foreground/80"> — {sottotesto}</span>
-                    {pronto && (
-                      <div className="mt-1 text-xs text-foreground/60">
-                        Groq · cloud
-                      </div>
-                    )}
+                    <div className="min-w-0">
+                      <span className="font-medium">{titolo}</span>
+                      {!aiHealthLoad && h && (
+                        <span className="text-foreground/80"> — {h.messaggio}</span>
+                      )}
+                      {!aiHealthLoad && h?.modello && (
+                        <div className="mt-0.5 text-xs text-foreground/50">
+                          Modello in uso: {h.modello}
+                        </div>
+                      )}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={aiHealthLoad || !rigaChiaveBira?.valore}
+                      onClick={() => void caricaAiHealth(true)}
+                    >
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Prova Bira
+                    </Button>
                   </div>
                 )
               })()}
             </CardContent>
           </Card>
 
-          {righeAssistente.length === 0 && (
-            <p className="text-sm text-muted-foreground">Campo API key non trovato in database (controlla la migrazione).</p>
-          )}
-
-          {righeAssistente.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">API key Groq</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {righeAssistente.map((r) => {
-                  const isInt = r.tipo === 'int' || r.tipo === 'number'
-                  const isPassword = r.tipo === 'password' || r.tipo === 'secret'
-                  const inputType = isInt ? 'number' : isPassword ? 'password' : 'text'
-                  return (
-                    <div
-                      key={r.id}
-                      className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-4"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <Label htmlFor={`a-${r.chiave}`}>{r.etichetta || r.chiave}</Label>
-                        <Input
-                          id={`a-${r.chiave}`}
-                          type={inputType}
-                          className="mt-1"
-                          autoComplete={isPassword ? 'new-password' : undefined}
-                          placeholder={isPassword ? '••••••••••••••••' : undefined}
-                          value={valori[r.chiave] ?? r.valore}
-                          onChange={(e) => setValori((prev) => ({ ...prev, [r.chiave]: e.target.value }))}
-                        />
-                      </div>
-                      <Button
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Chiave di Bira</CardTitle>
+              <CardDescription>
+                Incolla qui la chiave e premi Salva: Bira viene provato subito.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {!rigaChiaveBira ? (
+                <p className="text-sm text-muted-foreground">
+                  Impostazione della chiave non trovata: riavvia Fermento.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <Label htmlFor="chiave-bira">Chiave</Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="chiave-bira"
+                        type={chiaveVisibile ? 'text' : 'password'}
+                        autoComplete="off"
+                        spellCheck={false}
+                        placeholder="gsk_…"
+                        className="pr-9 font-mono"
+                        value={valori[CHIAVE_BIRA] ?? rigaChiaveBira.valore}
+                        onChange={(e) =>
+                          setValori((prev) => ({ ...prev, [CHIAVE_BIRA]: e.target.value }))
+                        }
+                      />
+                      <button
                         type="button"
-                        className="shrink-0"
-                        disabled={savingKey === r.chiave}
-                        onClick={() => void salvaParam(r)}
+                        onClick={() => setChiaveVisibile((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        title={chiaveVisibile ? 'Nascondi la chiave' : 'Mostra la chiave'}
+                        aria-label={chiaveVisibile ? 'Nascondi la chiave' : 'Mostra la chiave'}
                       >
-                        {savingKey === r.chiave ? 'Salva…' : 'Salva'}
-                      </Button>
+                        {chiaveVisibile ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
-          )}
+                  </div>
+                  <Button
+                    type="button"
+                    className="shrink-0"
+                    disabled={savingKey === CHIAVE_BIRA}
+                    onClick={() => void salvaChiaveBira()}
+                  >
+                    {savingKey === CHIAVE_BIRA ? 'Salvo…' : 'Salva'}
+                  </Button>
+                </div>
+              )}
+              {(() => {
+                const v = (valori[CHIAVE_BIRA] ?? rigaChiaveBira?.valore ?? '').trim()
+                return v && !v.startsWith('gsk_') ? (
+                  <p className="text-xs text-amber-300">
+                    Le chiavi di Bira iniziano con «gsk_»: controlla di averla copiata per intero.
+                  </p>
+                ) : null
+              })()}
+              <details className="rounded-md border border-border bg-secondary/20 px-3 py-2 text-sm">
+                <summary className="cursor-pointer text-muted-foreground">
+                  Come ottenere una chiave gratuita
+                </summary>
+                <ol className="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
+                  <li>
+                    Vai su console.groq.com e crea un account gratuito (basta un indirizzo email).
+                  </li>
+                  <li>Apri «API Keys» e premi «Create API Key».</li>
+                  <li>Copia la chiave (inizia con gsk_) e incollala qui sopra.</li>
+                </ol>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Ogni birrificio usa la sua chiave: i limiti del servizio gratuito valgono per
+                  account.
+                </p>
+              </details>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Lock className="h-4 w-4" /> Privacy
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 text-sm sm:grid-cols-2">
+              <div>
+                <p className="font-medium text-foreground">Cosa vede Bira</p>
+                <p className="mt-1 text-muted-foreground">
+                  I dati di lavoro: magazzino, ricette, cotte, vendite e avvisi
+                  {agricolo.attivo ? ', filiera agricola' : ''}. Bira legge soltanto: non può
+                  modificare nulla.
+                </p>
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Cosa resta sul PC</p>
+                <p className="mt-1 text-muted-foreground">
+                  I nomi di clienti e fornitori (Bira li vede solo come codici), i loro contatti,
+                  partite IVA, indirizzi e note: non escono mai dal computer.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 
@@ -998,7 +1118,8 @@ export default function Impostazioni(): React.JSX.Element {
                             <div
                               className={cn(
                                 'flex w-full items-center gap-2 rounded border border-border/50 px-3 py-2 text-sm opacity-75',
-                                selezionata?.id === b.id && 'opacity-100 border-primary bg-secondary'
+                                selezionata?.id === b.id &&
+                                  'opacity-100 border-primary bg-secondary'
                               )}
                             >
                               <button
@@ -1015,7 +1136,10 @@ export default function Impostazioni(): React.JSX.Element {
                                 size="sm"
                                 variant="outline"
                                 className="shrink-0 text-xs"
-                                onClick={() => { setErrRiattiva(null); void handleRiattiva(b.id) }}
+                                onClick={() => {
+                                  setErrRiattiva(null)
+                                  void handleRiattiva(b.id)
+                                }}
                               >
                                 Riattiva
                               </Button>
@@ -1070,33 +1194,41 @@ export default function Impostazioni(): React.JSX.Element {
                   <div>
                     <h4 className="mb-2 text-sm font-medium text-foreground">Versioni ricetta</h4>
                     {errVersioni && (
-                      <p className="mb-2 text-xs text-destructive" role="alert">{errVersioni}</p>
+                      <p className="mb-2 text-xs text-destructive" role="alert">
+                        {errVersioni}
+                      </p>
                     )}
                     <div className="mb-2 space-y-1">
-                      {versioni.filter((v) => v.archiviata === 0).map((v) => (
-                        <div
-                          key={v.id}
-                          className="flex items-center gap-2 rounded border px-3 py-1.5 text-sm"
-                        >
-                          <span className="flex-1 font-medium text-foreground">v{v.versione}</span>
-                          {v.attiva === 1 && (
-                            <Badge variant="default" className="shrink-0 text-xs">
-                              ATTIVA
-                            </Badge>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="shrink-0 text-xs"
-                            onClick={() => setConfermaArchivia(v)}
-                            disabled={versioni.filter((x) => x.archiviata === 0).length <= 1}
+                      {versioni
+                        .filter((v) => v.archiviata === 0)
+                        .map((v) => (
+                          <div
+                            key={v.id}
+                            className="flex items-center gap-2 rounded border px-3 py-1.5 text-sm"
                           >
-                            Archivia
-                          </Button>
-                        </div>
-                      ))}
+                            <span className="flex-1 font-medium text-foreground">
+                              v{v.versione}
+                            </span>
+                            {v.attiva === 1 && (
+                              <Badge variant="default" className="shrink-0 text-xs">
+                                ATTIVA
+                              </Badge>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="shrink-0 text-xs"
+                              onClick={() => setConfermaArchivia(v)}
+                              disabled={versioni.filter((x) => x.archiviata === 0).length <= 1}
+                            >
+                              Archivia
+                            </Button>
+                          </div>
+                        ))}
                       {versioni.filter((v) => v.archiviata === 0).length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nessuna versione disponibile</p>
+                        <p className="text-xs text-muted-foreground">
+                          Nessuna versione disponibile
+                        </p>
                       )}
                     </div>
                     <button
@@ -1110,27 +1242,31 @@ export default function Impostazioni(): React.JSX.Element {
                     {mostraArchiviate && (
                       <div className="mb-2 space-y-1">
                         {versioni.filter((v) => v.archiviata === 1).length === 0 ? (
-                          <p className="text-xs text-muted-foreground py-1">Nessuna versione archiviata</p>
+                          <p className="text-xs text-muted-foreground py-1">
+                            Nessuna versione archiviata
+                          </p>
                         ) : (
-                          versioni.filter((v) => v.archiviata === 1).map((v) => (
-                            <div
-                              key={v.id}
-                              className="flex items-center gap-2 rounded border border-border/50 px-3 py-1.5 text-sm opacity-60"
-                            >
-                              <span className="flex-1 text-muted-foreground">v{v.versione}</span>
-                              <Badge variant="secondary" className="shrink-0 text-xs">
-                                archiviata
-                              </Badge>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="shrink-0 text-xs"
-                                onClick={() => void handleRipristinaRicetta(v)}
+                          versioni
+                            .filter((v) => v.archiviata === 1)
+                            .map((v) => (
+                              <div
+                                key={v.id}
+                                className="flex items-center gap-2 rounded border border-border/50 px-3 py-1.5 text-sm opacity-60"
                               >
-                                Ripristina
-                              </Button>
-                            </div>
-                          ))
+                                <span className="flex-1 text-muted-foreground">v{v.versione}</span>
+                                <Badge variant="secondary" className="shrink-0 text-xs">
+                                  archiviata
+                                </Badge>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="shrink-0 text-xs"
+                                  onClick={() => void handleRipristinaRicetta(v)}
+                                >
+                                  Ripristina
+                                </Button>
+                              </div>
+                            ))
                         )}
                       </div>
                     )}
@@ -1177,7 +1313,12 @@ export default function Impostazioni(): React.JSX.Element {
             )}
           </div>
 
-          <Dialog open={!!confermaDis} onOpenChange={(open) => { if (!open) setConfermaDis(null) }}>
+          <Dialog
+            open={!!confermaDis}
+            onOpenChange={(open) => {
+              if (!open) setConfermaDis(null)
+            }}
+          >
             <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
               <DialogHeader>
                 <DialogTitle>Disattivare birra?</DialogTitle>
@@ -1193,7 +1334,9 @@ export default function Impostazioni(): React.JSX.Element {
                 </Button>
                 <Button
                   className="bg-red-600 text-white hover:bg-red-700"
-                  onClick={() => { if (confermaDis) void handleDisattiva(confermaDis.id) }}
+                  onClick={() => {
+                    if (confermaDis) void handleDisattiva(confermaDis.id)
+                  }}
                 >
                   Disattiva
                 </Button>
@@ -1205,7 +1348,9 @@ export default function Impostazioni(): React.JSX.Element {
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nuova birra</DialogTitle>
-                <DialogDescription>Crea un nuovo profilo e una ricetta vuota (v1).</DialogDescription>
+                <DialogDescription>
+                  Crea un nuovo profilo e una ricetta vuota (v1).
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <div>
@@ -1237,7 +1382,11 @@ export default function Impostazioni(): React.JSX.Element {
                 <Button type="button" variant="outline" onClick={() => setNuovaAperta(false)}>
                   Annulla
                 </Button>
-                <Button type="button" disabled={!nuovaForm.nome.trim()} onClick={() => void creaBirra()}>
+                <Button
+                  type="button"
+                  disabled={!nuovaForm.nome.trim()}
+                  onClick={() => void creaBirra()}
+                >
                   Crea
                 </Button>
               </DialogFooter>
@@ -1246,7 +1395,9 @@ export default function Impostazioni(): React.JSX.Element {
 
           <Dialog
             open={!!confermaArchivia}
-            onOpenChange={(open) => { if (!open) setConfermaArchivia(null) }}
+            onOpenChange={(open) => {
+              if (!open) setConfermaArchivia(null)
+            }}
           >
             <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
               <DialogHeader>
@@ -1262,7 +1413,9 @@ export default function Impostazioni(): React.JSX.Element {
                   Annulla
                 </Button>
                 <Button
-                  onClick={() => { if (confermaArchivia) void handleArchiviaRicetta(confermaArchivia) }}
+                  onClick={() => {
+                    if (confermaArchivia) void handleArchiviaRicetta(confermaArchivia)
+                  }}
                 >
                   Archivia
                 </Button>
@@ -1274,7 +1427,10 @@ export default function Impostazioni(): React.JSX.Element {
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Modifica ricetta</DialogTitle>
-                <DialogDescription>Salvando, viene creata una nuova versione; la vecchia resta in archivio (non attiva).</DialogDescription>
+                <DialogDescription>
+                  Salvando, viene creata una nuova versione; la vecchia resta in archivio (non
+                  attiva).
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-2">
                 {bozzaIng.map((b, idx) => (
@@ -1286,17 +1442,24 @@ export default function Impostazioni(): React.JSX.Element {
                         value={b.materia_prima_id}
                         onChange={(e) => {
                           const n = parseInt(e.target.value, 10) || 0
-                          setBozzaIng((p) => p.map((r, j) => (j === idx ? { ...r, materia_prima_id: n } : r)))
+                          setBozzaIng((p) =>
+                            p.map((r, j) => (j === idx ? { ...r, materia_prima_id: n } : r))
+                          )
                         }}
                       >
                         <option value={0}>Scegli…</option>
                         {materie
-                          .filter((m) => !isCategoriaInputAgricolo(m.categoria) || m.id === b.materia_prima_id)
+                          .filter(
+                            (m) =>
+                              !isCategoriaInputAgricolo(m.categoria) || m.id === b.materia_prima_id
+                          )
                           .map((m) => (
                             <option key={m.id} value={m.id}>
                               {m.nome} —{' '}
-                              {isCategoriaMpAgricola(m.categoria) ? etichettaCategoria(m.categoria) : m.categoria} (
-                              {m.unita_misura})
+                              {isCategoriaMpAgricola(m.categoria)
+                                ? etichettaCategoria(m.categoria)
+                                : m.categoria}{' '}
+                              ({m.unita_misura})
                             </option>
                           ))}
                       </select>
@@ -1310,7 +1473,9 @@ export default function Impostazioni(): React.JSX.Element {
                           value={b.quantita || ''}
                           onChange={(e) => {
                             const n = parseFloat(e.target.value) || 0
-                            setBozzaIng((p) => p.map((r, j) => (j === idx ? { ...r, quantita: n } : r)))
+                            setBozzaIng((p) =>
+                              p.map((r, j) => (j === idx ? { ...r, quantita: n } : r))
+                            )
                           }}
                         />
                         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-muted-foreground">
@@ -1324,7 +1489,9 @@ export default function Impostazioni(): React.JSX.Element {
                         className="mt-1"
                         value={b.note}
                         onChange={(e) =>
-                          setBozzaIng((p) => p.map((r, j) => (j === idx ? { ...r, note: e.target.value } : r)))
+                          setBozzaIng((p) =>
+                            p.map((r, j) => (j === idx ? { ...r, note: e.target.value } : r))
+                          )
                         }
                       />
                     </div>
@@ -1351,7 +1518,11 @@ export default function Impostazioni(): React.JSX.Element {
                 <Button type="button" variant="outline" onClick={() => setRicettaAperta(false)}>
                   Annulla
                 </Button>
-                <Button type="button" disabled={savingRicetta} onClick={() => void salvaRicettaFn()}>
+                <Button
+                  type="button"
+                  disabled={savingRicetta}
+                  onClick={() => void salvaRicettaFn()}
+                >
                   {savingRicetta ? 'Salva…' : 'Salva ricetta'}
                 </Button>
               </DialogFooter>
@@ -1365,7 +1536,9 @@ export default function Impostazioni(): React.JSX.Element {
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Configurazione destinazione</CardTitle>
-              <CardDescription>Cartella per i file <code>fermento_backup_*.db</code></CardDescription>
+              <CardDescription>
+                Cartella per i file <code>fermento_backup_*.db</code>
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {!percorsoBackupConfig && (
@@ -1386,10 +1559,48 @@ export default function Impostazioni(): React.JSX.Element {
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => void onSelezionaCartellaBackup()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void onSelezionaCartellaBackup()}
+                >
                   Seleziona cartella
                 </Button>
               </div>
+              {rigaNumeroBackup && (
+                <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:items-end sm:gap-4">
+                  <div className="min-w-0 flex-1">
+                    <Label htmlFor="backup-numero">Numero di backup da conservare</Label>
+                    <Input
+                      id="backup-numero"
+                      type="number"
+                      min={1}
+                      className="mt-1"
+                      value={valori[rigaNumeroBackup.chiave] ?? rigaNumeroBackup.valore}
+                      onChange={(e) =>
+                        setValori((prev) => ({
+                          ...prev,
+                          [rigaNumeroBackup.chiave]: e.target.value
+                        }))
+                      }
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="shrink-0"
+                    disabled={savingKey === rigaNumeroBackup.chiave}
+                    onClick={() => void salvaParam(rigaNumeroBackup)}
+                  >
+                    {savingKey === rigaNumeroBackup.chiave ? 'Salvo…' : 'Salva'}
+                  </Button>
+                </div>
+              )}
+              {errParam && tab === 'backup' && (
+                <p className="text-sm text-red-400" role="alert">
+                  {errParam}
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -1398,7 +1609,11 @@ export default function Impostazioni(): React.JSX.Element {
               <CardTitle className="text-base">Azioni</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              <Button type="button" disabled={eseguendoBackup} onClick={() => void onEseguiBackupOra()}>
+              <Button
+                type="button"
+                disabled={eseguendoBackup}
+                onClick={() => void onEseguiBackupOra()}
+              >
                 {eseguendoBackup ? 'Esecuzione…' : 'Esegui backup ora'}
               </Button>
               <Button type="button" variant="outline" onClick={() => void onRipristinaBackup()}>
@@ -1453,7 +1668,9 @@ export default function Impostazioni(): React.JSX.Element {
                             return Number.isNaN(d.getTime()) ? g.data : d.toLocaleString('it-IT')
                           })()}
                         </td>
-                        <td className="p-2 text-foreground/80">{g.tipo === 'manuale' ? 'manuale' : 'automatico'}</td>
+                        <td className="p-2 text-foreground/80">
+                          {g.tipo === 'manuale' ? 'manuale' : 'automatico'}
+                        </td>
                         <td className="p-2">
                           {g.esito === 'ok' ? (
                             <span className="inline-flex rounded-full border border-emerald-500/25 bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">
@@ -1494,7 +1711,9 @@ export default function Impostazioni(): React.JSX.Element {
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Cambio password</CardTitle>
-            <CardDescription>Requisito: almeno 6 caratteri; conferma e nuova devono coincidere.</CardDescription>
+            <CardDescription>
+              Requisito: almeno 6 caratteri; conferma e nuova devono coincidere.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSubmitCambioPassword} className="space-y-3">
