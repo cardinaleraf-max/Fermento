@@ -62,7 +62,8 @@ export function analizzaMarkdown(testo: string): Blocco[] {
   }
 
   for (let i = 0; i < righe.length; i++) {
-    const riga = righe[i]
+    // Le citazioni «> testo» si mostrano come testo normale.
+    const riga = righe[i].replace(/^\s*>\s?/, '')
     if (riga.trim() === '') {
       chiudi()
       continue

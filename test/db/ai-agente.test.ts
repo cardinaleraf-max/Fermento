@@ -383,3 +383,26 @@ test('date AAAA-MM-GG rimaste nella risposta diventano gg/mm/aaaa (i codici di l
     'Ultima vendita 05/06/2026, lotto 2026-020, scade il 01/03/2027.'
   )
 })
+
+test('blocchi di codice JSON scritti dal modello non arrivano al birraio', async () => {
+  const { db } = preparato()
+  const { client } = modelloFinto([
+    {
+      message: {
+        role: 'assistant',
+        content:
+          'Apri Maltazioni.\n\n```json\n{ "sezione": "agri-maltazioni" }\n```\n\nChiedi pure!'
+      }
+    }
+  ])
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'come?' }],
+    emit: (e) => eventi.push(e)
+  })
+  const r = eventi.find((e) => e.tipo === 'risposta')
+  assert.equal(r && r.tipo === 'risposta' ? r.testo : '', 'Apri Maltazioni.\n\nChiedi pure!')
+})

@@ -68,3 +68,15 @@ test('codice HTML resta testo (nessuna interpretazione)', () => {
 test('testo vuoto: nessun blocco', () => {
   assert.deepEqual(analizzaMarkdown('  \n\n'), [])
 })
+
+test('citazioni con «>» diventano testo normale', () => {
+  assert.deepEqual(analizzaMarkdown('> Vuoi aprire la schermata?\n> Dimmi tu'), [
+    {
+      tipo: 'paragrafo',
+      righe: [
+        [{ tipo: 'testo', testo: 'Vuoi aprire la schermata?' }],
+        [{ tipo: 'testo', testo: 'Dimmi tu' }]
+      ]
+    }
+  ])
+})

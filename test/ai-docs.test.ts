@@ -95,3 +95,12 @@ test('guida: come si compila la post-essiccazione', () => {
   assert.equal(r.sezione, 'agri-maltazioni')
   assert.match(testoVoce(r), /salva parametri/)
 })
+
+test('prompt: niente filtro per stagione non richiesto, schermate proposte solo con lo strumento', () => {
+  const p = promptDiSistema({ oggi: '2026-10-22', moduloAgricolo: true, stagione: '2026/2027' })
+  assert.match(p, /non filtrare per stagione/i)
+  assert.match(
+    promptDiSistema({ oggi: '2026-10-22', moduloAgricolo: false }),
+    /mai scritta nel testo/
+  )
+})

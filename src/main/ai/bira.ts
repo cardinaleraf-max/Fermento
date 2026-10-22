@@ -87,6 +87,14 @@ function normalizzaTrattini(testo: string): string {
   return testo.replace(/[\u2010\u2011]/g, '-')
 }
 
+/** Blocchi di codice JSON (chiamate «scritte» invece che eseguite): al birraio non servono. */
+function senzaBlocchiJson(testo: string): string {
+  return testo
+    .replace(/```(?:json)?\s*[[{][\s\S]*?```/g, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 /** Date AAAA-MM-GG sfuggite al modello → gg/mm/aaaa (i codici come 2026-020 non sono date). */
 function dateItaliane(testo: string): string {
   return testo.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m, a: string, mm: string, g: string) =>
@@ -248,7 +256,9 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
       if (chiamate.length === 0) {
         const finale = (risposta.message.content || '').trim()
         const parti = [...testiIntermedi.filter((t) => t !== finale), finale].filter(Boolean)
-        const testo = dateItaliane(normalizzaTrattini(ripristina(reg, parti.join('\n\n'))))
+        const testo = senzaBlocchiJson(
+          dateItaliane(normalizzaTrattini(ripristina(reg, parti.join('\n\n'))))
+        )
         d.emit({
           tipo: 'risposta',
           testo: testo || 'Non ho trovato una risposta utile: prova a riformulare la domanda.'
