@@ -441,3 +441,37 @@ test('consigli: niente nomi ripetuti tra parentesi né intervalli di codici', as
   assert.equal(rac.azioni[0].testo, 'Ordina 5 kg di Luppolo Cascade')
   assert.doesNotMatch(rac.descrizione, new RegExp(`${CLIENTE_PUB.nome}-\\d`))
 })
+
+test('consigli: parentesi che ripetono un nome già detto vengono tolte anche se non adiacenti', async () => {
+  const { db, ids } = preparato()
+  const { client } = modelloFinto([
+    {
+      message: {
+        role: 'assistant',
+        content: JSON.stringify({
+          raccomandazioni: [
+            {
+              priorita: 'critica',
+              titolo: `Gestire MP#${ids.cascade} scaduto (MP#${ids.cascade})`,
+              descrizione: `Riordinare MP#${ids.cascade} (scorta per 2 cotte) e usarlo.`,
+              refs: [],
+              segnali_ids: [],
+              azioni: []
+            }
+          ]
+        })
+      }
+    }
+  ])
+  const r = await generaAvvisiIntelligenti(
+    db,
+    new GestoreModelli(client, { attendi: async () => {} })
+  )
+  assert.ok(r.ok)
+  if (!r.ok) return
+  assert.equal(r.raccomandazioni[0].titolo, 'Gestire Luppolo Cascade scaduto')
+  assert.equal(
+    r.raccomandazioni[0].descrizione,
+    'Riordinare Luppolo Cascade (scorta per 2 cotte) e usarlo.'
+  )
+})

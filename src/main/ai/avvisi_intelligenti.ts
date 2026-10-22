@@ -647,6 +647,17 @@ function trovaEntita(reg: Registro, alias: string): RiferimentoEntita | null {
   return { tipo, id, nome: cached.nomeReale }
 }
 
+/** «Gestire Luppolo Cascade scaduto (Luppolo Cascade)» → senza la parentesi che ripete un nome già detto. */
+function senzaParentesiRipetute(testo: string): string {
+  let out = testo
+  for (const m of testo.matchAll(/\s*\(([^()]{2,80})\)/g)) {
+    const dentro = m[1].trim()
+    const resto = out.replace(m[0], '')
+    if (resto.toLowerCase().includes(dentro.toLowerCase())) out = resto
+  }
+  return out
+}
+
 const PLURALI: Record<string, string> = {
   MP: 'più materie prime',
   BIRRA: 'più birre',
@@ -831,7 +842,7 @@ export async function generaAvvisiIntelligenti(
   }
 
   const idsValidi = new Set(ctx.avvisi.map((a) => a.id))
-  const ripristinaTesto = (t: string): string => ripristina(soggetti, t)
+  const ripristinaTesto = (t: string): string => senzaParentesiRipetute(ripristina(soggetti, t))
   const raccomandazioni = normalizzaRaccomandazioni(reg, idsValidi, parsed).map((r) => ({
     ...r,
     titolo: ripristinaTesto(r.titolo),
