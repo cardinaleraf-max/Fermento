@@ -8,8 +8,17 @@
 - Lotti degli imballi (HACCP), facoltativi: nei carichi di confezionamento puoi indicare lotto e fornitore, e nella cotta confezionata i lotti di bottiglie, tappi e fusti usati.
 - Modulo agricolo, facoltativo e spento se non lo attivi: filiera dal campo al malto (campi e semine, operazioni di campo, raccolte, analisi e calibratura, maltazione con parametri personalizzabili, tracciabilita completa). Si accende da Impostazioni, scheda Parametri, Moduli aggiuntivi.
 
+### Bira, l'assistente
+- Bira torna a rispondere: il servizio gratuito che usa ha cambiato i modelli disponibili e ora Bira sceglie da solo quello giusto, passando a un altro se uno non e disponibile. La chiave gia inserita continua a valere.
+- Bira vede molto di piu: scadenze e materie prime da riordinare, quante cotte puoi fare, ricette, storico e dettaglio delle cotte, vendite per cliente, avvisi e, con il modulo agricolo, tutta la filiera dal campo al malto. Anche i "Consigli di Bira" negli Avvisi sono piu precisi.
+- I dati dei tuoi clienti non escono mai dal computer: Bira vede i clienti solo come codici e non riceve mai contatti, partite IVA, indirizzi o note.
+- Risposte piu leggibili, con elenchi e tabelle, date e numeri all'italiana.
+- Impostazioni, scheda Bira: una sola chiave da inserire e il pulsante "Prova Bira".
+
 ### Miglioramenti
 - Se avvii una cotta e la giacenza non basta, l'avviso resta visibile nella lista delle cotte.
+- Impostazioni, scheda Parametri piu semplice e ordinata; il numero di backup da conservare ora e nella scheda Backup.
+- Nel dettaglio della cotta le quantita si leggono con la virgola e le modifiche agli ingredienti riportano la data in formato italiano.
 
 ### Per gli utenti esistenti
 Nessuna azione richiesta. I tuoi dati, configurazioni e accessi restano invariati. Apri Fermento normalmente con la tua password.
