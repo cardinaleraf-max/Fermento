@@ -574,6 +574,9 @@ REGOLE FONDAMENTALI:
 - Le azioni devono essere CONCRETE: riordinare, produrre, promo, sconto, ecc.
 - Gli importi monetari non esistono: non parlare di euro, ricavi o sconti in %
   se non sono nei dati.
+- Scrivi solo il ref, senza ripetere il nome accanto; mai intervalli di ref
+  (es. "CLIENTE#1-12"): per gruppi numerosi scrivi quanti sono e metti i ref in "refs".
+- Decimali con la virgola (4,8 kg), date gg/mm/aaaa.
 - Rispondi SOLO con JSON valido conforme allo schema fornito. Niente prosa fuori dal JSON.
 
 SCHEMA DI OUTPUT (JSON):
@@ -644,12 +647,38 @@ function trovaEntita(reg: Registro, alias: string): RiferimentoEntita | null {
   return { tipo, id, nome: cached.nomeReale }
 }
 
+const PLURALI: Record<string, string> = {
+  MP: 'più materie prime',
+  BIRRA: 'più birre',
+  CONF: 'più materiali',
+  CLIENTE: 'più clienti'
+}
+
+/**
+ * Riferimenti → nomi reali. Il nome ripetuto tra parentesi dopo il riferimento
+ * («MP#6 (Luppolo Cascade)») si toglie; un intervallo di riferimenti
+ * («CLIENTE#1-12») non ha senso per chi legge e diventa «più clienti».
+ */
 function sostituisciRefsNelTesto(reg: Registro, testo: string): string {
   if (!testo) return ''
-  return testo.replace(REF_REGEX, (match) => {
-    const ent = trovaEntita(reg, match)
-    return ent ? ent.nome : match
-  })
+  return testo.replace(
+    /(MP|BIRRA|CONF|CLIENTE)#(\d+)([-\u2010\u2011\u2013]\d+\b)?(\s*\(([^)]*)\))?/g,
+    (
+      match,
+      tipo: string,
+      _id: string,
+      intervallo?: string,
+      parentesi?: string,
+      dentro?: string
+    ) => {
+      if (intervallo) return PLURALI[tipo] + (parentesi ?? '')
+      const ent = trovaEntita(reg, match.replace(/\s*\(.*$/, ''))
+      if (!ent) return match
+      const ripetuto =
+        dentro !== undefined && dentro.trim().toLowerCase() === ent.nome.toLowerCase()
+      return ent.nome + (parentesi && !ripetuto ? parentesi : '')
+    }
+  )
 }
 
 function normalizzaRaccomandazioni(

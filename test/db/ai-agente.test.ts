@@ -406,3 +406,38 @@ test('blocchi di codice JSON scritti dal modello non arrivano al birraio', async
   const r = eventi.find((e) => e.tipo === 'risposta')
   assert.equal(r && r.tipo === 'risposta' ? r.testo : '', 'Apri Maltazioni.\n\nChiedi pure!')
 })
+
+test('consigli: niente nomi ripetuti tra parentesi né intervalli di codici', async () => {
+  const { db, ids } = preparato()
+  const { client } = modelloFinto([
+    {
+      message: {
+        role: 'assistant',
+        content: JSON.stringify({
+          raccomandazioni: [
+            {
+              priorita: 'alta',
+              titolo: `Riordina MP#${ids.cascade} (Luppolo Cascade)`,
+              descrizione: `Clienti inattivi: CLIENTE#${ids.pub}-${ids.bacco}.`,
+              refs: [`MP#${ids.cascade}`],
+              segnali_ids: [],
+              azioni: [
+                { tipo: 'riordina', testo: `Ordina 5 kg di MP#${ids.cascade} (Luppolo Cascade)` }
+              ]
+            }
+          ]
+        })
+      }
+    }
+  ])
+  const r = await generaAvvisiIntelligenti(
+    db,
+    new GestoreModelli(client, { attendi: async () => {} })
+  )
+  assert.ok(r.ok)
+  if (!r.ok) return
+  const rac = r.raccomandazioni[0]
+  assert.equal(rac.titolo, 'Riordina Luppolo Cascade')
+  assert.equal(rac.azioni[0].testo, 'Ordina 5 kg di Luppolo Cascade')
+  assert.doesNotMatch(rac.descrizione, new RegExp(`${CLIENTE_PUB.nome}-\\d`))
+})
