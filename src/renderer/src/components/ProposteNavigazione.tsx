@@ -13,7 +13,14 @@ const SEZIONI_VALIDE = new Set<Sezione>([
   'vendite',
   'report',
   'avvisi',
-  'impostazioni'
+  'impostazioni',
+  'agri-campi',
+  'agri-operazioni',
+  'agri-raccolte',
+  'agri-calibrature',
+  'agri-maltazioni',
+  'agri-input',
+  'agri-tracciabilita'
 ])
 
 const SEZIONE_LABEL: Record<Sezione, string> = {
@@ -83,7 +90,8 @@ export function ProposteNavigazione({ onNaviga }: Props): React.JSX.Element | nu
       style={{
         background: 'var(--floating)',
         border: '1px solid rgba(232,160,32,0.3)',
-        boxShadow: '0 20px 50px -10px var(--floating-shadow-proposte), 0 0 0 1px rgba(232,160,32,0.1)',
+        boxShadow:
+          '0 20px 50px -10px var(--floating-shadow-proposte), 0 0 0 1px rgba(232,160,32,0.1)',
         animation: 'propIn 0.2s ease-out'
       }}
       role="dialog"
@@ -104,9 +112,7 @@ export function ProposteNavigazione({ onNaviga }: Props): React.JSX.Element | nu
             Bira suggerisce
           </div>
           <div className="mt-0.5 text-sm font-medium text-ink/90">Aprire: {label}</div>
-          {proposta.motivo && (
-            <div className="mt-0.5 text-xs text-ink/55">{proposta.motivo}</div>
-          )}
+          {proposta.motivo && <div className="mt-0.5 text-xs text-ink/55">{proposta.motivo}</div>}
         </div>
         <button
           type="button"
@@ -118,7 +124,13 @@ export function ProposteNavigazione({ onNaviga }: Props): React.JSX.Element | nu
         </button>
       </div>
       <div className="flex items-center justify-end gap-1.5">
-        <Button type="button" size="sm" variant="ghost" onClick={rifiuta} className="h-7 px-2 text-xs text-ink/60">
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={rifiuta}
+          className="h-7 px-2 text-xs text-ink/60"
+        >
           No grazie
         </Button>
         <Button type="button" size="sm" onClick={accetta} className="h-7 px-3 text-xs">

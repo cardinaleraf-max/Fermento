@@ -13,7 +13,7 @@
  *    comunque la guardia finale.
  *  - Descrizioni di una riga: ogni carattere costa token a ogni domanda.
  */
-import { cercaDocs, isSezioneValida, SEZIONI_VALIDE } from './docs'
+import { cercaDocs, isSezioneValida, SEZIONI_AGRICOLE, SEZIONI_VALIDE } from './docs'
 import type { ChatToolDef } from './tipi'
 import {
   asInt,
@@ -502,9 +502,12 @@ const strumentiBase: ToolDefinition[] = [
       },
       required: ['sezione']
     },
+    descrizioneAgricola: `Con il modulo agricolo anche: ${SEZIONI_AGRICOLE.join(', ')}.`,
     handler: (_db, args, ctx) => {
       const sezione = asString(args.sezione).trim()
-      if (!isSezioneValida(sezione)) return { ok: false, errore: `Sezione '${sezione}' non valida` }
+      if (!isSezioneValida(sezione, { moduloAgricolo: ctx.moduloAgricolo })) {
+        return { ok: false, errore: `Sezione '${sezione}' non valida` }
+      }
       const motivo = asString(args.motivo).trim() || undefined
       ctx.richiediNavigazione?.(sezione, motivo)
       return { ok: true, sezione, proposto: !!ctx.richiediNavigazione }
@@ -524,7 +527,14 @@ function disponibili(opts: OpzioniStrumenti): ToolDefinition[] {
 export function getToolDefinitions(opts: OpzioniStrumenti = {}): ChatToolDef[] {
   return disponibili(opts).map((t) => ({
     type: 'function' as const,
-    function: { name: t.name, description: t.description, parameters: t.parameters }
+    function: {
+      name: t.name,
+      description:
+        opts.moduloAgricolo && t.descrizioneAgricola
+          ? `${t.description} ${t.descrizioneAgricola}`
+          : t.description,
+      parameters: t.parameters
+    }
   }))
 }
 

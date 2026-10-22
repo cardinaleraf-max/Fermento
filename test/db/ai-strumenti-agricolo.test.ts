@@ -100,3 +100,34 @@ test('definizioni con il modulo acceso ancora compatte', () => {
   const caratteri = JSON.stringify(getToolDefinitions({ moduloAgricolo: true })).length
   assert.ok(caratteri < 9000, `definizioni: ${caratteri} caratteri`)
 })
+
+test('naviga_a_schermata: schermate agricole solo a modulo acceso, elencate solo allora', () => {
+  const db = preparato()
+  const proposte: string[] = []
+  const ctx = { richiediNavigazione: (s: string): void => void proposte.push(s) }
+  const acceso = executeTool(
+    db,
+    'naviga_a_schermata',
+    { sezione: 'agri-maltazioni' },
+    { moduloAgricolo: true },
+    ctx
+  )
+  assert.ok(acceso.ok && (acceso.result as { ok: boolean }).ok)
+  assert.deepEqual(proposte, ['agri-maltazioni'])
+  const spento = executeTool(
+    db,
+    'naviga_a_schermata',
+    { sezione: 'agri-maltazioni' },
+    { moduloAgricolo: false },
+    ctx
+  )
+  assert.ok(spento.ok && !(spento.result as { ok: boolean }).ok)
+  const descr = (o: boolean): string =>
+    JSON.stringify(
+      getToolDefinitions({ moduloAgricolo: o }).find(
+        (t) => t.function.name === 'naviga_a_schermata'
+      )
+    )
+  assert.match(descr(true), /agri-maltazioni/)
+  assert.doesNotMatch(descr(false), /agri-/)
+})

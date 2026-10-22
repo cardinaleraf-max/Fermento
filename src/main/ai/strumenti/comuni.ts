@@ -23,6 +23,8 @@ export type ToolDefinition = {
   handler: (db: Db, args: Record<string, unknown>, ctx: ToolContext) => unknown
   /** true = disponibile solo con il modulo agricolo acceso. */
   agricolo?: boolean
+  /** Testo aggiunto alla descrizione quando il modulo agricolo è acceso. */
+  descrizioneAgricola?: string
 }
 
 export function asInt(v: unknown, fallback: number, min?: number, max?: number): number {
