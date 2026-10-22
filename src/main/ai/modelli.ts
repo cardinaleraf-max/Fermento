@@ -84,6 +84,13 @@ export class GestoreModelli {
     return [...this.esclusiSet]
   }
 
+  private ultimo: string | null = null
+
+  /** Il modello usato (o tentato) per l'ultima richiesta. */
+  ultimoModello(): string | null {
+    return this.ultimo
+  }
+
   private candidati(): VoceCatena[] {
     const tutti = this.riserva ? [...CATENA_MODELLI, this.riserva] : [...CATENA_MODELLI]
     return tutti.filter((v) => !this.esclusiSet.has(v.id))
@@ -113,13 +120,16 @@ export class GestoreModelli {
     body: Omit<ChatRequest, 'model'>,
     signal?: AbortSignal,
     suAttesa?: (secondi: number) => void,
-    opzioni: { maxAttesaTotaleMs?: number } = {}
+    opzioni: { maxAttesaTotaleMs?: number; salta?: string } = {}
   ): Promise<{ risposta: ChatResponse; modello: string }> {
     const maxAttesa = opzioni.maxAttesaTotaleMs ?? this.maxAttesaTotaleMs
     let attesaTotale = 0
     let tentativiRete = 0
     for (;;) {
-      const candidati = this.candidati()
+      const tutti = this.candidati()
+      // «salta»: evita il modello che ha appena sbagliato, se ce n'è un altro.
+      const altri = opzioni.salta ? tutti.filter((c) => c.id !== opzioni.salta) : tutti
+      const candidati = altri.length > 0 ? altri : tutti
       if (candidati.length === 0) {
         if (await this.cercaRiserva()) continue
         throw new ErroreProvider(
@@ -146,6 +156,7 @@ export class GestoreModelli {
       }
 
       const voce = pronti[0]
+      this.ultimo = voce.id
       const extra = this.senzaExtra.has(voce.id) ? {} : voce.extra
       try {
         const risposta = await this.client.chat({ ...body, ...extra, model: voce.id }, signal)

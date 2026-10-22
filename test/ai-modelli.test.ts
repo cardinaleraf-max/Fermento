@@ -253,3 +253,18 @@ test('verificaBira: servizio al limite vuol dire chiave buona, quindi pronto', a
   const s = await verificaBira(g)
   assert.equal(s.stato, 'pronto')
 })
+
+test('strumento sbagliato: lo decide chi chiama, ma si può saltare il modello che ha sbagliato', async () => {
+  const client = clientFinto({
+    [PRIMO]: [new ErroreProvider('strumento_sbagliato', 'tool_use_failed', null, 400)],
+    [SECONDO]: ['ok']
+  })
+  const g = new GestoreModelli(client, { attendi: nessunaAttesa })
+  await assert.rejects(
+    g.chat({ messages: [] }),
+    (e: unknown) => e instanceof ErroreProvider && e.tipo === 'strumento_sbagliato'
+  )
+  const r = await g.chat({ messages: [] }, undefined, undefined, { salta: PRIMO })
+  assert.equal(r.modello, SECONDO)
+  assert.equal(g.esclusi().length, 0, 'il modello che ha sbagliato una volta non va escluso')
+})

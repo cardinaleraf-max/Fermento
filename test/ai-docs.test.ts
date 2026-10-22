@@ -56,3 +56,22 @@ test('prompt di sistema: data di oggi, formati italiani, codici clienti; agricol
   assert.match(acceso, /maltazion/i)
   assert.ok(acceso.length < 2900, `prompt agricolo: ${acceso.length} caratteri`)
 })
+
+test('prompt: le schermate si citano col nome, non col codice interno', () => {
+  assert.match(
+    promptDiSistema({ oggi: '2026-10-22', moduloAgricolo: false }),
+    /nome della schermata/
+  )
+})
+
+test('guida: gli ingredienti si correggono in qualsiasi stato della cotta e si tolgono col cestino', () => {
+  const t = testoVoce(cercaDocs('modificare ingredienti cotta confezionata', 1)[0])
+  assert.match(t, /anche dopo il confezionamento/)
+  assert.match(t, /cestino/)
+})
+
+test('prompt: nelle domande di aiuto niente passaggi o limiti inventati', () => {
+  const p = promptDiSistema({ oggi: '2026-10-22', moduloAgricolo: false })
+  assert.match(p, /non aggiungere passaggi o limiti/)
+  assert.ok(p.length < 2500, `prompt: ${p.length}`)
+})

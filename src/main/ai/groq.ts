@@ -28,6 +28,8 @@ export type TipoErroreProvider =
   | 'modello_non_disponibile'
   | 'limite'
   | 'troppo_grande'
+  /** Il modello ha chiamato uno strumento inesistente o con argomenti illeggibili. */
+  | 'strumento_sbagliato'
   | 'rete'
   | 'altro'
 
@@ -36,7 +38,9 @@ export class ErroreProvider extends Error {
     readonly tipo: TipoErroreProvider,
     messaggio: string,
     readonly attesaMs: number | null = null,
-    readonly status: number | null = null
+    readonly status: number | null = null,
+    /** Per strumento_sbagliato: la chiamata generata dal modello (JSON), se Groq la restituisce. */
+    readonly generazione: string | null = null
   ) {
     super(messaggio)
     this.name = 'ErroreProvider'
@@ -117,6 +121,23 @@ export function classificaErrore(
       `Modello non disponibile: ${breve}`,
       null,
       status
+    )
+  }
+  if (status === 400 && /tool_use_failed/.test(corpo)) {
+    let generazione: string | null = null
+    try {
+      const g = (JSON.parse(corpo) as { error?: { failed_generation?: unknown } }).error
+        ?.failed_generation
+      if (typeof g === 'string') generazione = g
+    } catch {
+      // corpo non JSON: nessuna generazione da recuperare
+    }
+    return new ErroreProvider(
+      'strumento_sbagliato',
+      `Chiamata a strumento non valida: ${breve}`,
+      null,
+      status,
+      generazione
     )
   }
   if (status === 413) {

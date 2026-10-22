@@ -40,7 +40,9 @@ const MIN_NOTA = 12
 
 const CONFINE_PRIMA = '(?<![\\p{L}\\p{N}])'
 const CONFINE_DOPO = '(?![\\p{L}\\p{N}])'
-const CODICE = /\b(CLIENTE|FORNITORE|OPERATORE|TITOLARE)[-_](T?\d+)\b/gi
+/** Codice con trattino normale o tipografico (i modelli usano anche ‑ – −). */
+const CODICE =
+  /\b(CLIENTE|FORNITORE|OPERATORE|TITOLARE)[-_\u2010\u2011\u2012\u2013\u2014\u2212](T?\d+)\b/gi
 
 const escapeRegex = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const pulisci = (s: unknown): string => (typeof s === 'string' ? s.trim().replace(/\s+/g, ' ') : '')

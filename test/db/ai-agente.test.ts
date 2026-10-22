@@ -240,3 +240,89 @@ test('avvisi intelligenti: materie prime in chiaro, clienti solo come codici', a
   assert.match(usciti[0], /CLIENTE-/)
   assert.equal(richieste[0].json, true)
 })
+
+test('nome di strumento sbagliato dal modello (detaglio_cotta): Bira lo corregge e continua', async () => {
+  const { db } = preparato()
+  const { ErroreProvider } = await import('../../src/main/ai/groq')
+  let chiamate = 0
+  const client: ChatClient = {
+    async chat(body) {
+      chiamate++
+      if (chiamate === 1) {
+        throw Object.assign(
+          new ErroreProvider('strumento_sbagliato', 'tool_use_failed', null, 400),
+          {
+            generazione: '{"name": "detaglio_cotta", "arguments": {"numero_lotto":"L-2026-01"}}'
+          }
+        )
+      }
+      return {
+        model: body.model,
+        message: { role: 'assistant', content: 'Cotta L-2026-01: 50 kg di Pilsner.' }
+      }
+    },
+    async listaModelli() {
+      return []
+    }
+  }
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'Dettaglio della cotta L-2026-01' }],
+    emit: (e) => eventi.push(e)
+  })
+  const strumento = eventi.find((e) => e.tipo === 'tool_risultato')
+  assert.ok(
+    strumento &&
+      strumento.tipo === 'tool_risultato' &&
+      strumento.nome === 'dettaglio_cotta' &&
+      strumento.ok
+  )
+  assert.ok(eventi.some((e) => e.tipo === 'risposta'))
+})
+
+test('chiamata illeggibile: Bira riprova con un altro modello invece di fermarsi', async () => {
+  const { db } = preparato()
+  const { ErroreProvider } = await import('../../src/main/ai/groq')
+  const modelli: string[] = []
+  const client: ChatClient = {
+    async chat(body) {
+      modelli.push(body.model)
+      if (modelli.length === 1)
+        throw new ErroreProvider('strumento_sbagliato', 'tool_use_failed', null, 400)
+      return { model: body.model, message: { role: 'assistant', content: 'ok' } }
+    },
+    async listaModelli() {
+      return []
+    }
+  }
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'ciao' }],
+    emit: (e) => eventi.push(e)
+  })
+  assert.notEqual(modelli[0], modelli[1])
+  assert.ok(eventi.some((e) => e.tipo === 'risposta'))
+})
+
+test('trattini tipografici nella risposta: codici ripristinati e testo con trattini normali', async () => {
+  const { db, ids } = preparato()
+  const { client } = modelloFinto([
+    { message: { role: 'assistant', content: `CLIENTE‑${ids.pub} ha il lotto WB‑2604` } }
+  ])
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'chi?' }],
+    emit: (e) => eventi.push(e)
+  })
+  const r = eventi.find((e) => e.tipo === 'risposta')
+  assert.equal(r && r.tipo === 'risposta' ? r.testo : '', `${CLIENTE_PUB.nome} ha il lotto WB-2604`)
+})

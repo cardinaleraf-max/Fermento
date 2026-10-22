@@ -162,7 +162,7 @@ export const DOCS: DocEntry[] = [
     percorso: 'Menu laterale → "Produzione".',
     azioni: [
       'avviare una nuova cotta (birra, numero di lotto, data di inizio) modificando gli ingredienti prima di avviarla',
-      'modificare gli ingredienti anche a cotta già avviata: nel dettaglio della cotta, pulsante "Modifica ingredienti" (cambiare quantità, sostituire, togliere o aggiungere)',
+      'modificare gli ingredienti anche a cotta già avviata, e anche dopo il confezionamento: nel dettaglio della cotta, pulsante "Modifica ingredienti" (cambiare la quantità, sostituire con la matita, togliere con il cestino, aggiungere con "Aggiungi ingrediente")',
       'vedere nel dettaglio le materie prime usate con i loro lotti e le variazioni rispetto alla ricetta',
       'confezionare una cotta (bottiglie, fusti per formato, scarto) indicando i lotti degli imballi usati (HACCP)',
       'impostare la scadenza al confezionamento: proposta dalla shelf life, modificabile',

@@ -144,3 +144,10 @@ test('DB senza modulo agricolo o vuoto: il registro si crea senza errori', () =>
   assert.equal(pseudonimizza(reg, 'niente da sostituire'), 'niente da sostituire')
   assert.doesNotThrow(() => guardia(reg, '{"a":"b"}'))
 })
+
+test('codici scritti dal modello con trattini tipografici (‑ – −) tornano comunque col nome vero', () => {
+  const { reg, ids } = preparato()
+  for (const trattino of ['‑', '‐', '–', '−']) {
+    assert.equal(ripristina(reg, `CLIENTE${trattino}${ids.pub} ok`), `${CLIENTE_PUB.nome} ok`)
+  }
+})

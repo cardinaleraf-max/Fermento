@@ -130,3 +130,17 @@ test('chatGroq: rete assente diventa ErroreProvider di tipo rete', async () => {
     f.ripristina()
   }
 })
+
+test('classificaErrore: strumento chiamato con nome sbagliato (tool_use_failed) conserva la generazione', () => {
+  const corpo = JSON.stringify({
+    error: {
+      message:
+        "Tool call validation failed: attempted to call tool 'detaglio_cotta' which was not in request.tools",
+      code: 'tool_use_failed',
+      failed_generation: '{"name": "detaglio_cotta", "arguments": {"numero_lotto":"2026-05"}}'
+    }
+  })
+  const e = classificaErrore(400, corpo, null)
+  assert.equal(e.tipo, 'strumento_sbagliato')
+  assert.equal(e.generazione, '{"name": "detaglio_cotta", "arguments": {"numero_lotto":"2026-05"}}')
+})

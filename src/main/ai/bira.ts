@@ -27,7 +27,7 @@ import {
   ripristinaValori
 } from './privacy'
 import { promptDiSistema } from './prompt'
-import type { ChatMessage } from './tipi'
+import type { ChatMessage, ChatResponse, ChatToolCall } from './tipi'
 import { executeTool, getToolDefinitions } from './tools'
 
 type Db = BetterSqlite3.Database
@@ -82,6 +82,60 @@ function moduloAgricoloAcceso(db: Db): boolean {
   }
 }
 
+/** I modelli scrivono a volte trattini tipografici non separabili (‑): si usano quelli normali. */
+function normalizzaTrattini(testo: string): string {
+  return testo.replace(/[\u2010\u2011]/g, '-')
+}
+
+function distanza(a: string, b: string): number {
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [
+    i,
+    ...Array(b.length).fill(0)
+  ])
+  for (let j = 1; j <= b.length; j++) d[0][j] = j
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      d[i][j] = Math.min(
+        d[i - 1][j] + 1,
+        d[i][j - 1] + 1,
+        d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      )
+    }
+  }
+  return d[a.length][b.length]
+}
+
+/** Dalla chiamata rifiutata da Groq a una chiamata valida, se il nome è riconoscibile. */
+export function correggiChiamata(
+  generazione: string | null,
+  nomi: string[],
+  giro: number
+): ChatToolCall | null {
+  if (!generazione) return null
+  let g: { name?: unknown; arguments?: unknown }
+  try {
+    g = JSON.parse(generazione) as { name?: unknown; arguments?: unknown }
+  } catch {
+    return null
+  }
+  if (typeof g.name !== 'string') return null
+  const richiesto = g.name.trim().toLowerCase()
+  const migliore = nomi.map((n) => ({ n, d: distanza(richiesto, n) })).sort((a, b) => a.d - b.d)[0]
+  if (!migliore || migliore.d > 2) return null
+  let argomenti: Record<string, unknown> = {}
+  if (g.arguments && typeof g.arguments === 'object' && !Array.isArray(g.arguments)) {
+    argomenti = g.arguments as Record<string, unknown>
+  } else if (typeof g.arguments === 'string') {
+    try {
+      const a = JSON.parse(g.arguments)
+      if (a && typeof a === 'object' && !Array.isArray(a)) argomenti = a
+    } catch {
+      // argomenti illeggibili: oggetto vuoto
+    }
+  }
+  return { id: `corretta_${giro}`, function: { name: migliore.n, arguments: argomenti } }
+}
+
 function anteprima(testo: string, max = 280): string {
   return testo.length > max ? `${testo.slice(0, max)}…` : testo
 }
@@ -132,15 +186,42 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
     const tools = getToolDefinitions({ moduloAgricolo: modulo })
     d.emit({ tipo: 'inizio' })
 
+    const nomiStrumenti = tools.map((t) => t.function.name)
+    let modelloDaSaltare: string | undefined
     for (let giro = 0; giro < MAX_GIRI; giro++) {
       const corpo = { messages: messaggi, tools, temperature: TEMPERATURA }
       guardia(reg, JSON.stringify(corpo))
-      const { risposta } = await d.gestore.chat(corpo, d.signal, (secondi) =>
-        d.emit({ tipo: 'attesa', secondi })
-      )
+      let risposta: ChatResponse
+      try {
+        const r = await d.gestore.chat(
+          corpo,
+          d.signal,
+          (secondi) => d.emit({ tipo: 'attesa', secondi }),
+          { salta: modelloDaSaltare }
+        )
+        risposta = r.risposta
+        modelloDaSaltare = undefined
+      } catch (e) {
+        if (!(e instanceof ErroreProvider) || e.tipo !== 'strumento_sbagliato') throw e
+        // Il modello ha chiamato uno strumento con un nome storpiato: se è
+        // riconoscibile lo si corregge, altrimenti si riprova con un altro modello.
+        const corretta = correggiChiamata(e.generazione, nomiStrumenti, giro)
+        if (corretta) {
+          risposta = {
+            model: '',
+            message: { role: 'assistant', content: '', tool_calls: [corretta] }
+          }
+        } else if (!modelloDaSaltare) {
+          modelloDaSaltare = d.gestore.ultimoModello() ?? undefined
+          giro--
+          continue
+        } else {
+          throw e
+        }
+      }
       const chiamate = risposta.message.tool_calls ?? []
       if (chiamate.length === 0) {
-        const testo = ripristina(reg, (risposta.message.content || '').trim())
+        const testo = normalizzaTrattini(ripristina(reg, (risposta.message.content || '').trim()))
         d.emit({
           tipo: 'risposta',
           testo: testo || 'Non ho trovato una risposta utile: prova a riformulare la domanda.'
