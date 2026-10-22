@@ -34,6 +34,13 @@ type Db = BetterSqlite3.Database
 
 const MAX_GIRI = 8
 const MAX_RISULTATO = 6000
+/**
+ * Dimensione massima di una richiesta (≈ 7.000 token): il servizio gratuito
+ * rifiuta le singole richieste oltre gli 8.000 token al minuto.
+ */
+const MAX_CARATTERI_RICHIESTA = 24_000
+/** Lunghezza a cui si accorciano i risultati vecchi quando serve spazio. */
+const RISULTATO_ACCORCIATO = 1_200
 const TEMPERATURA = 0.2
 /** Cronologia inviata: ultimi messaggi, quelli lunghi accorciati (meno token). */
 const MAX_MESSAGGI_CRONOLOGIA = 10
@@ -160,6 +167,35 @@ function stagione(db: Db, modulo: boolean): string | undefined {
   }
 }
 
+function indiceUltimaDomanda(messaggi: ChatMessage[]): number {
+  for (let i = messaggi.length - 1; i >= 0; i--) if (messaggi[i].role === 'user') return i
+  return 0
+}
+
+function accorcia(m: ChatMessage): void {
+  if (m.content.length > RISULTATO_ACCORCIATO) m.content = tronca(m.content, RISULTATO_ACCORCIATO)
+}
+
+/**
+ * Fa stare la richiesta nel limite: prima accorcia i risultati di strumenti
+ * più vecchi, poi toglie la cronologia più vecchia (mai la domanda attuale),
+ * infine accorcia anche l'ultimo risultato.
+ */
+function adattaAlLimite(messaggi: ChatMessage[], extra: number, limite: number): void {
+  const misura = (): number => JSON.stringify(messaggi).length + extra
+  if (misura() <= limite) return
+  const strumenti = (): number[] => messaggi.flatMap((m, i) => (m.role === 'tool' ? [i] : []))
+  for (const i of strumenti().slice(0, -1)) {
+    if (misura() <= limite) return
+    accorcia(messaggi[i])
+  }
+  while (misura() > limite && indiceUltimaDomanda(messaggi) > 1) messaggi.splice(1, 1)
+  for (const i of strumenti()) {
+    if (misura() <= limite) return
+    accorcia(messaggi[i])
+  }
+}
+
 function anteprima(testo: string, max = 280): string {
   return testo.length > max ? `${testo.slice(0, max)}…` : testo
 }
@@ -220,10 +256,13 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
     d.emit({ tipo: 'inizio' })
 
     const nomiStrumenti = tools.map((t) => t.function.name)
+    const pesoStrumenti = JSON.stringify(tools).length + 200
+    let ridottoForte = false
     /** Testo che il modello scrive insieme alle chiamate di strumenti: va mostrato. */
     const testiIntermedi: string[] = []
     let modelloDaSaltare: string | undefined
     for (let giro = 0; giro < MAX_GIRI; giro++) {
+      adattaAlLimite(messaggi, pesoStrumenti, MAX_CARATTERI_RICHIESTA)
       const corpo = { messages: messaggi, tools, temperature: TEMPERATURA }
       guardia(reg, JSON.stringify(corpo))
       let risposta: ChatResponse
@@ -237,6 +276,13 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
         risposta = r.risposta
         modelloDaSaltare = undefined
       } catch (e) {
+        if (e instanceof ErroreProvider && e.tipo === 'troppo_grande' && !ridottoForte) {
+          // Rifiutata per dimensione: si riduce di più e si riprova una volta.
+          ridottoForte = true
+          adattaAlLimite(messaggi, pesoStrumenti, Math.round(MAX_CARATTERI_RICHIESTA * 0.6))
+          giro--
+          continue
+        }
         if (!(e instanceof ErroreProvider) || e.tipo !== 'strumento_sbagliato') throw e
         // Il modello ha chiamato uno strumento con un nome storpiato: se è
         // riconoscibile lo si corregge, altrimenti si riprova con un altro modello.

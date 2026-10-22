@@ -398,13 +398,13 @@ const strumentiBase: ToolDefinition[] = [
 
   {
     name: 'omaggi',
-    description: 'Omaggi e assaggi negli ultimi N giorni: data, cliente, occasione, quantità.',
+    description: 'Omaggi e assaggi negli ultimi N giorni: data, cliente, quantità.',
     parameters: { type: 'object', properties: { giorni: intero('Giorni indietro (default 90).') } },
     handler: (db, args) => {
       const p = filtroPeriodo('v.data', args, 90)
       const omaggi = db
         .prepare(
-          `SELECT v.data, cli.nome AS cliente, v.occasione,
+          `SELECT v.data, cli.nome AS cliente,
                   SUM(CASE WHEN vd.tipo_prodotto = 'bottiglia' THEN vd.quantita ELSE 0 END) AS bottiglie,
                   SUM(CASE WHEN vd.tipo_prodotto = 'fusto' THEN vd.quantita ELSE 0 END) AS fusti
            FROM vendite v

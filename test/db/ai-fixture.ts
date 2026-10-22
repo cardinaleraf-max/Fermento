@@ -275,5 +275,6 @@ export const VALORI_VIETATI: string[] = [
   CHIAVE_GROQ,
   PERCORSO_BACKUP,
   NOTA_VENDITA,
-  NOTA_FUSTI
+  NOTA_FUSTI,
+  'Festa da Bacco'
 ]

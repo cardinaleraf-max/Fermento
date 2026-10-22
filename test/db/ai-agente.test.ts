@@ -475,3 +475,83 @@ test('consigli: parentesi che ripetono un nome già detto vengono tolte anche se
     'Riordinare Luppolo Cascade (scorta per 2 cotte) e usarlo.'
   )
 })
+
+test('richiesta troppo grande per il servizio gratuito: Bira accorcia il contesto e riprova', async () => {
+  const { db } = preparato()
+  const { ErroreProvider } = await import('../../src/main/ai/groq')
+  const dimensioni: number[] = []
+  const client: ChatClient = {
+    async chat(body) {
+      const n = JSON.stringify(body).length
+      dimensioni.push(n)
+      if (dimensioni.length === 1)
+        throw new ErroreProvider('troppo_grande', 'Request too large', null, 413)
+      return { model: body.model, message: { role: 'assistant', content: 'ok' } }
+    },
+    async listaModelli() {
+      return []
+    }
+  }
+  const lungo = 'x'.repeat(1400)
+  const cronologia = [
+    ...Array.from({ length: 8 }, (_, i) => ({
+      ruolo: (i % 2 ? 'assistant' : 'user') as 'user' | 'assistant',
+      contenuto: `${i} ${lungo}`
+    })),
+    { ruolo: 'user' as const, contenuto: 'ultima domanda' }
+  ]
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia,
+    emit: (e) => eventi.push(e)
+  })
+  assert.ok(
+    eventi.some((e) => e.tipo === 'risposta'),
+    JSON.stringify(eventi.filter((e) => e.tipo === 'errore'))
+  )
+  assert.ok(dimensioni[1] < dimensioni[0], `${dimensioni[1]} non è minore di ${dimensioni[0]}`)
+})
+
+test('risultati di strumenti molto lunghi: il pacchetto resta sotto il limite del servizio gratuito', async () => {
+  const { db } = preparato()
+  const dimensioni: number[] = []
+  let n = 0
+  const client: ChatClient = {
+    async chat(body) {
+      dimensioni.push(JSON.stringify(body).length)
+      n++
+      if (n <= 4) {
+        return {
+          model: body.model,
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [
+              { id: `g${n}`, function: { name: 'giacenze_materie_prime', arguments: {} } }
+            ]
+          }
+        }
+      }
+      return { model: body.model, message: { role: 'assistant', content: 'fine' } }
+    },
+    async listaModelli() {
+      return []
+    }
+  }
+  // tante materie prime: risultati lunghi (fino a 6.000 caratteri ciascuno)
+  const ins = db.prepare(
+    `INSERT INTO materie_prime (nome, categoria, unita_misura, soglia_riordino_fissa) VALUES (?, 'malto', 'kg', 10)`
+  )
+  for (let i = 0; i < 80; i++) ins.run(`Malto speciale numero ${i} di prova con nome lungo`)
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'magazzino' }],
+    emit: () => {}
+  })
+  assert.ok(Math.max(...dimensioni) <= 26_000, `pacchetto di ${Math.max(...dimensioni)} caratteri`)
+})
