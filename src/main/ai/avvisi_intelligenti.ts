@@ -19,8 +19,7 @@
  */
 
 import type BetterSqlite3 from 'better-sqlite3'
-import type { OllamaMessage } from './ollama'
-import type { ChatClient } from './provider'
+import type { ChatClient, ChatMessage } from './tipi'
 
 // ---------------------------------------------------------------------------
 // Tipi pubblici (verso renderer, via IPC)
@@ -761,7 +760,7 @@ export async function generaAvvisiIntelligenti(
   modello: string,
   opts: { temperatura?: number; timeoutMs?: number; signal?: AbortSignal } = {}
 ): Promise<AvvisiIntelligentiResult> {
-  const reg = creaRegistro(client.remoto)
+  const reg = creaRegistro(true)
   const ctx = raccogliSegnali(db, reg)
 
   if (ctx.avvisi.length === 0) {
@@ -769,13 +768,13 @@ export async function generaAvvisiIntelligenti(
       ok: true,
       generato_il: new Date().toISOString(),
       modello,
-      remoto: client.remoto,
+      remoto: true,
       raccomandazioni: [],
       segnali_analizzati: 0
     }
   }
 
-  const messaggi: OllamaMessage[] = [
+  const messaggi: ChatMessage[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     { role: 'user', content: buildUserMessage(ctx) }
   ]
@@ -786,8 +785,8 @@ export async function generaAvvisiIntelligenti(
       {
         model: modello,
         messages: messaggi,
-        format: 'json',
-        options: { temperature: opts.temperatura ?? 0.2 }
+        json: true,
+        temperature: opts.temperatura ?? 0.2
       },
       opts.signal
     )
@@ -811,7 +810,7 @@ export async function generaAvvisiIntelligenti(
     ok: true,
     generato_il: new Date().toISOString(),
     modello,
-    remoto: client.remoto,
+    remoto: true,
     raccomandazioni,
     segnali_analizzati: ctx.avvisi.length
   }

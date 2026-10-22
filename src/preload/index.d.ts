@@ -716,7 +716,7 @@ type AiNavigaPayload = {
   motivo: string | null
 }
 
-type AiProviderTipo = 'ollama' | 'groq'
+type AiProviderTipo = 'groq'
 
 type AiHealth = {
   abilitato: boolean

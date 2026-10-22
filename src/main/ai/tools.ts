@@ -4,10 +4,10 @@
  * Filosofia: niente SQL libero generato dal modello. Esponiamo solo
  * funzioni di alto livello, con parametri tipizzati e validati. Ogni tool
  * ha:
- *  - schema JSON Schema-like (per il modello, formato Ollama/OpenAI)
+ *  - schema JSON Schema-like (formato OpenAI)
  *  - executor che riceve gli argomenti e restituisce un oggetto JSON
  *  - flag `cloud_safe` che dichiara se puo' essere esposto a un provider
- *    remoto (Groq, Ollama Cloud, ...) senza far uscire dati sensibili.
+ *    remoto senza far uscire dati sensibili.
  *
  * I tool sono in sola lettura: non modificano il database.
  *
@@ -24,7 +24,7 @@
  *  - In caso di dubbio: cloud_safe=false, si puo' sempre allargare dopo.
  */
 import type BetterSqlite3 from 'better-sqlite3'
-import type { OllamaToolDef } from './ollama'
+import type { ChatToolDef } from './tipi'
 import { cercaDocs, isSezioneValida, SEZIONI_VALIDE } from './docs'
 
 /**
@@ -49,13 +49,12 @@ type ToolHandler = (
 export type ToolDefinition = {
   name: string
   description: string
-  parameters: OllamaToolDef['function']['parameters']
+  parameters: ChatToolDef['function']['parameters']
   handler: ToolHandler
   /**
    * true  = il tool puo' essere esposto anche a provider cloud (dati non PII,
    *         ne' ricette, ne' nomi di materie prime).
-   * false = il tool e' disponibile solo in locale (Ollama su localhost o rete
-   *         privata). I provider remoti non lo vedono nemmeno.
+   * false = il tool non viene esposto al provider remoto.
    */
   cloud_safe: boolean
 }
@@ -836,13 +835,13 @@ const toolByName = new Map(tools.map((t) => [t.name, t]))
 export type GetToolsOptions = {
   /**
    * Se true, espone solo i tool marcati cloud_safe. Da usare con provider
-   * remoti (Groq, Ollama Cloud, ecc.) per evitare la fuga di nomi clienti,
+   * remoti per evitare la fuga di nomi clienti,
    * nomi materie prime o dati riconducibili alle ricette.
    */
   soloCloudSafe?: boolean
 }
 
-export function getToolDefinitions(opts: GetToolsOptions = {}): OllamaToolDef[] {
+export function getToolDefinitions(opts: GetToolsOptions = {}): ChatToolDef[] {
   return filtraTool(opts).map((t) => ({
     type: 'function' as const,
     function: {

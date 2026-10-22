@@ -1,36 +1,54 @@
 /**
- * Client per Groq (https://console.groq.com/) usando la loro API
- * OpenAI-compatible (endpoint /openai/v1/chat/completions).
+ * Client per Groq (https://console.groq.com/) tramite la sua API
+ * OpenAI-compatibile (/openai/v1/chat/completions).
  *
- * Internamente traduciamo da/verso il formato messaggi "Ollama-like"
- * usato dall'agente, cosi' l'orchestratore (agent.ts) non deve sapere
- * chi c'e' dietro.
+ * Traduce da/verso il formato interno di Bira (tipi.ts) e fa UNA sola
+ * richiesta: i nuovi tentativi e il cambio di modello li decide la catena
+ * dei modelli (modelli.ts) in base al tipo di errore.
  *
- * Nota privacy: Groq e' un servizio cloud negli USA. Dichiarano zero
- * retention e zero training sul tier gratuito. In ogni caso tutto cio'
- * che viene inviato a questo client esce dal PC e transita sui loro
- * server. La responsabilita' di filtrare dati sensibili (ricette, PII
- * clienti, nomi materie prime) e' dell'orchestratore, non del client.
+ * Privacy: tutto ciò che arriva qui esce dal PC. I dati dei clienti vengono
+ * sostituiti da codici prima (privacy.ts), non qui.
  */
 
 import type {
-  OllamaChatRequest,
-  OllamaChatResponse,
-  OllamaMessage,
-  OllamaToolCall,
-  OllamaToolDef
-} from './ollama'
+  ChatClient,
+  ChatMessage,
+  ChatRequest,
+  ChatResponse,
+  ChatToolCall,
+  ChatToolDef,
+  ChatUsage
+} from './tipi'
 
-const DEFAULT_GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
-const DEFAULT_TIMEOUT_MS = 600_000
-const MAX_RATE_LIMIT_RETRIES = 2
+export const GROQ_BASE_URL = 'https://api.groq.com/openai/v1'
+const TIMEOUT_DEFAULT_MS = 90_000
 
-// --- Tipi del formato OpenAI-compatible (quello parlato da Groq) ----------
+export type TipoErroreProvider =
+  | 'chiave_non_valida'
+  | 'modello_non_disponibile'
+  | 'limite'
+  | 'troppo_grande'
+  | 'rete'
+  | 'altro'
+
+export class ErroreProvider extends Error {
+  constructor(
+    readonly tipo: TipoErroreProvider,
+    messaggio: string,
+    readonly attesaMs: number | null = null,
+    readonly status: number | null = null
+  ) {
+    super(messaggio)
+    this.name = 'ErroreProvider'
+  }
+}
+
+// --- Formato OpenAI-compatibile ------------------------------------------------
 
 type OpenAiToolCall = {
   id: string
   type: 'function'
-  function: { name: string; arguments: string } // arguments e' JSON come stringa
+  function: { name: string; arguments: string }
 }
 
 type OpenAiMessage = {
@@ -44,280 +62,222 @@ type OpenAiMessage = {
 type OpenAiChatRequest = {
   model: string
   messages: OpenAiMessage[]
-  tools?: OllamaToolDef[] // stesso shape di OpenAI: { type:'function', function:{name,description,parameters} }
+  tools?: ChatToolDef[]
   temperature?: number
-  stream?: false
-  response_format?: { type: 'json_object' | 'text' }
+  max_tokens?: number
+  reasoning_effort?: 'low' | 'medium' | 'high'
+  stream: false
+  response_format?: { type: 'json_object' }
 }
 
 type OpenAiChatResponse = {
-  id: string
   model: string
-  choices: Array<{
-    index: number
-    message: OpenAiMessage
-    finish_reason: string
-  }>
+  choices: Array<{ message: OpenAiMessage; finish_reason: string }>
+  usage?: ChatUsage
 }
 
-type OpenAiModelsResponse = {
-  data: Array<{ id: string; object: 'model' }>
+// --- Classificazione degli errori ---------------------------------------------
+
+function parseRetryAfterMs(retryAfter: string | null): number | null {
+  const raw = (retryAfter ?? '').trim()
+  if (!raw) return null
+  const secondi = Number(raw)
+  if (Number.isFinite(secondi) && secondi >= 0) return Math.ceil(secondi * 1000)
+  const quando = Date.parse(raw)
+  if (Number.isFinite(quando)) return Math.max(0, quando - Date.now())
+  return null
 }
 
-// --- Fetch con timeout e abort esterno (copia leggera da ollama.ts) --------
+function parseTryAgainMs(testo: string): number | null {
+  const m = testo.match(/try again in\s+(?:(\d+)m)?([\d.]+)\s*(ms|s)/i)
+  if (!m) return null
+  const minuti = m[1] ? Number(m[1]) : 0
+  const valore = Number(m[2])
+  if (!Number.isFinite(valore)) return null
+  const ms = m[3].toLowerCase() === 'ms' ? valore : valore * 1000
+  return Math.ceil(minuti * 60_000 + ms)
+}
 
-async function fetchWithTimeout(
+/** Traduce una risposta HTTP di errore di Groq in un errore con tipo. Pura. */
+export function classificaErrore(
+  status: number,
+  corpo: string,
+  retryAfter: string | null
+): ErroreProvider {
+  const breve = corpo.slice(0, 300)
+  if (status === 401 || status === 403) {
+    return new ErroreProvider('chiave_non_valida', 'Chiave Groq non valida', null, status)
+  }
+  if (
+    status === 404 ||
+    /model_not_found|model_decommissioned|does not exist|decommissioned/i.test(corpo)
+  ) {
+    return new ErroreProvider(
+      'modello_non_disponibile',
+      `Modello non disponibile: ${breve}`,
+      null,
+      status
+    )
+  }
+  if (status === 413) {
+    return new ErroreProvider('troppo_grande', `Richiesta troppo grande: ${breve}`, null, status)
+  }
+  if (status === 429) {
+    const attesa = parseRetryAfterMs(retryAfter) ?? parseTryAgainMs(corpo)
+    return new ErroreProvider('limite', `Limite del servizio raggiunto: ${breve}`, attesa, status)
+  }
+  return new ErroreProvider('altro', `Groq ha risposto ${status}: ${breve}`, null, status)
+}
+
+// --- Traduzioni di formato -------------------------------------------------------
+
+/**
+ * Messaggi interni → OpenAI. Gli argomenti degli strumenti diventano stringa
+ * JSON; ai risultati senza id si assegna quello dell'ultima chiamata con lo
+ * stesso nome.
+ */
+function versoOpenAi(messages: ChatMessage[]): OpenAiMessage[] {
+  const out: OpenAiMessage[] = []
+  let idPerNome = new Map<string, string>()
+  for (const m of messages) {
+    if (m.role === 'assistant') {
+      const toolCalls = (m.tool_calls ?? []).map((tc, i) => ({
+        id: tc.id || `call_${out.length}_${i}`,
+        type: 'function' as const,
+        function: { name: tc.function.name, arguments: JSON.stringify(tc.function.arguments ?? {}) }
+      }))
+      if (toolCalls.length > 0)
+        idPerNome = new Map(toolCalls.map((tc) => [tc.function.name, tc.id]))
+      out.push({
+        role: 'assistant',
+        content: m.content || '',
+        tool_calls: toolCalls.length > 0 ? toolCalls : undefined
+      })
+    } else if (m.role === 'tool') {
+      const id = m.tool_call_id || (m.tool_name ? idPerNome.get(m.tool_name) : undefined)
+      out.push({
+        role: 'tool',
+        content: m.content || '',
+        tool_call_id: id ?? `call_sconosciuta_${out.length}`,
+        name: m.tool_name
+      })
+    } else {
+      out.push({ role: m.role, content: m.content || '' })
+    }
+  }
+  return out
+}
+
+function daOpenAi(richiesta: ChatRequest, res: OpenAiChatResponse): ChatResponse {
+  const scelta = res.choices?.[0]
+  const msg = scelta?.message ?? { role: 'assistant', content: '' }
+  const toolCalls: ChatToolCall[] = (msg.tool_calls ?? []).map((tc) => {
+    let args: Record<string, unknown> = {}
+    try {
+      const parsed = JSON.parse(tc.function?.arguments || '{}')
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed
+    } catch {
+      // argomenti illeggibili: oggetto vuoto
+    }
+    return { id: tc.id, function: { name: tc.function?.name ?? '', arguments: args } }
+  })
+  return {
+    model: res.model || richiesta.model,
+    message: {
+      role: 'assistant',
+      content: msg.content ?? '',
+      tool_calls: toolCalls.length > 0 ? toolCalls : undefined
+    },
+    finish_reason: scelta?.finish_reason,
+    usage: res.usage
+  }
+}
+
+// --- Chiamate ----------------------------------------------------------------------
+
+function baseUrlPulito(url: string): string {
+  return (url || '').trim().replace(/\/+$/, '') || GROQ_BASE_URL
+}
+
+async function richiesta(
   url: string,
   init: RequestInit,
   timeoutMs: number,
   signal?: AbortSignal
 ): Promise<Response> {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs)
-  const onExternalAbort = (): void => controller.abort(signal?.reason ?? new Error('canceled'))
+  const timer = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs)
+  const suAbort = (): void => controller.abort(signal?.reason ?? new Error('annullata'))
   if (signal) {
     if (signal.aborted) controller.abort(signal.reason)
-    else signal.addEventListener('abort', onExternalAbort, { once: true })
+    else signal.addEventListener('abort', suAbort, { once: true })
   }
   try {
     return await fetch(url, { ...init, signal: controller.signal })
-  } finally {
-    clearTimeout(timeout)
-    if (signal) signal.removeEventListener('abort', onExternalAbort)
-  }
-}
-
-function normalizeBaseUrl(url: string): string {
-  const trimmed = (url || '').trim().replace(/\/+$/, '')
-  return trimmed || DEFAULT_GROQ_BASE_URL
-}
-
-function parseRetryAfterMs(retryAfter: string | null): number | null {
-  if (!retryAfter) return null
-  const raw = retryAfter.trim()
-  if (!raw) return null
-  const seconds = Number(raw)
-  if (Number.isFinite(seconds) && seconds >= 0) return Math.ceil(seconds * 1000)
-  const asDate = Date.parse(raw)
-  if (Number.isFinite(asDate)) {
-    const delta = asDate - Date.now()
-    return delta > 0 ? delta : 0
-  }
-  return null
-}
-
-function parseTryAgainMessageMs(text: string): number | null {
-  const m = text.match(/try again in\s+([\d.]+)\s*s/i)
-  if (!m) return null
-  const seconds = Number(m[1])
-  if (!Number.isFinite(seconds) || seconds < 0) return null
-  return Math.ceil(seconds * 1000)
-}
-
-async function sleepWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
-  if (ms <= 0) return
-  if (signal?.aborted) throw signal.reason ?? new Error('canceled')
-  await new Promise<void>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    const onAbort = (): void => {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', onAbort)
-      reject(signal?.reason ?? new Error('canceled'))
-    }
-    signal?.addEventListener('abort', onAbort, { once: true })
-  })
-}
-
-// --- Traduzioni di formato ---------------------------------------------------
-
-/**
- * Converte messaggi Ollama-like nel formato OpenAI-compatible.
- * Le chiamate tool di Ollama hanno arguments come oggetto; OpenAI vuole
- * stringa JSON. I messaggi di ruolo 'tool' hanno bisogno di tool_call_id:
- * lo ricostruiamo a partire dall'ultimo assistant message con tool_calls
- * che contiene un tool con quel nome (se non e' gia' presente).
- */
-function toOpenAiMessages(messages: OllamaMessage[]): OpenAiMessage[] {
-  const out: OpenAiMessage[] = []
-  // name -> id dell'ultima tool call vista (per risolvere i tool_call_id mancanti)
-  let pendingByName = new Map<string, string>()
-
-  for (const m of messages) {
-    if (m.role === 'assistant') {
-      const toolCalls = (m.tool_calls ?? []).map((tc, i) => {
-        // Se l'id non e' presente ne generiamo uno deterministico.
-        const id = tc.id || `call_${out.length}_${i}`
-        return {
-          id,
-          type: 'function' as const,
-          function: {
-            name: tc.function.name,
-            arguments: JSON.stringify(tc.function.arguments ?? {})
-          }
-        }
-      })
-      if (toolCalls.length > 0) {
-        pendingByName = new Map(toolCalls.map((tc) => [tc.function.name, tc.id]))
-      }
-      out.push({
-        role: 'assistant',
-        content: m.content || '',
-        tool_calls: toolCalls.length > 0 ? toolCalls : undefined
-      })
-      continue
-    }
-
-    if (m.role === 'tool') {
-      const id = m.tool_call_id || (m.tool_name ? pendingByName.get(m.tool_name) : undefined)
-      out.push({
-        role: 'tool',
-        content: m.content || '',
-        tool_call_id: id ?? `call_unknown_${out.length}`,
-        name: m.tool_name
-      })
-      continue
-    }
-
-    out.push({ role: m.role, content: m.content || '' })
-  }
-  return out
-}
-
-/**
- * Converte la risposta OpenAI-compatible nel formato "Ollama-like"
- * richiesto dall'agent. In particolare fa il parse di arguments da
- * stringa JSON a oggetto.
- */
-function fromOpenAiResponse(
-  req: OllamaChatRequest,
-  res: OpenAiChatResponse
-): OllamaChatResponse {
-  const choice = res.choices?.[0]
-  const msg = choice?.message ?? { role: 'assistant', content: '' }
-
-  const toolCalls: OllamaToolCall[] = (msg.tool_calls ?? []).map((tc) => {
-    let args: Record<string, unknown> = {}
-    if (typeof tc.function?.arguments === 'string') {
-      try {
-        const parsed = JSON.parse(tc.function.arguments)
-        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-          args = parsed as Record<string, unknown>
-        }
-      } catch {
-        // arguments non parseabile: lasciamo oggetto vuoto
-      }
-    }
-    return {
-      id: tc.id,
-      function: { name: tc.function?.name ?? '', arguments: args }
-    }
-  })
-
-  return {
-    model: res.model || req.model,
-    created_at: new Date().toISOString(),
-    message: {
-      role: 'assistant',
-      content: msg.content ?? '',
-      tool_calls: toolCalls.length > 0 ? toolCalls : undefined
-    },
-    done: true,
-    done_reason: choice?.finish_reason
-  }
-}
-
-// --- API pubbliche -----------------------------------------------------------
-
-function authHeader(apiKey: string): Record<string, string> {
-  return { Authorization: `Bearer ${apiKey.trim()}` }
-}
-
-export async function pingGroq(
-  baseUrl: string,
-  apiKey: string
-): Promise<{ ok: boolean; errore?: string }> {
-  if (!apiKey || !apiKey.trim()) {
-    return { ok: false, errore: 'API key Groq non configurata (Impostazioni → Assistente AI)' }
-  }
-  try {
-    const res = await fetchWithTimeout(
-      `${normalizeBaseUrl(baseUrl)}/models`,
-      { method: 'GET', headers: authHeader(apiKey) },
-      10_000
-    )
-    if (res.status === 401) return { ok: false, errore: 'API key Groq non valida (401)' }
-    if (!res.ok) return { ok: false, errore: `Groq ha risposto con status ${res.status}` }
-    return { ok: true }
   } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e)
-    return { ok: false, errore: `Impossibile contattare Groq: ${msg}` }
+    // Annullata dall'utente: si propaga così com'è.
+    if (signal?.aborted) throw e
+    const motivo = e instanceof Error ? e.message : String(e)
+    throw new ErroreProvider('rete', `Impossibile contattare Groq: ${motivo}`)
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', suAbort)
   }
 }
 
-export async function listGroqModels(baseUrl: string, apiKey: string): Promise<string[]> {
-  if (!apiKey || !apiKey.trim()) throw new Error('API key Groq non configurata')
-  const res = await fetchWithTimeout(
-    `${normalizeBaseUrl(baseUrl)}/models`,
-    { method: 'GET', headers: authHeader(apiKey) },
-    10_000
-  )
-  if (!res.ok) throw new Error(`Groq /models status ${res.status}`)
-  const data = (await res.json()) as OpenAiModelsResponse
-  return (data.data ?? []).map((m) => m.id).sort()
+function intestazioni(apiKey: string): Record<string, string> {
+  return { Authorization: `Bearer ${apiKey.trim()}`, 'Content-Type': 'application/json' }
 }
 
 export async function chatGroq(
   baseUrl: string,
   apiKey: string,
-  body: OllamaChatRequest,
+  body: ChatRequest,
   signal?: AbortSignal,
-  timeoutMs: number = DEFAULT_TIMEOUT_MS
-): Promise<OllamaChatResponse> {
-  if (!apiKey || !apiKey.trim()) throw new Error('API key Groq non configurata')
-
-  const openAiBody: OpenAiChatRequest = {
+  timeoutMs: number = TIMEOUT_DEFAULT_MS
+): Promise<ChatResponse> {
+  if (!apiKey.trim()) throw new ErroreProvider('chiave_non_valida', 'Chiave Groq non configurata')
+  const corpo: OpenAiChatRequest = {
     model: body.model,
-    messages: toOpenAiMessages(body.messages),
-    tools: body.tools,
-    temperature: body.options?.temperature,
+    messages: versoOpenAi(body.messages),
+    tools: body.tools && body.tools.length > 0 ? body.tools : undefined,
+    temperature: body.temperature,
+    max_tokens: body.max_tokens,
+    reasoning_effort: body.reasoning_effort,
     stream: false,
-    response_format: body.format === 'json' ? { type: 'json_object' } : undefined
+    response_format: body.json ? { type: 'json_object' } : undefined
   }
-  const url = `${normalizeBaseUrl(baseUrl)}/chat/completions`
-  for (let attempt = 0; ; attempt++) {
-    const res = await fetchWithTimeout(
-      url,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeader(apiKey)
-        },
-        body: JSON.stringify(openAiBody)
-      },
-      timeoutMs,
-      signal
-    )
-
-    if (res.ok) {
-      const data = (await res.json()) as OpenAiChatResponse
-      return fromOpenAiResponse(body, data)
-    }
-
-    const text = await res.text().catch(() => '')
-    if (res.status === 429 && attempt < MAX_RATE_LIMIT_RETRIES) {
-      const retryAfterMs =
-        parseRetryAfterMs(res.headers.get('retry-after')) ??
-        parseTryAgainMessageMs(text) ??
-        4000
-      await sleepWithAbort(Math.min(Math.max(retryAfterMs, 250), 20_000), signal)
-      continue
-    }
-    throw new Error(`Groq /chat/completions status ${res.status}: ${text.slice(0, 300)}`)
+  const res = await richiesta(
+    `${baseUrlPulito(baseUrl)}/chat/completions`,
+    { method: 'POST', headers: intestazioni(apiKey), body: JSON.stringify(corpo) },
+    timeoutMs,
+    signal
+  )
+  if (!res.ok) {
+    const testo = await res.text().catch(() => '')
+    throw classificaErrore(res.status, testo, res.headers.get('retry-after'))
   }
+  return daOpenAi(body, (await res.json()) as OpenAiChatResponse)
 }
 
-export { DEFAULT_GROQ_BASE_URL }
+export async function modelliGroq(baseUrl: string, apiKey: string): Promise<string[]> {
+  if (!apiKey.trim()) throw new ErroreProvider('chiave_non_valida', 'Chiave Groq non configurata')
+  const res = await richiesta(
+    `${baseUrlPulito(baseUrl)}/models`,
+    { method: 'GET', headers: intestazioni(apiKey) },
+    15_000
+  )
+  if (!res.ok) {
+    const testo = await res.text().catch(() => '')
+    throw classificaErrore(res.status, testo, res.headers.get('retry-after'))
+  }
+  const dati = (await res.json()) as { data?: Array<{ id: string }> }
+  return (dati.data ?? []).map((m) => m.id).sort()
+}
+
+export function creaClientGroq(apiKey: string, baseUrl: string = GROQ_BASE_URL): ChatClient {
+  return {
+    chat: (body, signal) => chatGroq(baseUrl, apiKey, body, signal),
+    listaModelli: () => modelliGroq(baseUrl, apiKey)
+  }
+}

@@ -1,19 +1,14 @@
 /**
  * Orchestratore dell'agente AI: gestisce il loop di tool-calling con
- * Ollama, esegue i tool sul database SQLite locale e produce eventi di
+ * il modello, esegue i tool sul database SQLite locale e produce eventi di
  * stato che il renderer mostra in chat.
  *
  * Tutti i tool sono in sola lettura: l'agente non puo' modificare il DB.
  */
 import { ipcMain, type WebContents } from 'electron'
 import type BetterSqlite3 from 'better-sqlite3'
-import type { OllamaMessage } from './ollama'
-import {
-  creaClient,
-  urlDefaultPerProvider,
-  type ChatClient,
-  type ProviderTipo
-} from './provider'
+import type { ChatClient, ChatMessage } from './tipi'
+import { creaClientGroq, GROQ_BASE_URL } from './groq'
 import {
   executeTool,
   getToolDefinitions,
@@ -26,10 +21,6 @@ const MAX_TOOL_ITERATIONS = 8
 /** Limite di sicurezza sulla dimensione del JSON di ritorno di un tool. */
 const MAX_TOOL_RESULT_CHARS = 12_000
 
-// qwen2.5:3b: ~2GB su disco, ~2.5GB RAM, supporta tool calling, buon italiano.
-// Scelto come default per funzionare anche su macchine modeste (8GB RAM).
-// Su macchine con piu' risorse conviene passare a llama3.1:8b o qwen2.5:7b.
-const DEFAULT_MODEL_OLLAMA = 'qwen2.5:3b'
 // Groq ha modelli grossi gratis e velocissimi. llama-3.3-70b e' il top
 // disponibile sul tier free, con tool calling affidabile e buon italiano.
 const DEFAULT_MODEL_GROQ = 'llama-3.3-70b-versatile'
@@ -88,7 +79,7 @@ type ConfigGetter = (chiave: string) => string
 /** Configurazione runtime dell'agente, letta dalla tabella `configurazioni`. */
 type AgentConfig = {
   abilitato: boolean
-  provider: ProviderTipo
+  provider: 'groq'
   baseUrl: string
   apiKey: string
   modello: string
@@ -100,14 +91,14 @@ type AgentConfig = {
 }
 
 function leggiConfig(get: ConfigGetter): AgentConfig {
-  // Provider unico: Groq (cloud). La scelta Ollama e' stata rimossa dalla UI
+  // Provider unico: Groq (cloud).
   // per rendere la configurazione a prova di errore: l'utente inserisce solo
   // la API key. L'endpoint e' fisso (non piu' modificabile) cosi' e'
   // impossibile incollare la key nel campo sbagliato.
-  const provider: ProviderTipo = 'groq'
+  const provider = 'groq' as const
   const remoto = true
 
-  const baseUrl = urlDefaultPerProvider('groq')
+  const baseUrl = GROQ_BASE_URL
   const modello = (get('ai_groq_modello') || '').trim() || DEFAULT_MODEL_GROQ
   const apiKey = (get('ai_groq_api_key') || '').trim()
 
@@ -140,12 +131,16 @@ function leggiConfig(get: ConfigGetter): AgentConfig {
 }
 
 function costruisciClient(cfg: AgentConfig): ChatClient {
-  return creaClient({
-    tipo: cfg.provider,
-    baseUrl: cfg.baseUrl,
-    apiKey: cfg.apiKey,
-    timeoutMs: cfg.timeoutMs
-  })
+  return creaClientGroq(cfg.apiKey, cfg.baseUrl)
+}
+
+async function pingClient(client: ChatClient): Promise<{ ok: boolean; errore?: string }> {
+  try {
+    await client.listaModelli()
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, errore: e instanceof Error ? e.message : String(e) }
+  }
 }
 
 export type ChatTurnoMessaggio =
@@ -183,16 +178,16 @@ function anteprimaTesto(value: unknown, maxChars = 280): string {
 
 /**
  * Mappa la cronologia "esterna" (solo user/assistant in italiano) in
- * messaggi Ollama, anteponendo il system prompt. In modalita' cloud
+ * messaggi del modello, anteponendo il system prompt. In modalita' cloud
  * aggiunge una nota che spiega al modello che alcuni tool sono
  * disabilitati.
  */
 function buildInitialMessages(
   cronologia: ChatTurnoMessaggio[],
   remoto: boolean
-): OllamaMessage[] {
+): ChatMessage[] {
   const system = remoto ? `${SYSTEM_PROMPT_BASE}\n${NOTA_CLOUD}` : SYSTEM_PROMPT_BASE
-  const out: OllamaMessage[] = [{ role: 'system', content: system }]
+  const out: ChatMessage[] = [{ role: 'system', content: system }]
   for (const m of cronologia) {
     out.push({
       role: m.ruolo === 'user' ? 'user' : 'assistant',
@@ -231,12 +226,9 @@ async function eseguiConversazione(
   }
 
   const client = costruisciClient(config)
-  const ping = await client.ping()
+  const ping = await pingClient(client)
   if (!ping.ok) {
-    const hint =
-      config.provider === 'groq'
-        ? 'Verifica API key e URL Groq nelle Impostazioni → Assistente AI.'
-        : `Avvia Ollama (https://ollama.com) e verifica l'URL nelle Impostazioni (${config.baseUrl}).`
+    const hint = 'Verifica la chiave nelle Impostazioni → Assistente AI.'
     emit({
       tipo: 'errore',
       messaggio: `${ping.errore ?? 'Provider AI non raggiungibile'}. ${hint}`
@@ -264,7 +256,7 @@ async function eseguiConversazione(
           model: config.modello,
           messages,
           tools,
-          options: { temperature: config.temperatura }
+          temperature: config.temperatura
         },
         controller.signal
       )
@@ -368,30 +360,6 @@ export function ensureAiConfigRows(db: BetterSqlite3.Database): void {
   const ins = db.prepare(
     `INSERT OR IGNORE INTO configurazioni (chiave, valore, tipo, etichetta, categoria) VALUES (?, ?, ?, ?, ?)`
   )
-  // LEGACY: non più letto a runtime, derivato dallo stato provider
-  ins.run('ai_abilitato', '1', 'bool', 'Assistente AI abilitato (0/1)', 'assistente_ai')
-  ins.run(
-    'ai_provider',
-    'ollama',
-    'string',
-    "Provider AI: 'ollama' (locale, privato) oppure 'groq' (cloud, veloce)",
-    'assistente_ai'
-  )
-  // --- Ollama (locale) ---
-  ins.run(
-    'ai_url',
-    urlDefaultPerProvider('ollama'),
-    'string',
-    'URL del server Ollama (locale o di rete)',
-    'assistente_ai'
-  )
-  ins.run(
-    'ai_modello',
-    DEFAULT_MODEL_OLLAMA,
-    'string',
-    'Modello Ollama (es. qwen2.5:3b, llama3.1:8b)',
-    'assistente_ai'
-  )
   // --- Groq (cloud) ---
   ins.run(
     'ai_groq_api_key',
@@ -409,7 +377,7 @@ export function ensureAiConfigRows(db: BetterSqlite3.Database): void {
   )
   ins.run(
     'ai_groq_url',
-    urlDefaultPerProvider('groq'),
+    GROQ_BASE_URL,
     'string',
     'URL API Groq (di solito da non modificare)',
     'assistente_ai'
@@ -492,7 +460,7 @@ export function registerAiIpcHandlers(getDb: () => BetterSqlite3.Database): void
       }
     }
     const client = costruisciClient(cfg)
-    const ping = await client.ping()
+    const ping = await pingClient(client)
     return {
       abilitato: cfg.abilitato,
       provider: cfg.provider,
@@ -537,7 +505,7 @@ export function registerAiIpcHandlers(getDb: () => BetterSqlite3.Database): void
       return { ok: false as const, errore: 'Assistente AI disabilitato (Impostazioni).' }
     }
     const client = costruisciClient(cfg)
-    const ping = await client.ping()
+    const ping = await pingClient(client)
     if (!ping.ok) {
       return {
         ok: false as const,
