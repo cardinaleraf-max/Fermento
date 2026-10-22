@@ -485,7 +485,8 @@ export const DOCS: DocEntry[] = [
     percorso: `${PERCORSO_AGRICOLO} → "Maltazioni".`,
     azioni: [
       'avviare una maltazione scegliendo i lotti di orzo calibrato',
-      'compilare i parametri delle fasi e salvarli',
+      'compilare i parametri delle fasi: apri la maltazione, espandi il gruppo (es. «Essiccazione» o «Post-essiccazione»), inserisci data e valori e premi «Salva parametri»',
+      'registrare la post-essiccazione: nel gruppo «Post-essiccazione» indica radichetta rimossa, ricalibratura, peso dopo la pulizia, umidità finale, friabilità, aspetto visivo e gustativo, note di degustazione, poi «Salva parametri»',
       "registrare l'uscita del malto (peso finale, scadenza) per caricarlo in magazzino",
       'vedere resa di maltazione e resa complessiva'
     ],

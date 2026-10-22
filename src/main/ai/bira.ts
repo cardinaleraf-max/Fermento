@@ -12,7 +12,7 @@
  * Nessuna dipendenza da Electron: si testa con un modello finto.
  */
 import type BetterSqlite3 from 'better-sqlite3'
-import { moduloAttivo } from '../agricolo/servizi/config'
+import { moduloAttivo, stagioneCorrente } from '../agricolo/servizi/config'
 import { compatta, tronca } from './compatta'
 import { etichettaStrumento } from './etichette'
 import { ErroreProvider } from './groq'
@@ -143,6 +143,15 @@ export function correggiChiamata(
   return { id: `corretta_${giro}`, function: { name: migliore.n, arguments: argomenti } }
 }
 
+function stagione(db: Db, modulo: boolean): string | undefined {
+  if (!modulo) return undefined
+  try {
+    return stagioneCorrente(db)
+  } catch {
+    return undefined
+  }
+}
+
 function anteprima(testo: string, max = 280): string {
   return testo.length > max ? `${testo.slice(0, max)}…` : testo
 }
@@ -184,7 +193,14 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
     const modulo = moduloAgricoloAcceso(d.db)
     const reg = creaRegistroSoggetti(d.db)
     const messaggi: ChatMessage[] = [
-      { role: 'system', content: promptDiSistema({ oggi: d.oggi, moduloAgricolo: modulo }) },
+      {
+        role: 'system',
+        content: promptDiSistema({
+          oggi: d.oggi,
+          moduloAgricolo: modulo,
+          stagione: stagione(d.db, modulo)
+        })
+      },
       ...cronologiaDaInviare(d.cronologia).map((m) => ({
         role: m.ruolo === 'user' ? ('user' as const) : ('assistant' as const),
         content: pseudonimizza(reg, m.contenuto)

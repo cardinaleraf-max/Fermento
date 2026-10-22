@@ -82,3 +82,16 @@ test('prompt: i codici dei clienti vanno trattati come nomi', () => {
     /come se fossero nomi/
   )
 })
+
+test('prompt agricolo: stagione corrente e significato del tempo di carenza; guida prima di rispondere su «come si fa»', () => {
+  const p = promptDiSistema({ oggi: '2026-10-22', moduloAgricolo: true, stagione: '2026/2027' })
+  assert.match(p, /2026\/2027/)
+  assert.match(p, /carenza.*raccolta/)
+  assert.match(p, /sempre prima cerca_documentazione/)
+})
+
+test('guida: come si compila la post-essiccazione', () => {
+  const r = cercaDocs('come registro la post-essiccazione di una maltazione', 1)[0]
+  assert.equal(r.sezione, 'agri-maltazioni')
+  assert.match(testoVoce(r), /salva parametri/)
+})

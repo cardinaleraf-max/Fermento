@@ -131,3 +131,11 @@ test('naviga_a_schermata: schermate agricole solo a modulo acceso, elencate solo
   assert.match(descr(true), /agri-maltazioni/)
   assert.doesNotMatch(descr(false), /agri-/)
 })
+
+test('descrizioni agricole: l’orzo calibrato sta nel magazzino agricolo, i trattamenti nelle operazioni', () => {
+  const defs = getToolDefinitions({ moduloAgricolo: true })
+  const descr = (n: string): string => JSON.stringify(defs.find((d) => d.function.name === n))
+  assert.match(descr('agri_magazzino_input'), /calibrato/)
+  assert.match(descr('agri_operazioni'), /trattament/)
+  assert.match(descr('agri_operazioni'), /vuoto/)
+})

@@ -115,12 +115,15 @@ export const strumentiAgricoli: ToolDefinition[] = [
   {
     name: 'agri_operazioni',
     agricolo: true,
-    description: 'Concimazioni, trattamenti e lavori sui campi con prodotto, dose e fine carenza.',
+    description:
+      'Operazioni sui campi: concimazioni, trattamenti con fitofarmaci (e fine carenza), lavorazioni, irrigazioni.',
     parameters: {
       type: 'object',
       properties: {
         stagione: testo('Es. 2025/2026 (facoltativa).'),
-        tipo: testo('concimazione, trattamento, lavorazione, irrigazione, altro.')
+        tipo: testo(
+          'Filtro: concimazione, trattamento, lavorazione, irrigazione, altro. Lascia vuoto per tutte.'
+        )
       }
     },
     handler: (db, args) => {
@@ -150,7 +153,7 @@ export const strumentiAgricoli: ToolDefinition[] = [
     name: 'agri_lavorazioni',
     agricolo: true,
     description:
-      'Raccolte, calibrature o maltazioni. Con il codice: dettaglio con parametri, ingressi, uscite e rese.',
+      'Raccolte, calibrature o maltazioni; col codice il dettaglio (parametri, ingressi, uscite, rese).',
     parameters: {
       type: 'object',
       properties: {
@@ -240,7 +243,7 @@ export const strumentiAgricoli: ToolDefinition[] = [
     name: 'agri_magazzino_input',
     agricolo: true,
     description:
-      'Magazzino agricolo: sementi, concimi, fitofarmaci (con carenza), orzo e luppolo grezzi.',
+      'Magazzino agricolo: sementi, concimi, fitofarmaci (con carenza), orzo grezzo e calibrato (per calibro), luppolo grezzo.',
     parameters: {
       type: 'object',
       properties: { categoria: testo('Es. fitofarmaco, semente (facoltativa).') }
@@ -282,7 +285,7 @@ export const strumentiAgricoli: ToolDefinition[] = [
     name: 'tracciabilita',
     agricolo: true,
     description:
-      'Tracciabilità di un lotto, cotta o campo: a ritroso fino al campo o in avanti fino ai clienti.',
+      'Tracciabilità di lotto, cotta o campo: a ritroso fino al campo, in avanti fino ai clienti.',
     parameters: {
       type: 'object',
       properties: {
