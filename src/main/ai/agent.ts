@@ -12,8 +12,7 @@ import { creaClientGroq, GROQ_BASE_URL } from './groq'
 import {
   executeTool,
   getToolDefinitions,
-  getToolNames,
-  getToolNamesBloccatiCloud
+  getToolNames
 } from './tools'
 import { generaAvvisiIntelligenti } from './avvisi_intelligenti'
 
@@ -244,7 +243,7 @@ async function eseguiConversazione(
     emit({ tipo: 'inizio', modello: config.modello })
 
     const messages = buildInitialMessages(richiesta.cronologia, config.remoto)
-    const tools = getToolDefinitions({ soloCloudSafe: config.remoto })
+    const tools = getToolDefinitions({})
 
     let testoFinale = ''
     let iterazioni = 0
@@ -292,7 +291,7 @@ async function eseguiConversazione(
           db,
           nome,
           argomenti,
-          { soloCloudSafe: config.remoto },
+          {},
           {
             richiediNavigazione: (sezione, motivo) => {
               if (webContents.isDestroyed()) return
@@ -492,8 +491,8 @@ export function registerAiIpcHandlers(getDb: () => BetterSqlite3.Database): void
     const cfg = leggiConfig((c) => leggiConfigurazione(getDb(), c))
     return {
       tutti: getToolNames(),
-      disponibili: getToolNames({ soloCloudSafe: cfg.remoto }),
-      bloccati_cloud: getToolNamesBloccatiCloud(),
+      disponibili: getToolNames(),
+      bloccati_cloud: [],
       modalita_cloud: cfg.remoto
     }
   })
