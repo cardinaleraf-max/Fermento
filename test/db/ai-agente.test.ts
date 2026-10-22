@@ -326,3 +326,60 @@ test('trattini tipografici nella risposta: codici ripristinati e testo con tratt
   const r = eventi.find((e) => e.tipo === 'risposta')
   assert.equal(r && r.tipo === 'risposta' ? r.testo : '', `${CLIENTE_PUB.nome} ha il lotto WB-2604`)
 })
+
+test('testo scritto insieme a una chiamata di strumento non si perde', async () => {
+  const { db } = preparato()
+  const { client } = modelloFinto([
+    {
+      message: {
+        role: 'assistant',
+        content: 'Hai 2 avvisi urgenti: riordina il Cascade.',
+        tool_calls: [
+          {
+            id: 'n1',
+            function: { name: 'naviga_a_schermata', arguments: { sezione: 'magazzino-mp' } }
+          }
+        ]
+      }
+    },
+    { message: { role: 'assistant', content: 'Vuoi che apra il Magazzino materie prime?' } }
+  ])
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'avvisi?' }],
+    emit: (e) => eventi.push(e)
+  })
+  const r = eventi.find((e) => e.tipo === 'risposta')
+  assert.equal(
+    r && r.tipo === 'risposta' ? r.testo : '',
+    'Hai 2 avvisi urgenti: riordina il Cascade.\n\nVuoi che apra il Magazzino materie prime?'
+  )
+})
+
+test('date AAAA-MM-GG rimaste nella risposta diventano gg/mm/aaaa (i codici di lotto no)', async () => {
+  const { db } = preparato()
+  const { client } = modelloFinto([
+    {
+      message: {
+        role: 'assistant',
+        content: 'Ultima vendita 2026-06-05, lotto 2026-020, scade il 2027-03-01.'
+      }
+    }
+  ])
+  const eventi: EventoAgente[] = []
+  await eseguiTurno({
+    db,
+    gestore: new GestoreModelli(client, { attendi: async () => {} }),
+    oggi: '2026-10-22',
+    cronologia: [{ ruolo: 'user', contenuto: 'quando?' }],
+    emit: (e) => eventi.push(e)
+  })
+  const r = eventi.find((e) => e.tipo === 'risposta')
+  assert.equal(
+    r && r.tipo === 'risposta' ? r.testo : '',
+    'Ultima vendita 05/06/2026, lotto 2026-020, scade il 01/03/2027.'
+  )
+})

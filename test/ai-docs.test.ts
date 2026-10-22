@@ -75,3 +75,10 @@ test('prompt: nelle domande di aiuto niente passaggi o limiti inventati', () => 
   assert.match(p, /non aggiungere passaggi o limiti/)
   assert.ok(p.length < 2500, `prompt: ${p.length}`)
 })
+
+test('prompt: i codici dei clienti vanno trattati come nomi', () => {
+  assert.match(
+    promptDiSistema({ oggi: '2026-10-22', moduloAgricolo: false }),
+    /come se fossero nomi/
+  )
+})

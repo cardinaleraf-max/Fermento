@@ -87,6 +87,13 @@ function normalizzaTrattini(testo: string): string {
   return testo.replace(/[\u2010\u2011]/g, '-')
 }
 
+/** Date AAAA-MM-GG sfuggite al modello → gg/mm/aaaa (i codici come 2026-020 non sono date). */
+function dateItaliane(testo: string): string {
+  return testo.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, (m, a: string, mm: string, g: string) =>
+    Number(mm) >= 1 && Number(mm) <= 12 && Number(g) >= 1 && Number(g) <= 31 ? `${g}/${mm}/${a}` : m
+  )
+}
+
 function distanza(a: string, b: string): number {
   const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [
     i,
@@ -187,6 +194,8 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
     d.emit({ tipo: 'inizio' })
 
     const nomiStrumenti = tools.map((t) => t.function.name)
+    /** Testo che il modello scrive insieme alle chiamate di strumenti: va mostrato. */
+    const testiIntermedi: string[] = []
     let modelloDaSaltare: string | undefined
     for (let giro = 0; giro < MAX_GIRI; giro++) {
       const corpo = { messages: messaggi, tools, temperature: TEMPERATURA }
@@ -221,13 +230,17 @@ export async function eseguiTurno(d: DipendenzeTurno): Promise<void> {
       }
       const chiamate = risposta.message.tool_calls ?? []
       if (chiamate.length === 0) {
-        const testo = normalizzaTrattini(ripristina(reg, (risposta.message.content || '').trim()))
+        const finale = (risposta.message.content || '').trim()
+        const parti = [...testiIntermedi.filter((t) => t !== finale), finale].filter(Boolean)
+        const testo = dateItaliane(normalizzaTrattini(ripristina(reg, parti.join('\n\n'))))
         d.emit({
           tipo: 'risposta',
           testo: testo || 'Non ho trovato una risposta utile: prova a riformulare la domanda.'
         })
         return
       }
+      const intermedio = (risposta.message.content || '').trim()
+      if (intermedio) testiIntermedi.push(intermedio)
       messaggi.push({
         role: 'assistant',
         content: risposta.message.content || '',
