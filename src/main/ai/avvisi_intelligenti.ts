@@ -4,10 +4,11 @@
  * Funziona cosi':
  *  1. Raccoglie dal DB i segnali grezzi (avvisi attivi + contesto
  *     arricchito su MP, prodotto finito, confezionamento, vendite).
- *  2. Se il provider e' remoto (Groq), ANONIMIZZA i nomi sensibili
- *     (materie prime, birre, confezionamento, clienti) sostituendoli con
- *     pseudonimi tipo "MP#12", "BIRRA#3". Il modello non vede mai i nomi
- *     reali ne' le ricette.
+ *  2. Ogni entità ha un riferimento ("MP#12", "BIRRA#3", "CLIENTE#4") che il
+ *     modello usa nelle risposte. Materie prime, birre e confezionamento
+ *     hanno anche il nome (servono consigli precisi); i CLIENTI solo il
+ *     riferimento: i loro nomi e contatti non escono mai (privacy.ts, con
+ *     guardia finale sul pacchetto).
  *  3. Chiama il modello una sola volta in modalita' JSON mode chiedendo
  *     raccomandazioni raggruppate, prioritizzate e con azioni concrete.
  *  4. Post-processa l'output: valida lo schema, sostituisce gli
@@ -19,7 +20,16 @@
  */
 
 import type BetterSqlite3 from 'better-sqlite3'
-import type { ChatClient, ChatMessage } from './tipi'
+import { messaggioErrore } from './bira'
+import type { GestoreModelli } from './modelli'
+import {
+  creaRegistroSoggetti,
+  guardia,
+  pseudonimizza,
+  ripristina,
+  type RegistroSoggetti
+} from './privacy'
+import type { ChatMessage } from './tipi'
 
 // ---------------------------------------------------------------------------
 // Tipi pubblici (verso renderer, via IPC)
@@ -71,10 +81,7 @@ export type AvvisiIntelligentiResult =
 // Anonimizzazione: mappa id -> alias/nomeReale
 // ---------------------------------------------------------------------------
 
-type MappaEntita = Map<
-  number,
-  { alias: string; nomeReale: string; tipo: TipoEntita }
->
+type MappaEntita = Map<number, { alias: string; nomeReale: string; tipo: TipoEntita }>
 
 type Registro = {
   mp: MappaEntita
@@ -94,12 +101,7 @@ function creaRegistro(remoto: boolean): Registro {
   }
 }
 
-function registra(
-  reg: Registro,
-  tipo: TipoEntita,
-  id: number,
-  nomeReale: string
-): string {
+function registra(reg: Registro, tipo: TipoEntita, id: number, nomeReale: string): string {
   const m = reg[tipo]
   const cached = m.get(id)
   if (cached) return cached.alias
@@ -135,7 +137,8 @@ type SegnaliContesto = {
   prodotti_finiti: BirraContesto[]
   materiali_conf: ConfContesto[]
   clienti_inattivi_count: number
-  clienti_inattivi_nomi: string[] // solo in locale
+  /** Solo riferimenti (CLIENTE#id): mai i nomi. */
+  clienti_inattivi_ref: string[]
   avvisi: SegnaleAvviso[]
 }
 
@@ -149,6 +152,7 @@ type SegnaleAvviso = {
 
 type MpContesto = {
   ref: string
+  nome: string
   categoria: string
   unita_misura: string
   giacenza: number
@@ -159,6 +163,7 @@ type MpContesto = {
 
 type BirraContesto = {
   ref: string
+  nome: string
   bottiglie_disponibili: number
   fusti_disponibili: number
   vendite_bottiglie_90g: number
@@ -170,20 +175,17 @@ type BirraContesto = {
 
 type ConfContesto = {
   ref: string
+  nome: string
   categoria: string
   giacenza: number
   soglia: number | null
 }
 
-function getConfigGiorni(
-  db: BetterSqlite3.Database,
-  chiave: string,
-  def: number
-): number {
+function getConfigGiorni(db: BetterSqlite3.Database, chiave: string, def: number): number {
   try {
-    const row = db
-      .prepare(`SELECT valore FROM configurazioni WHERE chiave = ?`)
-      .get(chiave) as { valore: string } | undefined
+    const row = db.prepare(`SELECT valore FROM configurazioni WHERE chiave = ?`).get(chiave) as
+      | { valore: string }
+      | undefined
     const n = row ? parseInt(row.valore, 10) : NaN
     return Number.isFinite(n) && n > 0 ? n : def
   } catch {
@@ -191,7 +193,11 @@ function getConfigGiorni(
   }
 }
 
-function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliContesto {
+function raccogliSegnali(
+  db: BetterSqlite3.Database,
+  reg: Registro,
+  soggetti: RegistroSoggetti
+): SegnaliContesto {
   const dataOggi = new Date().toISOString().slice(0, 10)
   const finestraGiorni = getConfigGiorni(db, 'anticipo_avviso_scadenza_giorni', 60)
   const finestraCliente = getConfigGiorni(db, 'cliente_inattivo_giorni', 20)
@@ -227,9 +233,9 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
         confIds.add(a.riferimento_id)
         break
       case 'cotte': {
-        const row = db
-          .prepare(`SELECT birra_id FROM cotte WHERE id = ?`)
-          .get(a.riferimento_id) as { birra_id: number } | undefined
+        const row = db.prepare(`SELECT birra_id FROM cotte WHERE id = ?`).get(a.riferimento_id) as
+          | { birra_id: number }
+          | undefined
         if (row) birraIds.add(row.birra_id)
         break
       }
@@ -287,12 +293,12 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
 
     materie_prime.push({
       ref: etichetta(reg, 'mp', mp.id, mp.nome),
+      nome: mp.nome,
       categoria: mp.categoria,
       unita_misura: mp.unita_misura,
       giacenza: Number(mp.giacenza.toFixed(2)),
       soglia: mp.soglia_riordino_fissa,
-      consumo_stimato_gg:
-        consumoStimato === null ? null : Number(consumoStimato.toFixed(3)),
+      consumo_stimato_gg: consumoStimato === null ? null : Number(consumoStimato.toFixed(3)),
       lotti_scadenza: lotti.map((l) => ({
         giorni_a_scadenza: l.giorni,
         qta_residua: Number(l.quantita_residua.toFixed(2))
@@ -331,9 +337,7 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
       .get(id) as { bott: number; fusti: number }
 
     const cotteInCorso = db
-      .prepare(
-        `SELECT COUNT(*) AS n FROM cotte WHERE birra_id = ? AND stato = 'in_corso'`
-      )
+      .prepare(`SELECT COUNT(*) AS n FROM cotte WHERE birra_id = ? AND stato = 'in_corso'`)
       .get(id) as { n: number }
 
     // cotte_producibili: min(quantita_mp_disponibile / quantita_mp_per_ricetta) su tutti gli ingredienti
@@ -377,6 +381,7 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
 
     prodotti_finiti.push({
       ref: etichetta(reg, 'birra', br.id, br.nome),
+      nome: br.nome,
       bottiglie_disponibili: Number(giac.bott),
       fusti_disponibili: Number(giac.fusti),
       vendite_bottiglie_90g: Number(vend.bott),
@@ -414,6 +419,7 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
     if (!r) continue
     materiali_conf.push({
       ref: etichetta(reg, 'conf', r.id, r.nome),
+      nome: r.nome,
       categoria: r.categoria,
       giacenza: Number(r.giacenza),
       soglia: r.soglia_riordino
@@ -422,7 +428,7 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
 
   // --- Clienti inattivi ------------------------------------------------
   let clienti_inattivi_count = 0
-  const clienti_inattivi_nomi: string[] = []
+  const clienti_inattivi_ref: string[] = []
   try {
     const inattivi = db
       .prepare(
@@ -436,11 +442,8 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
       )
       .all(`-${finestraCliente} days`) as Array<{ id: number; nome: string }>
     clienti_inattivi_count = inattivi.length
-    if (!reg.remoto) {
-      for (const c of inattivi) {
-        registra(reg, 'cliente', c.id, c.nome)
-        clienti_inattivi_nomi.push(c.nome)
-      }
+    for (const c of inattivi.slice(0, 30)) {
+      clienti_inattivi_ref.push(registra(reg, 'cliente', c.id, c.nome))
     }
   } catch {
     // ignore
@@ -490,24 +493,25 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
         break
       case 'birre':
         if (a.riferimento_id) {
-          const r = db
-            .prepare(`SELECT nome FROM birre WHERE id = ?`)
-            .get(a.riferimento_id) as { nome: string } | undefined
+          const r = db.prepare(`SELECT nome FROM birre WHERE id = ?`).get(a.riferimento_id) as
+            | { nome: string }
+            | undefined
           if (r) ref = etichetta(reg, 'birra', a.riferimento_id, r.nome)
         }
         break
       case 'clienti':
         if (a.riferimento_id) {
-          const r = db
-            .prepare(`SELECT nome FROM clienti WHERE id = ?`)
-            .get(a.riferimento_id) as { nome: string } | undefined
+          const r = db.prepare(`SELECT nome FROM clienti WHERE id = ?`).get(a.riferimento_id) as
+            | { nome: string }
+            | undefined
           if (r) ref = etichetta(reg, 'cliente', a.riferimento_id, r.nome)
         }
         break
     }
     // In cloud il messaggio grezzo degli avvisi contiene nomi reali:
     // lo sostituiamo con una versione ridotta senza nomi.
-    const riepilogo = reg.remoto ? descrizioneTipoAvviso(a.tipo) : a.messaggio
+    // Il messaggio può contenere nomi di clienti: escono solo come codici.
+    const riepilogo = pseudonimizza(soggetti, a.messaggio) || descrizioneTipoAvviso(a.tipo)
     avvisi.push({
       id: a.id,
       tipo: a.tipo,
@@ -524,7 +528,7 @@ function raccogliSegnali(db: BetterSqlite3.Database, reg: Registro): SegnaliCont
     prodotti_finiti,
     materiali_conf,
     clienti_inattivi_count,
-    clienti_inattivi_nomi,
+    clienti_inattivi_ref,
     avvisi
   }
 }
@@ -557,7 +561,9 @@ Il tuo compito e' produrre raccomandazioni CONCRETE, prioritizzate e raggruppate
 REGOLE FONDAMENTALI:
 - Usa SOLO i dati forniti. Non inventare numeri, nomi o scadenze.
 - Per riferirti a entita' (materie prime, birre, confezionamento, clienti) usa
-  ESATTAMENTE i "ref" del JSON (es. "MP#12", "BIRRA#3"). Non inventare altri nomi.
+  ESATTAMENTE i "ref" del JSON (es. "MP#12", "BIRRA#3", "CLIENTE#4"). Il campo "nome"
+  serve solo a capire di cosa si tratta. Nei messaggi degli avvisi i clienti
+  compaiono come CLIENTE-4: riportali identici. Non inventare altri nomi.
 - Raggruppa segnali correlati in UNA raccomandazione (es. una birra con MP in
   scadenza + giacenza bassa + vendite alte -> una sola "produci entro X giorni").
 - Priorita':
@@ -599,7 +605,7 @@ function buildUserMessage(ctx: SegnaliContesto): string {
         prodotti_finiti: ctx.prodotti_finiti,
         materiali_conf: ctx.materiali_conf,
         clienti_inattivi_count: ctx.clienti_inattivi_count,
-        clienti_inattivi_nomi: ctx.clienti_inattivi_nomi,
+        clienti_inattivi_ref: ctx.clienti_inattivi_ref,
         avvisi_attivi: ctx.avvisi
       },
       null,
@@ -630,13 +636,8 @@ const REF_REGEX = /(MP|BIRRA|CONF|CLIENTE)#(\d+)/g
 function trovaEntita(reg: Registro, alias: string): RiferimentoEntita | null {
   const m = alias.match(/^(MP|BIRRA|CONF|CLIENTE)#(\d+)$/)
   if (!m) return null
-  const tipo: TipoEntita = m[1] === 'MP'
-    ? 'mp'
-    : m[1] === 'BIRRA'
-      ? 'birra'
-      : m[1] === 'CONF'
-        ? 'conf'
-        : 'cliente'
+  const tipo: TipoEntita =
+    m[1] === 'MP' ? 'mp' : m[1] === 'BIRRA' ? 'birra' : m[1] === 'CONF' ? 'conf' : 'cliente'
   const id = parseInt(m[2], 10)
   const cached = reg[tipo].get(id)
   if (!cached) return null
@@ -756,18 +757,18 @@ function estraiJson(testo: string): unknown {
 
 export async function generaAvvisiIntelligenti(
   db: BetterSqlite3.Database,
-  client: ChatClient,
-  modello: string,
-  opts: { temperatura?: number; timeoutMs?: number; signal?: AbortSignal } = {}
+  gestore: GestoreModelli,
+  opts: { signal?: AbortSignal } = {}
 ): Promise<AvvisiIntelligentiResult> {
   const reg = creaRegistro(true)
-  const ctx = raccogliSegnali(db, reg)
+  const soggetti = creaRegistroSoggetti(db)
+  const ctx = raccogliSegnali(db, reg, soggetti)
 
   if (ctx.avvisi.length === 0) {
     return {
       ok: true,
       generato_il: new Date().toISOString(),
-      modello,
+      modello: '',
       remoto: true,
       raccomandazioni: [],
       segnali_analizzati: 0
@@ -780,18 +781,15 @@ export async function generaAvvisiIntelligenti(
   ]
 
   let risposta
+  let modello = ''
   try {
-    risposta = await client.chat(
-      {
-        model: modello,
-        messages: messaggi,
-        json: true,
-        temperature: opts.temperatura ?? 0.2
-      },
-      opts.signal
-    )
+    const corpo = { messages: messaggi, json: true, temperature: 0.2 }
+    guardia(soggetti, JSON.stringify(corpo))
+    const r = await gestore.chat(corpo, opts.signal)
+    risposta = r.risposta
+    modello = r.modello
   } catch (e) {
-    return { ok: false, errore: e instanceof Error ? e.message : String(e) }
+    return { ok: false, errore: messaggioErrore(e) }
   }
 
   const contenuto = risposta.message?.content ?? ''
@@ -799,12 +797,18 @@ export async function generaAvvisiIntelligenti(
   if (!parsed) {
     return {
       ok: false,
-      errore: 'Il modello non ha restituito JSON valido. Riprova.'
+      errore: 'Bira non ha prodotto consigli leggibili: riprova.'
     }
   }
 
   const idsValidi = new Set(ctx.avvisi.map((a) => a.id))
-  const raccomandazioni = normalizzaRaccomandazioni(reg, idsValidi, parsed)
+  const ripristinaTesto = (t: string): string => ripristina(soggetti, t)
+  const raccomandazioni = normalizzaRaccomandazioni(reg, idsValidi, parsed).map((r) => ({
+    ...r,
+    titolo: ripristinaTesto(r.titolo),
+    descrizione: ripristinaTesto(r.descrizione),
+    azioni: r.azioni.map((az) => ({ ...az, testo: ripristinaTesto(az.testo) }))
+  }))
 
   return {
     ok: true,

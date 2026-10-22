@@ -423,9 +423,7 @@ type VenditeRegistraPayload = {
   righe: VenditaRigaRegistro[]
 }
 
-type VenditeRegistraResult =
-  | { ok: true; vendita_id: number }
-  | { ok: false; errore: string }
+type VenditeRegistraResult = { ok: true; vendita_id: number } | { ok: false; errore: string }
 
 type VenditeModificaRiga = {
   id: number | null
@@ -701,9 +699,10 @@ type AiChatRichiesta = {
 }
 
 type AiEvento =
-  | { tipo: 'inizio'; modello: string }
-  | { tipo: 'tool_call'; nome: string; argomenti: Record<string, unknown> }
+  | { tipo: 'inizio' }
+  | { tipo: 'tool_call'; nome: string; etichetta: string; argomenti: Record<string, unknown> }
   | { tipo: 'tool_risultato'; nome: string; ok: boolean; anteprima: string }
+  | { tipo: 'attesa'; secondi: number }
   | { tipo: 'risposta'; testo: string }
   | { tipo: 'errore'; messaggio: string }
   | { tipo: 'fine' }
@@ -716,28 +715,16 @@ type AiNavigaPayload = {
   motivo: string | null
 }
 
-type AiProviderTipo = 'groq'
-
 type AiHealth = {
-  abilitato: boolean
-  provider: AiProviderTipo
-  url: string
-  modello: string
-  /** true se il provider e' cloud (dati escono dal PC). */
-  remoto: boolean
-  raggiungibile: boolean
-  errore: string | null
-}
-
-type AiListaModelliResult =
-  | { ok: true; modelli: string[] }
-  | { ok: false; errore: string }
-
-type AiListaToolResult = {
-  tutti: string[]
-  disponibili: string[]
-  bloccati_cloud: string[]
-  modalita_cloud: boolean
+  stato:
+    | 'pronto'
+    | 'da_configurare'
+    | 'chiave_non_valida'
+    | 'non_raggiungibile'
+    | 'nessun_modello'
+    | 'demo'
+  modello: string | null
+  messaggio: string
 }
 
 type AiRaccomandazionePriorita = 'critica' | 'alta' | 'media' | 'bassa'
@@ -810,7 +797,10 @@ interface FermentoAPI {
     campoSalva: (id: number | null, p: CampoPayload) => Promise<EsitoId>
     campoArchivia: (id: number, attivo: boolean) => Promise<Esito>
     campoElimina: (id: number) => Promise<Esito>
-    semineLista: (filtro: { campo_id?: number | null; stagione?: string | null }) => Promise<SeminaRiga[]>
+    semineLista: (filtro: {
+      campo_id?: number | null
+      stagione?: string | null
+    }) => Promise<SeminaRiga[]>
     seminaSalva: (id: number | null, p: SeminaPayload) => Promise<EsitoId>
     seminaElimina: (id: number) => Promise<Esito>
     lottiDisponibili: (
@@ -827,12 +817,18 @@ interface FermentoAPI {
     operazioneElimina: (id: number) => Promise<Esito>
     parametriConfig: (fase: FaseLavorazione) => Promise<GruppoParametri[]>
     gruppoSalva: (id: number | null, p: GruppoPayload) => Promise<EsitoId>
-    gruppoElimina: (id: number) => Promise<{ ok: true; esito: 'nascosto' | 'eliminato' } | { ok: false; errore: string }>
+    gruppoElimina: (
+      id: number
+    ) => Promise<{ ok: true; esito: 'nascosto' | 'eliminato' } | { ok: false; errore: string }>
     parametroSalva: (id: number | null, p: ParametroPayload) => Promise<EsitoId>
     parametroElimina: (
       id: number
     ) => Promise<{ ok: true; esito: 'nascosto' | 'eliminato' } | { ok: false; errore: string }>
-    parametriSposta: (cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu') => Promise<Esito>
+    parametriSposta: (
+      cosa: 'gruppo' | 'parametro',
+      id: number,
+      direzione: 'su' | 'giu'
+    ) => Promise<Esito>
     salvaParametri: (
       lavorazioneId: number,
       valori: Record<number, string>,
@@ -986,7 +982,10 @@ interface FermentoAPI {
     aggiornaBirra: (id: number, dati: ImpostazioniBirraForm) => Promise<{ ok: true }>
     creaBirra: (dati: ImpostazioniCreaBirra) => Promise<{ ok: true; id: number }>
     ricetta: (birraId: number) => Promise<RicettaIngredienteRiga[]>
-    versioni_ricette: (birraId: number, includi_archiviate?: boolean) => Promise<VersioneRicettaRiga[]>
+    versioni_ricette: (
+      birraId: number,
+      includi_archiviate?: boolean
+    ) => Promise<VersioneRicettaRiga[]>
     salvaRicetta: (dati: SalvaRicettaInput) => Promise<{ ok: true }>
     cambiaPassword: (dati: CambiaPasswordInput) => Promise<CambiaPasswordResult>
     valoreDi: (chiave: string) => Promise<string>
@@ -1002,8 +1001,15 @@ interface FermentoAPI {
     }) => Promise<{ ok: true }>
   }
   licenza: {
-    stato: () => Promise<{ valida: boolean; intestatario?: string; scadenza?: string | null; errore?: string }>
-    attiva: (stringa: string) => Promise<{ ok: true; intestatario: string } | { ok: false; errore: string }>
+    stato: () => Promise<{
+      valida: boolean
+      intestatario?: string
+      scadenza?: string | null
+      errore?: string
+    }>
+    attiva: (
+      stringa: string
+    ) => Promise<{ ok: true; intestatario: string } | { ok: false; errore: string }>
     codiceMacchina: () => Promise<string>
   }
   backup: {
@@ -1015,9 +1021,7 @@ interface FermentoAPI {
     ripristina: (percorsoFile: string) => Promise<BackupRipristinaResult>
   }
   ai: {
-    health: () => Promise<AiHealth>
-    listaModelli: () => Promise<AiListaModelliResult>
-    listaTool: () => Promise<AiListaToolResult>
+    health: (opzioni?: { forza?: boolean }) => Promise<AiHealth>
     avvisiIntelligenti: () => Promise<AiAvvisiIntelligentiResult>
     chat: (richiesta: AiChatRichiesta) => void
     annulla: (conversazioneId: string) => void

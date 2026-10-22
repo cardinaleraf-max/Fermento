@@ -254,44 +254,71 @@ const api = {
       shelf_life_malto_mesi?: number
     }) => ipcRenderer.invoke('agri:salva-impostazioni', p),
     campiLista: (stagione: string | null) => ipcRenderer.invoke('agri:campi-lista', stagione),
-    campoSalva: (id: number | null, p: CampoPayload) => ipcRenderer.invoke('agri:campo-salva', id, p),
-    campoArchivia: (id: number, attivo: boolean) => ipcRenderer.invoke('agri:campo-archivia', id, attivo),
+    campoSalva: (id: number | null, p: CampoPayload) =>
+      ipcRenderer.invoke('agri:campo-salva', id, p),
+    campoArchivia: (id: number, attivo: boolean) =>
+      ipcRenderer.invoke('agri:campo-archivia', id, attivo),
     campoElimina: (id: number) => ipcRenderer.invoke('agri:campo-elimina', id),
     semineLista: (filtro: { campo_id?: number | null; stagione?: string | null }) =>
       ipcRenderer.invoke('agri:semine-lista', filtro),
-    seminaSalva: (id: number | null, p: SeminaPayload) => ipcRenderer.invoke('agri:semina-salva', id, p),
+    seminaSalva: (id: number | null, p: SeminaPayload) =>
+      ipcRenderer.invoke('agri:semina-salva', id, p),
     seminaElimina: (id: number) => ipcRenderer.invoke('agri:semina-elimina', id),
-    lottiDisponibili: (categorie: string[], opzioni?: { stagione?: string | null; includi?: number[] }) =>
-      ipcRenderer.invoke('agri:lotti-disponibili', categorie, opzioni),
-    operazioniLista: (f: { stagione?: string | null; campo_id?: number | null; semina_id?: number | null; tipo?: string | null }) =>
-      ipcRenderer.invoke('agri:operazioni-lista', f),
-    operazioneSalva: (id: number | null, p: OperazionePayload) => ipcRenderer.invoke('agri:operazione-salva', id, p),
+    lottiDisponibili: (
+      categorie: string[],
+      opzioni?: { stagione?: string | null; includi?: number[] }
+    ) => ipcRenderer.invoke('agri:lotti-disponibili', categorie, opzioni),
+    operazioniLista: (f: {
+      stagione?: string | null
+      campo_id?: number | null
+      semina_id?: number | null
+      tipo?: string | null
+    }) => ipcRenderer.invoke('agri:operazioni-lista', f),
+    operazioneSalva: (id: number | null, p: OperazionePayload) =>
+      ipcRenderer.invoke('agri:operazione-salva', id, p),
     operazioneElimina: (id: number) => ipcRenderer.invoke('agri:operazione-elimina', id),
     parametriConfig: (fase: FaseLavorazione) => ipcRenderer.invoke('agri:parametri-config', fase),
-    gruppoSalva: (id: number | null, p: GruppoPayload) => ipcRenderer.invoke('agri:gruppo-salva', id, p),
+    gruppoSalva: (id: number | null, p: GruppoPayload) =>
+      ipcRenderer.invoke('agri:gruppo-salva', id, p),
     gruppoElimina: (id: number) => ipcRenderer.invoke('agri:gruppo-elimina', id),
-    parametroSalva: (id: number | null, p: ParametroPayload) => ipcRenderer.invoke('agri:parametro-salva', id, p),
+    parametroSalva: (id: number | null, p: ParametroPayload) =>
+      ipcRenderer.invoke('agri:parametro-salva', id, p),
     parametroElimina: (id: number) => ipcRenderer.invoke('agri:parametro-elimina', id),
     parametriSposta: (cosa: 'gruppo' | 'parametro', id: number, direzione: 'su' | 'giu') =>
       ipcRenderer.invoke('agri:parametri-sposta', cosa, id, direzione),
-    salvaParametri: (lavorazioneId: number, valori: Record<number, string>, date: Record<number, string>) =>
-      ipcRenderer.invoke('agri:salva-parametri', lavorazioneId, valori, date),
-    lavorazioniLista: (f: { tipo: FaseLavorazione; stagione?: string | null; stato?: StatoLavorazione | null }) =>
-      ipcRenderer.invoke('agri:lavorazioni-lista', f),
+    salvaParametri: (
+      lavorazioneId: number,
+      valori: Record<number, string>,
+      date: Record<number, string>
+    ) => ipcRenderer.invoke('agri:salva-parametri', lavorazioneId, valori, date),
+    lavorazioniLista: (f: {
+      tipo: FaseLavorazione
+      stagione?: string | null
+      stato?: StatoLavorazione | null
+    }) => ipcRenderer.invoke('agri:lavorazioni-lista', f),
     lavorazioneDettaglio: (id: number) => ipcRenderer.invoke('agri:lavorazione-dettaglio', id),
     lavorazioneElimina: (id: number) => ipcRenderer.invoke('agri:lavorazione-elimina', id),
-    verificaCarenza: (seminaId: number, data: string) => ipcRenderer.invoke('agri:verifica-carenza', seminaId, data),
-    raccoltaSalva: (id: number | null, p: RaccoltaPayload) => ipcRenderer.invoke('agri:raccolta-salva', id, p),
-    calibraturaSalva: (id: number | null, p: CalibraturaPayload) => ipcRenderer.invoke('agri:calibratura-salva', id, p),
-    maltazioneAvvia: (id: number | null, p: MaltazioneAvviaPayload) => ipcRenderer.invoke('agri:maltazione-avvia', id, p),
-    maltazioneChiudi: (id: number, p: MaltazioneChiudiPayload) => ipcRenderer.invoke('agri:maltazione-chiudi', id, p),
+    verificaCarenza: (seminaId: number, data: string) =>
+      ipcRenderer.invoke('agri:verifica-carenza', seminaId, data),
+    raccoltaSalva: (id: number | null, p: RaccoltaPayload) =>
+      ipcRenderer.invoke('agri:raccolta-salva', id, p),
+    calibraturaSalva: (id: number | null, p: CalibraturaPayload) =>
+      ipcRenderer.invoke('agri:calibratura-salva', id, p),
+    maltazioneAvvia: (id: number | null, p: MaltazioneAvviaPayload) =>
+      ipcRenderer.invoke('agri:maltazione-avvia', id, p),
+    maltazioneChiudi: (id: number, p: MaltazioneChiudiPayload) =>
+      ipcRenderer.invoke('agri:maltazione-chiudi', id, p),
     maltazioneRiapri: (id: number) => ipcRenderer.invoke('agri:maltazione-riapri', id),
     maltazioniInCorso: () => ipcRenderer.invoke('agri:maltazioni-in-corso'),
-    scadenzaMalto: (dataUscita: string): Promise<string> => ipcRenderer.invoke('agri:scadenza-malto', dataUscita),
+    scadenzaMalto: (dataUscita: string): Promise<string> =>
+      ipcRenderer.invoke('agri:scadenza-malto', dataUscita),
     cercaPartenze: (testo: string) => ipcRenderer.invoke('agri:cerca-partenze', testo),
-    traccia: (partenza: { tipo: PartenzaTraccia['tipo']; id: number }, direzione: DirezioneTraccia) =>
-      ipcRenderer.invoke('agri:traccia', partenza, direzione),
-    esportaCsv: (albero: NodoTraccia[], nomeFile: string) => ipcRenderer.invoke('agri:esporta-csv', albero, nomeFile)
+    traccia: (
+      partenza: { tipo: PartenzaTraccia['tipo']; id: number },
+      direzione: DirezioneTraccia
+    ) => ipcRenderer.invoke('agri:traccia', partenza, direzione),
+    esportaCsv: (albero: NodoTraccia[], nomeFile: string) =>
+      ipcRenderer.invoke('agri:esporta-csv', albero, nomeFile)
   },
   login: {
     verifica: (password: string) => ipcRenderer.invoke('login:verifica', password),
@@ -300,7 +327,8 @@ const api = {
   mp: {
     lista: () => ipcRenderer.invoke('mp:lista'),
     crea: (dati: MateriaPrimaPayload) => ipcRenderer.invoke('mp:crea', dati),
-    aggiorna: (id: number, dati: MateriaPrimaPayload) => ipcRenderer.invoke('mp:aggiorna', id, dati),
+    aggiorna: (id: number, dati: MateriaPrimaPayload) =>
+      ipcRenderer.invoke('mp:aggiorna', id, dati),
     lotti: (materia_prima_id: number) => ipcRenderer.invoke('mp:lotti', materia_prima_id),
     carico: (dati: CaricoPayload) => ipcRenderer.invoke('mp:carico', dati),
     fornitori: () => ipcRenderer.invoke('mp:fornitori'),
@@ -311,10 +339,12 @@ const api = {
   },
   conf: {
     lista: () => ipcRenderer.invoke('conf:lista'),
-    creaMateriale: (dati: ConfCreaMaterialePayload) => ipcRenderer.invoke('conf:crea-materiale', dati),
+    creaMateriale: (dati: ConfCreaMaterialePayload) =>
+      ipcRenderer.invoke('conf:crea-materiale', dati),
     carico: (dati: ConfCaricoPayload) => ipcRenderer.invoke('conf:carico', dati),
     movimenti: (materiale_id: number) => ipcRenderer.invoke('conf:movimenti', materiale_id),
-    aggiornaSoglia: (dati: ConfAggiornaSogliaPayload) => ipcRenderer.invoke('conf:aggiorna-soglia', dati),
+    aggiornaSoglia: (dati: ConfAggiornaSogliaPayload) =>
+      ipcRenderer.invoke('conf:aggiorna-soglia', dati),
     aggiornaMateriale: (id: number, dati: ConfAggiornaMaterialePayload) =>
       ipcRenderer.invoke('conf:aggiorna-materiale', id, dati),
     eliminaMateriale: (id: number) => ipcRenderer.invoke('conf:elimina-materiale', id),
@@ -339,8 +369,7 @@ const api = {
       ipcRenderer.invoke('prod:confezionamento-fusti', cotta_id),
     modificaConfezionamento: (cotta_id: number, dati: ModificaConfezionamentoPayload) =>
       ipcRenderer.invoke('prod:modifica-confezionamento', cotta_id, dati),
-    ricetteBirra: (birra_id: number) =>
-      ipcRenderer.invoke('prod:ricette-birra', birra_id),
+    ricetteBirra: (birra_id: number) => ipcRenderer.invoke('prod:ricette-birra', birra_id),
     aggiungiCottaALotto: (dati: AggiungiCottaALottoPayload) =>
       ipcRenderer.invoke('prod:aggiungi-cotta-a-lotto', dati)
   },
@@ -348,8 +377,7 @@ const api = {
     giacenze: () => ipcRenderer.invoke('pf:giacenze'),
     giacenzeFusti: () => ipcRenderer.invoke('pf:giacenze-fusti'),
     fustiAttivi: () => ipcRenderer.invoke('pf:fusti-attivi'),
-    caricoIniziale: (dati: CaricoInizialePayload) =>
-      ipcRenderer.invoke('pf:carico-iniziale', dati),
+    caricoIniziale: (dati: CaricoInizialePayload) => ipcRenderer.invoke('pf:carico-iniziale', dati),
     togliBottiglie: (dati: PfTogliBottigliePayload) =>
       ipcRenderer.invoke('pf:togli-bottiglie', dati),
     suggerisciLottoBottiglie: (birra_id: number) =>
@@ -365,7 +393,8 @@ const api = {
   clienti: {
     lista: () => ipcRenderer.invoke('clienti:lista'),
     crea: (dati: ClientePayload) => ipcRenderer.invoke('clienti:crea', dati),
-    aggiorna: (id: number, dati: ClientePayload) => ipcRenderer.invoke('clienti:aggiorna', id, dati),
+    aggiorna: (id: number, dati: ClientePayload) =>
+      ipcRenderer.invoke('clienti:aggiorna', id, dati),
     disattiva: (id: number) => ipcRenderer.invoke('clienti:disattiva', id),
     storicoVendite: (clienteId: number) => ipcRenderer.invoke('clienti:storico-vendite', clienteId)
   },
@@ -397,25 +426,33 @@ const api = {
     segnaRisolto: (id: number) => ipcRenderer.invoke('avvisi:segna-risolto', id)
   },
   report: {
-    produzione: (da: string, a: string) => ipcRenderer.invoke('report:produzione', { da, a } as ReportPeriodo),
-    venditePerCliente: (da: string, a: string) => ipcRenderer.invoke('report:vendite-per-cliente', { da, a } as ReportPeriodo),
-    venditePerId: (da: string, a: string) => ipcRenderer.invoke('report:vendite-per-birra', { da, a } as ReportPeriodo),
-    trendMensile: (da: string, a: string) => ipcRenderer.invoke('report:trend-mensile', { da, a } as ReportPeriodo),
+    produzione: (da: string, a: string) =>
+      ipcRenderer.invoke('report:produzione', { da, a } as ReportPeriodo),
+    venditePerCliente: (da: string, a: string) =>
+      ipcRenderer.invoke('report:vendite-per-cliente', { da, a } as ReportPeriodo),
+    venditePerId: (da: string, a: string) =>
+      ipcRenderer.invoke('report:vendite-per-birra', { da, a } as ReportPeriodo),
+    trendMensile: (da: string, a: string) =>
+      ipcRenderer.invoke('report:trend-mensile', { da, a } as ReportPeriodo),
     omaggi: (da: string | null, a: string | null) =>
       ipcRenderer.invoke('report:omaggi', { da, a } as ReportOmaggiPeriodo)
   },
   impostazioni: {
     lista: () => ipcRenderer.invoke('impostazioni:lista'),
-    aggiorna: (chiave: string, valore: string) => ipcRenderer.invoke('impostazioni:aggiorna', { chiave, valore }),
+    aggiorna: (chiave: string, valore: string) =>
+      ipcRenderer.invoke('impostazioni:aggiorna', { chiave, valore }),
     birre: () => ipcRenderer.invoke('impostazioni:birre'),
     aggiornaBirra: (id: number, dati: ImpostazioniBirraPayload) =>
       ipcRenderer.invoke('impostazioni:aggiorna-birra', id, dati),
-    creaBirra: (dati: ImpostazioniCreaBirraPayload) => ipcRenderer.invoke('impostazioni:crea-birra', dati),
+    creaBirra: (dati: ImpostazioniCreaBirraPayload) =>
+      ipcRenderer.invoke('impostazioni:crea-birra', dati),
     ricetta: (birraId: number) => ipcRenderer.invoke('impostazioni:ricetta', birraId),
     versioni_ricette: (birraId: number, includi_archiviate?: boolean) =>
       ipcRenderer.invoke('impostazioni:versioni-ricette', birraId, includi_archiviate),
-    salvaRicetta: (dati: SalvaRicettaPayload) => ipcRenderer.invoke('impostazioni:salva-ricetta', dati),
-    cambiaPassword: (dati: CambiaPasswordPayload) => ipcRenderer.invoke('impostazioni:cambia-password', dati),
+    salvaRicetta: (dati: SalvaRicettaPayload) =>
+      ipcRenderer.invoke('impostazioni:salva-ricetta', dati),
+    cambiaPassword: (dati: CambiaPasswordPayload) =>
+      ipcRenderer.invoke('impostazioni:cambia-password', dati),
     valoreDi: (chiave: string) => ipcRenderer.invoke('impostazioni:valore-di', chiave)
   },
   onboarding: {
@@ -437,9 +474,11 @@ const api = {
     esegui: (tipo: 'manuale' | 'automatico') => ipcRenderer.invoke('backup:esegui', { tipo }),
     selezionaCartella: () => ipcRenderer.invoke('backup:seleziona-cartella'),
     selezionaFileRipristino: () => ipcRenderer.invoke('backup:seleziona-file-ripristino'),
-    configuraPercorso: (percorso: string) => ipcRenderer.invoke('backup:configura-percorso', { percorso }),
+    configuraPercorso: (percorso: string) =>
+      ipcRenderer.invoke('backup:configura-percorso', { percorso }),
     lista: () => ipcRenderer.invoke('backup:lista'),
-    ripristina: (percorsoFile: string) => ipcRenderer.invoke('backup:ripristina', { percorso_file: percorsoFile })
+    ripristina: (percorsoFile: string) =>
+      ipcRenderer.invoke('backup:ripristina', { percorso_file: percorsoFile })
   },
   birre: {
     disattiva: (id: number) => ipcRenderer.invoke('birre:disattiva', id),
@@ -450,9 +489,7 @@ const api = {
     disarchivia: (ricetta_id: number) => ipcRenderer.invoke('ricette:disarchivia', ricetta_id)
   },
   ai: {
-    health: () => ipcRenderer.invoke('ai:health'),
-    listaModelli: () => ipcRenderer.invoke('ai:lista-modelli'),
-    listaTool: () => ipcRenderer.invoke('ai:lista-tool'),
+    health: (opzioni?: { forza?: boolean }) => ipcRenderer.invoke('ai:health', opzioni),
     avvisiIntelligenti: () => ipcRenderer.invoke('ai:avvisi-intelligenti'),
     chat: (richiesta: AiChatRichiesta) => ipcRenderer.send('ai:chat', richiesta),
     annulla: (conversazioneId: string) => ipcRenderer.send('ai:annulla', conversazioneId),
